@@ -1,12 +1,18 @@
 import { useState } from 'react';
+import { AgentOpsScreen } from './screens/AgentOpsScreen.js';
 import { AlertsScreen } from './screens/AlertsScreen.js';
 import { NetworkScreen } from './screens/NetworkScreen.js';
 import { SettingsScreen } from './screens/SettingsScreen.js';
 import { StatsScreen } from './screens/StatsScreen.js';
 
-type Tab = 'investigations' | 'network' | 'intelligence' | 'model';
+type Tab = 'agent-ops' | 'investigations' | 'network' | 'intelligence' | 'model';
 
 const NAV: { id: Tab; label: string; description: string }[] = [
+  {
+    id: 'agent-ops',
+    label: 'Agent Ops',
+    description: 'Autonomous fraud verification team',
+  },
   {
     id: 'investigations',
     label: 'Investigations',
@@ -30,7 +36,7 @@ const NAV: { id: Tab; label: string; description: string }[] = [
 ];
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>('investigations');
+  const [tab, setTab] = useState<Tab>('agent-ops');
   const active = NAV.find((item) => item.id === tab)!;
 
   return (
@@ -41,6 +47,7 @@ export default function App() {
         <TopBar title={active.label} subtitle={active.description} />
 
         <main className="flex-1 overflow-auto px-8 py-6">
+          {tab === 'agent-ops' && <AgentOpsScreen />}
           {tab === 'investigations' && <AlertsScreen />}
           {tab === 'network' && <NetworkScreen />}
           {tab === 'intelligence' && <StatsScreen />}
@@ -164,6 +171,22 @@ function NavIcon({ id }: { id: Tab }) {
     strokeLinecap: 'round' as const,
     strokeLinejoin: 'round' as const,
   };
+
+  if (id === 'agent-ops') {
+    return (
+      <svg {...commonProps}>
+        <circle cx="12" cy="12" r="3" />
+        <circle cx="5" cy="6" r="1.5" />
+        <circle cx="19" cy="6" r="1.5" />
+        <circle cx="5" cy="18" r="1.5" />
+        <circle cx="19" cy="18" r="1.5" />
+        <path d="M6.4 7.2 9.8 10.2" />
+        <path d="M17.6 7.2 14.2 10.2" />
+        <path d="M6.4 16.8 9.8 13.8" />
+        <path d="M17.6 16.8 14.2 13.8" />
+      </svg>
+    );
+  }
 
   if (id === 'investigations') {
     return (
