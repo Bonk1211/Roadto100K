@@ -1,39 +1,145 @@
-import type { ScamType, ScanMessageResponse } from 'shared';
+import type { AnalyseMessageResponse, MatchedPattern, ScamType } from 'shared';
 
 interface Pattern {
   phrase: string;
   weight: number;
   category: ScamType | 'generic';
+  responseCategory: MatchedPattern['category'];
 }
 
 const PATTERNS: Pattern[] = [
-  { phrase: 'akaun anda dibekukan', weight: 3, category: 'mule_account' },
-  { phrase: 'akaun dibekukan', weight: 3, category: 'mule_account' },
-  { phrase: 'lhdn', weight: 3, category: 'mule_account' },
-  { phrase: 'pdrm', weight: 3, category: 'mule_account' },
-  { phrase: 'polis', weight: 2, category: 'mule_account' },
-  { phrase: 'pindahkan', weight: 2, category: 'macau_scam' },
-  { phrase: 'akaun selamat', weight: 3, category: 'macau_scam' },
-  { phrase: 'pindahkan wang ke akaun selamat', weight: 4, category: 'macau_scam' },
-  { phrase: 'otp', weight: 3, category: 'account_takeover' },
-  { phrase: 'kata laluan', weight: 2, category: 'account_takeover' },
-  { phrase: 'hadiah', weight: 2, category: 'mule_account' },
-  { phrase: 'tahniah', weight: 1, category: 'mule_account' },
-  { phrase: 'menang', weight: 1, category: 'mule_account' },
-  { phrase: 'segera', weight: 1, category: 'generic' },
-  { phrase: 'investment', weight: 2, category: 'investment_scam' },
-  { phrase: 'pelaburan', weight: 2, category: 'investment_scam' },
-  { phrase: 'guaranteed return', weight: 4, category: 'investment_scam' },
-  { phrase: 'pulangan terjamin', weight: 4, category: 'investment_scam' },
-  { phrase: 'limited slot', weight: 2, category: 'investment_scam' },
-  { phrase: 'tng loyalty', weight: 2, category: 'mule_account' },
-  { phrase: 'cukai tertunggak', weight: 3, category: 'mule_account' },
+  {
+    phrase: 'akaun anda dibekukan',
+    weight: 3,
+    category: 'mule_account',
+    responseCategory: 'urgency',
+  },
+  {
+    phrase: 'akaun dibekukan',
+    weight: 3,
+    category: 'mule_account',
+    responseCategory: 'urgency',
+  },
+  {
+    phrase: 'lhdn',
+    weight: 3,
+    category: 'mule_account',
+    responseCategory: 'government_impersonation',
+  },
+  {
+    phrase: 'pdrm',
+    weight: 3,
+    category: 'mule_account',
+    responseCategory: 'government_impersonation',
+  },
+  {
+    phrase: 'polis',
+    weight: 2,
+    category: 'mule_account',
+    responseCategory: 'government_impersonation',
+  },
+  {
+    phrase: 'pindahkan',
+    weight: 2,
+    category: 'macau_scam',
+    responseCategory: 'transfer_instruction',
+  },
+  {
+    phrase: 'akaun selamat',
+    weight: 3,
+    category: 'macau_scam',
+    responseCategory: 'transfer_instruction',
+  },
+  {
+    phrase: 'pindahkan wang ke akaun selamat',
+    weight: 4,
+    category: 'macau_scam',
+    responseCategory: 'transfer_instruction',
+  },
+  {
+    phrase: 'otp',
+    weight: 3,
+    category: 'account_takeover',
+    responseCategory: 'otp_request',
+  },
+  {
+    phrase: 'kata laluan',
+    weight: 2,
+    category: 'account_takeover',
+    responseCategory: 'otp_request',
+  },
+  {
+    phrase: 'hadiah',
+    weight: 2,
+    category: 'mule_account',
+    responseCategory: 'generic',
+  },
+  {
+    phrase: 'tahniah',
+    weight: 1,
+    category: 'mule_account',
+    responseCategory: 'generic',
+  },
+  {
+    phrase: 'menang',
+    weight: 1,
+    category: 'mule_account',
+    responseCategory: 'generic',
+  },
+  {
+    phrase: 'segera',
+    weight: 1,
+    category: 'generic',
+    responseCategory: 'urgency',
+  },
+  {
+    phrase: 'investment',
+    weight: 2,
+    category: 'investment_scam',
+    responseCategory: 'investment_pitch',
+  },
+  {
+    phrase: 'pelaburan',
+    weight: 2,
+    category: 'investment_scam',
+    responseCategory: 'investment_pitch',
+  },
+  {
+    phrase: 'guaranteed return',
+    weight: 4,
+    category: 'investment_scam',
+    responseCategory: 'investment_pitch',
+  },
+  {
+    phrase: 'pulangan terjamin',
+    weight: 4,
+    category: 'investment_scam',
+    responseCategory: 'investment_pitch',
+  },
+  {
+    phrase: 'limited slot',
+    weight: 2,
+    category: 'investment_scam',
+    responseCategory: 'investment_pitch',
+  },
+  {
+    phrase: 'tng loyalty',
+    weight: 2,
+    category: 'mule_account',
+    responseCategory: 'government_impersonation',
+  },
+  {
+    phrase: 'cukai tertunggak',
+    weight: 3,
+    category: 'mule_account',
+    responseCategory: 'government_impersonation',
+  },
 ];
 
 const EXPLANATIONS: Record<ScamType | 'generic', { en: string; bm: string }> = {
   macau_scam: {
-    en: 'This message uses classic Macau-scam language — false urgency about your account and a request to move money to a "safe" account. Do not transfer.',
-    bm: 'Mesej ini menggunakan bahasa penipuan Macau klasik — desakan palsu tentang akaun anda dan arahan memindah wang ke akaun "selamat". Jangan pindahkan wang.',
+    en: 'This message uses classic Macau-scam language - false urgency about your account and a request to move money to a "safe" account. Do not transfer.',
+    bm: 'Mesej ini menggunakan bahasa penipuan Macau klasik - desakan palsu tentang akaun anda dan arahan memindah wang ke akaun "selamat". Jangan pindahkan wang.',
   },
   investment_scam: {
     en: 'This message promises guaranteed investment returns. Real licensed investments never guarantee profits. Likely an investment scam.',
@@ -44,12 +150,12 @@ const EXPLANATIONS: Record<ScamType | 'generic', { en: string; bm: string }> = {
     bm: 'Mesej ini menyamar sebagai agensi kerajaan atau mendakwa anda memenangi hadiah supaya anda memindahkan wang. Agensi sebenar tidak pernah mengutip melalui e-dompet.',
   },
   account_takeover: {
-    en: 'This message asks for your OTP or password. Never share these — they let scammers take over your account.',
-    bm: 'Mesej ini meminta OTP atau kata laluan anda. Jangan kongsi — ia membolehkan penipu mengambil alih akaun anda.',
+    en: 'This message asks for your OTP or password. Never share these - they let scammers take over your account.',
+    bm: 'Mesej ini meminta OTP atau kata laluan anda. Jangan kongsi - ia membolehkan penipu mengambil alih akaun anda.',
   },
   love_scam: {
-    en: 'Be cautious — this message has hallmarks of a love-scam request for emergency money. Verify the person in real life first.',
-    bm: 'Berhati-hati — mesej ini mempunyai ciri penipuan cinta yang meminta wang kecemasan. Sahkan orang itu secara nyata dahulu.',
+    en: 'Be cautious - this message has hallmarks of a love-scam request for emergency money. Verify the person in real life first.',
+    bm: 'Berhati-hati - mesej ini mempunyai ciri penipuan cinta yang meminta wang kecemasan. Sahkan orang itu secara nyata dahulu.',
   },
   false_positive: {
     en: 'No clear scam signals were detected.',
@@ -61,42 +167,48 @@ const EXPLANATIONS: Record<ScamType | 'generic', { en: string; bm: string }> = {
   },
 };
 
-export function scanMessage(text: string): ScanMessageResponse {
+export function scanMessage(text: string): AnalyseMessageResponse {
   if (!text || !text.trim()) {
     return {
-      risk: 'low',
-      matched_phrases: [],
-      explanation_en: 'Empty message — nothing to analyse.',
-      explanation_bm: 'Mesej kosong — tiada apa untuk dianalisis.',
-      scam_type: null,
+      request_id: crypto.randomUUID(),
+      is_scam: false,
+      risk_level: 'low',
+      confidence: 0,
+      matched_patterns: [],
+      warning_en: 'Empty message - nothing to analyse.',
+      warning_bm: 'Mesej kosong - tiada apa untuk dianalisis.',
+      scam_type_hint: null,
+      education_url: 'https://bnmlink.bnm.gov.my/scam-check',
+      processed_at: new Date().toISOString(),
     };
   }
 
   const lower = text.toLowerCase();
   const matched: Pattern[] = [];
-  for (const p of PATTERNS) {
-    if (lower.includes(p.phrase)) matched.push(p);
+  for (const pattern of PATTERNS) {
+    if (lower.includes(pattern.phrase)) matched.push(pattern);
   }
 
-  const totalWeight = matched.reduce((sum, p) => sum + p.weight, 0);
-  const matchedPhrases = dedupe(matched.map((m) => m.phrase));
-
+  const totalWeight = matched.reduce((sum, pattern) => sum + pattern.weight, 0);
   let risk: 'low' | 'medium' | 'high' = 'low';
   if (totalWeight >= 6) risk = 'high';
   else if (totalWeight >= 3) risk = 'medium';
 
-  // Pick scam type by highest-weighted matched category (excluding generic).
   const categoryWeights = new Map<ScamType, number>();
-  for (const m of matched) {
-    if (m.category === 'generic') continue;
-    categoryWeights.set(m.category, (categoryWeights.get(m.category) ?? 0) + m.weight);
+  for (const pattern of matched) {
+    if (pattern.category === 'generic') continue;
+    categoryWeights.set(
+      pattern.category,
+      (categoryWeights.get(pattern.category) ?? 0) + pattern.weight,
+    );
   }
+
   let scamType: ScamType | null = null;
   let bestWeight = 0;
-  for (const [cat, w] of categoryWeights) {
-    if (w > bestWeight) {
-      bestWeight = w;
-      scamType = cat;
+  for (const [category, weight] of categoryWeights) {
+    if (weight > bestWeight) {
+      bestWeight = weight;
+      scamType = category;
     }
   }
 
@@ -106,15 +218,41 @@ export function scanMessage(text: string): ScanMessageResponse {
       ? EXPLANATIONS.false_positive
       : EXPLANATIONS.generic;
 
+  const matchedPatterns = dedupePatterns(
+    matched.map((pattern) => ({
+      pattern: pattern.phrase,
+      category: pattern.responseCategory,
+    })),
+  );
+
+  const moneyMatch = text.match(/(rm\s?[\d,.]+|[\d,.]+\s?ringgit)/i);
+  if (moneyMatch) {
+    matchedPatterns.push({
+      pattern: moneyMatch[0],
+      category: 'monetary_amount',
+    });
+  }
+
   return {
-    risk,
-    matched_phrases: matchedPhrases,
-    explanation_en: copy.en,
-    explanation_bm: copy.bm,
-    scam_type: scamType,
+    request_id: crypto.randomUUID(),
+    is_scam: risk !== 'low',
+    risk_level: risk,
+    confidence: Math.min(0.98, Math.max(0.1, totalWeight / 10)),
+    matched_patterns: dedupePatterns(matchedPatterns),
+    warning_en: copy.en,
+    warning_bm: copy.bm,
+    scam_type_hint: scamType,
+    education_url: 'https://bnmlink.bnm.gov.my/scam-check',
+    processed_at: new Date().toISOString(),
   };
 }
 
-function dedupe<T>(arr: T[]): T[] {
-  return Array.from(new Set(arr));
+function dedupePatterns(patterns: MatchedPattern[]): MatchedPattern[] {
+  const seen = new Set<string>();
+  return patterns.filter((pattern) => {
+    const key = `${pattern.pattern}|${pattern.category}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
