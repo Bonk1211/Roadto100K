@@ -29,6 +29,7 @@ from shared.db import put_alert
 from shared.kinesis import put_transaction_event
 from shared.bedrock import invoke_bedrock
 from shared.eas_client import call_eas
+from shared.verification import publish_verify_message
 
 
 # ---------------------------------------------------------------------------
@@ -229,7 +230,13 @@ def handler(event, context):
             "created_at": now_iso(),
             "updated_at": now_iso(),
         }
-        put_alert(alert_record)
+        alert_id = put_alert(alert_record)
+        # Hand off to autonomous fraud-verify worker (SQS → verify_alert Lambda).
+        # Failure here must not break screening: log + continue.
+        try:
+            publish_verify_message(alert_id)
+        except Exception as e:  # noqa: BLE001
+            print(f"[screen-transaction] verify enqueue failed for {alert_id}: {e}")
 
     # --- Step 6: Publish to Kinesis ---
     processed_ms = int(time.time() * 1000) - start_ms
