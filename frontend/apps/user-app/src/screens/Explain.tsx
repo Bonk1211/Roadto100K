@@ -1,14 +1,15 @@
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import type { ScamType } from 'shared';
 import AppShell from '../components/AppShell';
+import BalanceSnapshotCard from '../components/BalanceSnapshotCard';
 import BilingualToggle from '../components/BilingualToggle';
 import BottomActionBar from '../components/BottomActionBar';
 import ConfidenceMeter from '../components/ConfidenceMeter';
 import FlowHeader from '../components/FlowHeader';
 import ScamTypeEducation from '../components/ScamTypeEducation';
 import { formatRM } from '../lib/format';
-import type { InterceptState } from '../lib/flow';
 import { useLang } from '../lib/i18n';
+import { useTransferSession } from '../lib/transfer-session';
 
 const SAFER_TIPS: Record<ScamType, { en: string[]; bm: string[] }> = {
   macau_scam: {
@@ -85,11 +86,10 @@ const SAFER_TIPS: Record<ScamType, { en: string[]; bm: string[] }> = {
 
 export default function Explain() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const state = location.state as InterceptState | null;
   const [lang, setLang] = useLang();
+  const { walletBalance, transfer, remainingBalance } = useTransferSession();
 
-  if (!state) {
+  if (!transfer.screening || !transfer.payee) {
     return (
       <div className="phone-frame p-6 text-center">
         <p className="text-text-primary">
@@ -102,7 +102,7 @@ export default function Explain() {
     );
   }
 
-  const { payee, amount, screening } = state;
+  const { payee, amount, screening } = transfer;
   const explanation = screening.bedrock_explanation;
   const scamType = explanation?.scam_type ?? 'macau_scam';
   const tips = SAFER_TIPS[scamType] ?? SAFER_TIPS.false_positive;
@@ -139,6 +139,12 @@ export default function Explain() {
             {payee.account}
           </p>
         </section>
+
+        <BalanceSnapshotCard
+          walletBalance={walletBalance}
+          amount={amount}
+          remainingBalance={remainingBalance}
+        />
 
         <section className="card space-y-3 p-4">
           <div className="flex items-start justify-between gap-3">
@@ -201,20 +207,20 @@ export default function Explain() {
               : `Semua petunjuk risiko (${screening.triggered_signals.length})`}
           </p>
           <ul className="space-y-2">
-            {screening.triggered_signals.map((s) => (
+            {screening.triggered_signals.map((signal) => (
               <li
-                key={s.signal}
+                key={signal.signal}
                 className="flex items-start gap-3 rounded-md border border-border-gray bg-app-gray px-3 py-2.5"
               >
                 <span className="mt-0.5 grid h-6 w-6 flex-shrink-0 place-items-center rounded-full bg-risk-red text-[11px] font-bold text-white">
-                  +{s.weight}
+                  +{signal.weight}
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="text-[13.5px] font-semibold leading-snug text-text-primary">
-                    {lang === 'en' ? s.label_en : s.label_bm}
+                    {lang === 'en' ? signal.label_en : signal.label_bm}
                   </p>
                   <p className="mt-0.5 font-mono text-[10px] text-muted-text">
-                    {s.signal}
+                    {signal.signal}
                   </p>
                 </div>
               </li>
@@ -229,7 +235,7 @@ export default function Explain() {
           <ul className="space-y-2">
             {(lang === 'en' ? tips.en : tips.bm).map((tip) => (
               <li key={tip} className="flex items-start gap-2 text-[13px] text-text-primary">
-                <span className="mt-1 leading-none text-success-green">✓</span>
+                <span className="mt-1 leading-none text-success-green">+</span>
                 <span className="leading-snug">{tip}</span>
               </li>
             ))}

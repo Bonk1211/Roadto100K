@@ -1,42 +1,53 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { demoAmount, demoPayee } from 'shared';
+import { demoPayee } from 'shared';
 import AppShell from '../components/AppShell';
+import BalanceSnapshotCard from '../components/BalanceSnapshotCard';
 import BilingualToggle from '../components/BilingualToggle';
 import FlowHeader from '../components/FlowHeader';
 import ScamProtectionCard from '../components/ScamProtectionCard';
 import TransferAmountCard from '../components/TransferAmountCard';
 import TransferNoteField from '../components/TransferNoteField';
 import TransferRecipientCard from '../components/TransferRecipientCard';
-import { createSessionId } from '../lib/flow';
 import { t, useLang } from '../lib/i18n';
-
-const WALLET_BALANCE = 1240.5;
-const INITIAL_AMOUNT_DIGITS = String(Math.round(demoAmount * 100));
+import { useTransferSession } from '../lib/transfer-session';
 
 export default function Transfer() {
   const navigate = useNavigate();
   const [lang, setLang] = useLang();
-  const [amountDigits, setAmountDigits] = useState<string>(INITIAL_AMOUNT_DIGITS);
-  const [note, setNote] = useState('Bantuan kecemasan');
+  const {
+    walletBalance,
+    transfer,
+    remainingBalance,
+    startFreshTransfer,
+    updateTransfer,
+  } = useTransferSession();
+  const [hasFocusedAmount, setHasFocusedAmount] = useState(false);
 
-  const numericAmount = parseAmountDigits(amountDigits);
+  useEffect(() => {
+    if (transfer.committed || transfer.status) {
+      startFreshTransfer();
+    }
+  }, [startFreshTransfer, transfer.committed, transfer.status]);
+
+  const amountDigits = amountToDigits(transfer.amount);
+  const displayAmount = hasFocusedAmount || transfer.amount > 0
+    ? formatAmountDigits(amountDigits)
+    : '';
 
   const onContinue = () => {
-    navigate('/payee', {
-      state: {
-        amount: numericAmount,
-        note,
-        sessionId: createSessionId(),
-      },
-    });
+    navigate('/payee');
   };
 
   return (
     <AppShell
       footer={(
         <div className="sticky bottom-0 border-t border-white/70 bg-white/88 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur">
-          <button onClick={onContinue} disabled={numericAmount <= 0} className="btn-primary">
+          <button
+            onClick={onContinue}
+            disabled={transfer.amount <= 0 || transfer.amount > walletBalance}
+            className="btn-primary"
+          >
             {t('continueToPayee', lang)}
           </button>
         </div>
@@ -52,26 +63,28 @@ export default function Transfer() {
 
       <div className="-mt-5 space-y-5 rounded-t-[32px] bg-app-gray px-0 pt-0">
         <TransferRecipientCard
-          payee={{ name: demoPayee.name, phone: '+60 12-*** *892' }}
-          onChange={() => navigate('/payee', {
-            state: {
-              amount: numericAmount,
-              note,
-              sessionId: createSessionId(),
-            },
-          })}
+          payee={{ name: transfer.payee?.name ?? demoPayee.name, phone: '+60 12-*** *892' }}
+          onChange={() => navigate('/payee')}
         />
 
         <TransferAmountCard
-          amount={formatAmountDigits(amountDigits)}
-          balance={WALLET_BALANCE}
-          onAmountChange={(value) => setAmountDigits(normalizeAmountDigits(value))}
-          onMax={() => setAmountDigits(String(Math.round(WALLET_BALANCE * 100)))}
+          amount={displayAmount}
+          balance={walletBalance}
+          onAmountChange={(value) => updateTransfer({ amount: parseAmountDigits(normalizeAmountDigits(value)) })}
+          onMax={() => updateTransfer({ amount: walletBalance })}
+          onAmountFocus={() => setHasFocusedAmount(true)}
+          placeholder={hasFocusedAmount ? '' : '0.00'}
+        />
+
+        <BalanceSnapshotCard
+          walletBalance={walletBalance}
+          amount={transfer.amount}
+          remainingBalance={remainingBalance}
         />
 
         <TransferNoteField
-          value={note}
-          onChange={setNote}
+          value={transfer.note}
+          onChange={(note) => updateTransfer({ note })}
           placeholder="Add a note (optional)"
         />
 
@@ -86,7 +99,7 @@ export default function Transfer() {
 
 function normalizeAmountDigits(value: string) {
   const digits = value.replace(/\D/g, '');
-  if (!digits) return '0';
+  if (!digits) return '';
   return digits.replace(/^0+(?=\d)/, '');
 }
 
@@ -95,9 +108,14 @@ function parseAmountDigits(value: string) {
 }
 
 function formatAmountDigits(value: string) {
-  const digits = normalizeAmountDigits(value);
+  const digits = normalizeAmountDigits(value) || '0';
   const padded = digits.padStart(3, '0');
   const integerPart = padded.slice(0, -2).replace(/^0+(?=\d)/, '') || '0';
   const decimalPart = padded.slice(-2);
   return `${integerPart}.${decimalPart}`;
+}
+
+function amountToDigits(amount: number) {
+  if (amount <= 0) return '';
+  return String(Math.round(amount * 100));
 }

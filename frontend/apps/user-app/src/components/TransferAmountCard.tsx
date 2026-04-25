@@ -5,6 +5,8 @@ interface TransferAmountCardProps {
   balance: number;
   onAmountChange: (value: string) => void;
   onMax: () => void;
+  onAmountFocus?: () => void;
+  placeholder?: string;
 }
 
 export default function TransferAmountCard({
@@ -12,6 +14,8 @@ export default function TransferAmountCard({
   balance,
   onAmountChange,
   onMax,
+  onAmountFocus,
+  placeholder = '0.00',
 }: TransferAmountCardProps) {
   return (
     <section className="rounded-[28px] bg-white p-5 shadow-card">
@@ -26,7 +30,8 @@ export default function TransferAmountCard({
           inputMode="numeric"
           value={amount}
           onChange={(e) => onAmountChange(e.target.value)}
-          placeholder="0.00"
+          onFocus={onAmountFocus}
+          placeholder={placeholder}
           className="min-w-0 flex-1 bg-transparent text-[56px] font-extrabold leading-none tracking-tight text-[#98A2B3] placeholder:text-[#98A2B3] focus:outline-none"
         />
       </div>

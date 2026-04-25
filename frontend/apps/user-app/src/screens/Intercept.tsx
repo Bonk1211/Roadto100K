@@ -1,15 +1,15 @@
 import { useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { LoadingDots, currentUser, type ScamType } from 'shared';
 import AppShell from '../components/AppShell';
+import BalanceSnapshotCard from '../components/BalanceSnapshotCard';
 import BilingualToggle from '../components/BilingualToggle';
 import BottomActionBar from '../components/BottomActionBar';
-import ExplainSheet from '../components/ExplainSheet';
 import FlowHeader from '../components/FlowHeader';
 import { formatRM } from '../lib/format';
-import type { InterceptState } from '../lib/flow';
 import { submitUserChoice } from '../lib/api';
 import { useLang } from '../lib/i18n';
+import { useTransferSession } from '../lib/transfer-session';
 
 type Choice = 'cancel' | 'proceed' | 'report';
 
@@ -24,13 +24,17 @@ const SCAM_LABEL: Record<ScamType, { en: string; bm: string }> = {
 
 export default function Intercept() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const state = location.state as InterceptState | null;
   const [lang, setLang] = useLang();
   const [busyChoice, setBusyChoice] = useState<Choice | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const {
+    walletBalance,
+    transfer,
+    remainingBalance,
+    completeTransfer,
+  } = useTransferSession();
 
-  if (!state) {
+  if (!transfer.screening || !transfer.payee) {
     return (
       <div className="phone-frame p-6 text-center">
         <p className="text-text-primary">No transaction in flight.</p>
@@ -41,7 +45,7 @@ export default function Intercept() {
     );
   }
 
-  const { payee, amount, screening } = state;
+  const { payee, amount, screening } = transfer;
   const explanation = screening.bedrock_explanation;
   const scamType = explanation?.scam_type ?? 'macau_scam';
   const scamLabel = SCAM_LABEL[scamType] ?? SCAM_LABEL.macau_scam;
@@ -55,18 +59,14 @@ export default function Intercept() {
         user_id: currentUser.id,
         choice,
       });
-      navigate('/done', {
-        state: {
-          payee,
-          amount,
-          status:
-            choice === 'cancel'
-              ? 'cancelled'
-              : choice === 'report'
-                ? 'reported'
-                : 'overridden',
-        },
-      });
+      const status =
+        choice === 'cancel'
+          ? 'cancelled'
+          : choice === 'report'
+            ? 'reported'
+            : 'overridden';
+      completeTransfer(status);
+      navigate('/done', { state: { status } });
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Could not save your choice';
       setError(msg);
@@ -111,7 +111,7 @@ export default function Intercept() {
                 ? <LoadingDots label={lang === 'en' ? 'Recording override' : 'Menyimpan'} tone="primary" size="sm" />
                 : lang === 'en'
                   ? 'Proceed anyway'
-                : 'Teruskan juga'}
+                  : 'Teruskan juga'}
             </button>
           </div>
         </BottomActionBar>
@@ -171,6 +171,12 @@ export default function Intercept() {
             </div>
           </div>
         </div>
+
+        <BalanceSnapshotCard
+          walletBalance={walletBalance}
+          amount={amount}
+          remainingBalance={remainingBalance}
+        />
 
         <section className="card p-4">
           <div className="mb-2 text-[13px] font-bold uppercase tracking-wider text-text-primary">

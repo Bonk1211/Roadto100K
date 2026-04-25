@@ -8,11 +8,11 @@ import SafeSendBadge from '../components/SafeSendBadge';
 import WalletCard from '../components/WalletCard';
 import { formatRM } from '../lib/format';
 import { t, useLang } from '../lib/i18n';
-
-const BALANCE = 12450.8;
+import { useTransferSession } from '../lib/transfer-session';
 
 export default function Home() {
   const [lang, setLang] = useLang();
+  const { walletBalance } = useTransferSession();
   const recent = mockTransactions
     .filter((tx) => tx.user_id === currentUser.id)
     .slice(0, 4);
@@ -38,7 +38,7 @@ export default function Home() {
       </section>
 
       <div className="-mt-8 space-y-4 px-4 pb-4">
-        <WalletCard balance={BALANCE} userName={currentUser.name} lang={lang} />
+        <WalletCard balance={walletBalance} userName={currentUser.name} lang={lang} />
 
         <QuickActionGrid lang={lang} />
 

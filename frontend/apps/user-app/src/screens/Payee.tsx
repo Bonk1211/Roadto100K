@@ -1,20 +1,25 @@
 import { useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { demoPayee, mockPayees, type Payee } from 'shared';
 import AppShell from '../components/AppShell';
+import BalanceSnapshotCard from '../components/BalanceSnapshotCard';
 import BilingualToggle from '../components/BilingualToggle';
 import BottomActionBar from '../components/BottomActionBar';
 import FlowHeader from '../components/FlowHeader';
 import RecipientSummaryCard from '../components/RecipientSummaryCard';
-import type { TransferAmountState } from '../lib/flow';
 import { t, useLang } from '../lib/i18n';
+import { useTransferSession } from '../lib/transfer-session';
 
 export default function PayeeScreen() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const state = (location.state as TransferAmountState | null) ?? null;
   const [lang, setLang] = useLang();
-  const [identifier, setIdentifier] = useState<string>(demoPayee.account);
+  const {
+    walletBalance,
+    transfer,
+    remainingBalance,
+    setTransferPayee,
+  } = useTransferSession();
+  const [identifier, setIdentifier] = useState<string>(transfer.payee?.account ?? demoPayee.account);
 
   const payee = useMemo<Payee>(() => {
     return (
@@ -27,7 +32,7 @@ export default function PayeeScreen() {
     );
   }, [identifier]);
 
-  if (!state?.amount) {
+  if (!transfer.amount) {
     navigate('/transfer', { replace: true });
     return null;
   }
@@ -37,14 +42,10 @@ export default function PayeeScreen() {
       footer={(
         <BottomActionBar>
           <button
-            onClick={() =>
-              navigate('/confirm', {
-                state: {
-                  ...state,
-                  payee,
-                },
-              })
-            }
+            onClick={() => {
+              setTransferPayee(payee);
+              navigate('/confirm');
+            }}
             className="btn-primary"
           >
             {t('reviewTransfer', lang)}
@@ -62,6 +63,12 @@ export default function PayeeScreen() {
       />
 
       <div className="-mt-5 space-y-4 rounded-t-[32px] bg-app-gray pt-4">
+        <BalanceSnapshotCard
+          walletBalance={walletBalance}
+          amount={transfer.amount}
+          remainingBalance={remainingBalance}
+        />
+
         <section className="app-panel p-5">
           <label className="section-label mb-2 block">
             {t('recipientLabel', lang)}

@@ -1,6 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import type { Payee } from 'shared';
 import AppShell from '../components/AppShell';
+import BalanceSnapshotCard from '../components/BalanceSnapshotCard';
 import BilingualToggle from '../components/BilingualToggle';
 import BottomActionBar from '../components/BottomActionBar';
 import FlowHeader from '../components/FlowHeader';
@@ -8,12 +8,7 @@ import RecipientSummaryCard from '../components/RecipientSummaryCard';
 import type { DoneStatus } from '../lib/flow';
 import { formatRM } from '../lib/format';
 import { useLang } from '../lib/i18n';
-
-interface NavState {
-  payee?: Payee;
-  amount?: number;
-  status?: DoneStatus;
-}
+import { useTransferSession } from '../lib/transfer-session';
 
 const COPY: Record<
   DoneStatus,
@@ -108,12 +103,13 @@ const COPY: Record<
 export default function Done() {
   const navigate = useNavigate();
   const location = useLocation();
-  const state = (location.state as NavState | null) ?? {};
+  const state = (location.state as { status?: DoneStatus } | null) ?? {};
   const [lang, setLang] = useLang();
+  const { walletBalance, transfer, remainingBalance, startFreshTransfer } = useTransferSession();
   const status: DoneStatus = state.status ?? 'success';
   const copy = COPY[status];
-  const amount = state.amount ?? 0;
-  const payee = state.payee;
+  const amount = transfer.amount ?? 0;
+  const payee = transfer.payee;
 
   return (
     <AppShell
@@ -123,7 +119,13 @@ export default function Done() {
             {lang === 'en' ? 'Back to wallet' : 'Kembali ke dompet'}
           </button>
           {status !== 'success' && (
-            <button onClick={() => navigate('/transfer')} className="btn-ghost">
+            <button
+              onClick={() => {
+                startFreshTransfer();
+                navigate('/transfer');
+              }}
+              className="btn-ghost"
+            >
               {lang === 'en' ? 'Start a new transfer' : 'Mulakan pemindahan baharu'}
             </button>
           )}
@@ -183,28 +185,38 @@ export default function Done() {
         <p className="mt-3 text-[12px] font-semibold text-muted-text">{copy.followup[lang]}</p>
 
         {amount > 0 && payee && (
-          <div className="app-panel mt-6 w-full p-4 text-left">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-text">
-              {status === 'cancelled' || status === 'soft_warn_cancelled'
-                ? lang === 'en'
-                  ? 'Protected transaction'
-                  : 'Transaksi yang dilindungi'
-                : lang === 'en'
-                  ? 'Transaction'
-                  : 'Transaksi'}
-            </div>
-            <div className="mt-2 flex items-center justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <RecipientSummaryCard
-                  name={payee.name}
-                  detail={`TnG · ${payee.account}`}
-                />
+          <>
+            <div className="app-panel mt-6 w-full p-4 text-left">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-text">
+                {status === 'cancelled' || status === 'soft_warn_cancelled'
+                  ? lang === 'en'
+                    ? 'Protected transaction'
+                    : 'Transaksi yang dilindungi'
+                  : lang === 'en'
+                    ? 'Transaction'
+                    : 'Transaksi'}
               </div>
-              <div className="text-[20px] font-extrabold text-text-primary">
-                {formatRM(amount)}
+              <div className="mt-2 flex items-center justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <RecipientSummaryCard
+                    name={payee.name}
+                    detail={`TnG · ${payee.account}`}
+                  />
+                </div>
+                <div className="text-[20px] font-extrabold text-text-primary">
+                  {formatRM(amount)}
+                </div>
               </div>
             </div>
-          </div>
+
+            <div className="mt-4 w-full text-left">
+              <BalanceSnapshotCard
+                walletBalance={walletBalance}
+                amount={amount}
+                remainingBalance={remainingBalance}
+              />
+            </div>
+          </>
         )}
       </div>
     </AppShell>

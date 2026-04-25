@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { registerSW } from 'virtual:pwa-register';
 import App from './App';
 import './index.css';
+import { TransferSessionProvider } from './lib/transfer-session';
 
 registerSW({
   immediate: true,
@@ -11,8 +12,10 @@ registerSW({
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
+    <TransferSessionProvider>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </TransferSessionProvider>
   </React.StrictMode>
 );
