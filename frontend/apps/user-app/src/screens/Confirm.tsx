@@ -125,7 +125,7 @@ export default function Confirm() {
 
       <div className="-mt-5 space-y-4 rounded-t-[32px] bg-app-gray pt-4">
         <section className="app-panel overflow-hidden">
-          <div className="bg-[linear-gradient(135deg,#071B33_0%,#0A274A_100%)] px-5 py-5 text-white">
+          <div className="bg-[linear-gradient(135deg,#005BAC_0%,#004B91_100%)] px-5 py-5 text-white">
             <div className="text-[12px] font-semibold uppercase tracking-[0.16em] text-white/70">
               You are sending
             </div>
