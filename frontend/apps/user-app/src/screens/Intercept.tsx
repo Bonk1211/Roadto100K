@@ -137,19 +137,6 @@ export default function Intercept() {
           </div>
         </div>
 
-        <details className="card p-4 group">
-          <summary className="cursor-pointer list-none flex items-center justify-between">
-            <span className="text-[13px] font-bold text-text-primary uppercase tracking-wider">
-              {lang === 'en' ? 'Read in both languages' : 'Baca dalam dua bahasa'}
-            </span>
-            <span className="text-tng-blue text-[12px] font-semibold group-open:rotate-180 transition-transform">▼</span>
-          </summary>
-          <div className="grid grid-cols-1 gap-3 mt-3 sm:grid-cols-2">
-            <LangCard label="English" body={explanation?.explanation_en ?? ''} />
-            <LangCard label="Bahasa Malaysia" body={explanation?.explanation_bm ?? ''} />
-          </div>
-        </details>
-
         <section className="card p-4">
           <div className="text-[13px] font-bold text-text-primary uppercase tracking-wider mb-2">
             {lang === 'en' ? 'Risk signals detected' : 'Petunjuk risiko dikesan'}
@@ -220,17 +207,6 @@ export default function Intercept() {
           </button>
         </div>
       </div>
-    </div>
-  );
-}
-
-function LangCard({ label, body }: { label: string; body: string }) {
-  return (
-    <div className="rounded-md bg-app-gray p-3">
-      <div className="text-[10px] font-bold text-muted-text uppercase tracking-wider mb-1">
-        {label}
-      </div>
-      <div className="text-[13px] text-text-primary leading-relaxed">{body}</div>
     </div>
   );
 }

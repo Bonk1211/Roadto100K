@@ -1,4 +1,11 @@
-import type { BedrockExplanation } from 'shared';
+import { useEffect, useState } from 'react';
+import {
+  getStoredLanguage,
+  setStoredLanguage,
+  type BedrockExplanation,
+  type UIlang,
+} from 'shared';
+import { LanguageToggle } from './LanguageToggle.js';
 
 interface Props {
   explanation: BedrockExplanation;
@@ -11,6 +18,12 @@ export function ExplanationCard({
   heading = 'AI explanation (Bedrock)',
   subtitle,
 }: Props) {
+  const [lang, setLang] = useState<UIlang>(getStoredLanguage());
+
+  useEffect(() => {
+    setStoredLanguage(lang);
+  }, [lang]);
+
   return (
     <section
       className="rounded-lg p-5"
@@ -19,22 +32,28 @@ export function ExplanationCard({
         border: '1px solid #C7DCFB',
       }}
     >
-      <header className="mb-3 flex items-center justify-between">
-        <h3 className="text-card-title text-text-primary">{heading}</h3>
-        <span
-          className="rounded-pill px-3 py-1 text-small-label font-semibold uppercase tracking-wide"
-          style={{ backgroundColor: '#0055D4', color: '#FFE600' }}
-        >
-          {explanation.confidence}
-        </span>
+      <header className="mb-3 flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-card-title text-text-primary">{heading}</h3>
+          {subtitle && <p className="mt-4 text-caption text-muted-text">{subtitle}</p>}
+        </div>
+        <div className="flex items-center gap-2">
+          <LanguageToggle value={lang} onChange={setLang} />
+          <span
+            className="rounded-pill px-3 py-1 text-small-label font-semibold uppercase tracking-wide"
+            style={{ backgroundColor: '#0055D4', color: '#FFE600' }}
+          >
+            {explanation.confidence}
+          </span>
+        </div>
       </header>
 
-      <div className="space-y-3 text-text-primary">
-        <Block lang="EN" body={explanation.explanation_en} />
-        <Block lang="BM" body={explanation.explanation_bm} />
+      <div className="text-text-primary">
+        <Block
+          lang={lang === 'en' ? 'EN' : 'BM'}
+          body={lang === 'en' ? explanation.explanation_en : explanation.explanation_bm}
+        />
       </div>
-
-      {subtitle && <p className="mt-4 text-caption text-muted-text">{subtitle}</p>}
 
       <p className="mt-4 text-caption text-muted-text">
         {explanation.scam_type.replace('_', ' ')}
