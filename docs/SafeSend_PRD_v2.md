@@ -59,24 +59,24 @@ Existing fraud systems are **reactive** — they detect fraud after the transact
 
 ### Person B — Backend / Cloud Lead
 
-**Primary Ownership:** All AWS Lambda functions, API Gateway configuration, Kinesis streams, Bedrock integration, AWS RDS (PostgreSQL) schema, SNS
+**Primary Ownership:** All AWS Lambda functions, API Gateway configuration, Kinesis polling, Bedrock integration, PostgreSQL schema, SNS
 
 | Feature | Deliverable | Detail |
 |---|---|---|
-| Lambda: `screen-transaction` | Rule engine + orchestrator | Evaluates 7 risk signals → calls EAS for ML score → if score > 30, calls Bedrock → writes to AWS RDS (PostgreSQL) → puts event on Kinesis |
+| Lambda: `screen-transaction` | Rule engine + orchestrator | Evaluates 7 risk signals → calls EAS for ML score → if score > 30, calls Bedrock → writes to PostgreSQL → puts event on Kinesis |
 | Lambda: `analyse-message` | Layer 1 NLP rule engine | Regex + keyword matching against scam phrase dictionary; returns risk classification and matched patterns |
-| Lambda: `agent-action` | Action handler | Receives Block / Warn / Clear from agent dashboard; triggers SNS SMS (Block), in-app flag (Warn), or OSS label write (Clear); updates AWS RDS (PostgreSQL) alert status |
-| Lambda: `get-alerts` | AWS RDS (PostgreSQL) query | Paginated query on `SafeSendAlerts` table; sorted by `risk_score` DESC |
-| Lambda: `get-stats` | Aggregation function | Scans AWS RDS (PostgreSQL) for open alerts count, sum of `amount` at risk, blocked count, avg `response_time_ms` |
+| Lambda: `agent-action` | Action handler | Receives Block / Warn / Clear from agent dashboard; triggers SNS SMS (Block), in-app flag (Warn), or OSS label write (Clear); updates PostgreSQL alert status |
+| Lambda: `get-alerts` | PostgreSQL query | Paginated query on `alerts` table; sorted by `risk_score` DESC |
+| Lambda: `get-stats` | Aggregation function | Scans PostgreSQL for open alerts count, sum of `amount` at risk, blocked count, avg `response_time_ms` |
 | Lambda: `get-network-graph` | Graph aggregation | Reads shared payee/device data from Alibaba OSS via signed URL or direct API; returns nodes/edges JSON |
-| Amazon Kinesis Data Stream | Event log | Stream name: `safesend-events`; 1 shard; retention 24h; every transaction event published here |
-| Amazon RDS PostgreSQL | Alert state store | Table: `SafeSendAlerts`; GSI on `status`, `risk_score`; TTL 7 days |
+| Amazon Kinesis Data polling | Event log | polling name: `safesend-events`; 1 shard; retention 24h; every transaction event published here |
+| Amazon PostgreSQL | Alert state store | Table: `alerts`; GSI on `status`, `risk_score`; TTL 7 days |
 | Amazon API Gateway (HTTP API) | REST endpoints | All endpoints under `/api/*`; CORS enabled; Lambda proxy integration; throttle 100 req/s |
 | Amazon Bedrock | LLM integration | Model: `anthropic.claude-3-haiku-20240307-v1:0`; invoked from `screen-transaction` Lambda; structured JSON prompt (see Section 10) |
 | AWS SNS | SMS trigger | Topic: `safesend-user-alerts`; triggered on Block action; message template: "SafeSend: Your TnG transfer of RM {amount} has been blocked. Contact support if this was not you." |
-| IAM Roles | Least-privilege roles | Lambda execution role with AWS RDS (PostgreSQL) read/write, Kinesis put, Bedrock invoke, SNS publish, SSM read (for secrets) |
+| IAM Roles | Least-privilege roles | Lambda execution role with PostgreSQL read/write, Kinesis put, Bedrock invoke, SNS publish, SSM read (for secrets) |
 
-**Tech Owned:** AWS Lambda (Python 3.12), API Gateway, AWS RDS (PostgreSQL), Kinesis, Bedrock, SNS, IAM, SSM Parameter Store (for EAS endpoint + API keys)
+**Tech Owned:** AWS Lambda (Python 3.12), API Gateway, PostgreSQL, Kinesis, Bedrock, SNS, IAM, SSM Parameter Store (for EAS endpoint + API keys)
 
 ---
 
@@ -254,7 +254,7 @@ Lambda computes final_score = 0.4 * rule_score + 0.6 * ml_score →
       - Shows risk score badge
       - Three buttons: Cancel | Proceed Anyway | Report as Scam
     User choice → POST /api/user-choice → logged to Kinesis → OSS
-    Alert written to AWS RDS (PostgreSQL) for agent review
+    Alert written to PostgreSQL for agent review
 ```
 
 ---
@@ -270,14 +270,14 @@ Detail panel loads from GET /api/alerts/{txn_id} →
          amount pattern chart, network graph link
 Agent takes action:
   Block  → POST /api/alerts/{txn_id}/action { action: "block" }
-         → Lambda updates AWS RDS (PostgreSQL) status = "blocked"
+         → Lambda updates PostgreSQL status = "blocked"
          → Lambda triggers SNS SMS to user
          → Lambda writes label=1 record to Alibaba OSS
   Warn   → POST /api/alerts/{txn_id}/action { action: "warn" }
-         → Lambda updates AWS RDS (PostgreSQL) status = "warned"
-         → Lambda sets in-app warning flag in AWS RDS (PostgreSQL) user record
+         → Lambda updates PostgreSQL status = "warned"
+         → Lambda sets in-app warning flag in PostgreSQL user record
   Clear  → POST /api/alerts/{txn_id}/action { action: "clear" }
-         → Lambda updates AWS RDS (PostgreSQL) status = "cleared"
+         → Lambda updates PostgreSQL status = "cleared"
          → Lambda writes label=0 record to Alibaba OSS (false positive)
 → Stats bar re-fetches every 10 seconds
 ```
@@ -652,8 +652,8 @@ If `choice = "report"`, response includes:
   "action_taken": "block",
   "agent_id": "AGENT-007",
   "timestamp": "2026-04-25T02:22:10Z",
-  "downstream_actions": {
-    "database_updated": true,
+  "downpolling_actions": {
+    "PostgreSQL_updated": true,
     "sms_sent": true,
     "sms_to": "60123****89",
     "oss_label_written": true,
@@ -663,9 +663,9 @@ If `choice = "report"`, response includes:
 }
 ```
 
-**Downstream actions by choice:**
+**Downpolling actions by choice:**
 
-| Action | AWS RDS (PostgreSQL) | SNS SMS | OSS Label | In-App Flag |
+| Action | PostgreSQL | SNS SMS | OSS Label | In-App Flag |
 |---|---|---|---|---|
 | `block` | status → "blocked" | Yes — "Your transfer blocked" | label = 1 (scam) | Yes |
 | `warn` | status → "warned" | No | label = 1 (suspicious) | Yes |
@@ -841,12 +841,12 @@ If `choice = "report"`, response includes:
 | **Amazon API Gateway (HTTP API)** | Region: ap-southeast-1; CORS: `*` (hackathon); throttle: 100 RPS; stage: `prod` | Single entry point for all frontend → backend calls |
 | **AWS Lambda (Python 3.12)** | Memory: 512 MB; timeout: 10s; concurrency: 10 reserved; layers: `requests`, `boto3` | One function per endpoint; rule engine + orchestration logic |
 | **Amazon Bedrock** | Model: `anthropic.claude-3-haiku-20240307-v1:0`; max tokens: 512; temperature: 0; region: us-east-1 | Bilingual scam explanation generation; structured JSON output |
-| **Amazon Kinesis Data Streams** | Stream: `safesend-events`; shards: 1; retention: 24h | Append-only event log for every transaction event and user choice |
-| **Amazon RDS PostgreSQL** | Table: `SafeSendAlerts`; PK: `txn_id`; GSI1: `status-risk_score-index`; TTL: `expires_at` (7 days); on-demand capacity | Real-time alert state; the agent dashboard reads and writes here |
+| **Amazon Kinesis Data polling** | polling: `safesend-events`; shards: 1; retention: 24h | Append-only event log for every transaction event and user choice |
+| **Amazon PostgreSQL** | Table: `alerts`; PK: `txn_id`; GSI1: `alerts_status_idx`; TTL: `expires_at` (7 days); on-demand capacity | Real-time alert state; the agent dashboard reads and writes here |
 | **AWS SNS** | Topic: `safesend-user-alerts`; protocol: SMS (Southeast Asia); sender ID: `SafeSend` | User SMS notifications when transaction is blocked |
 | **AWS SSM Parameter Store** | Parameters: `/safesend/eas-endpoint`, `/safesend/eas-api-key`, `/safesend/bedrock-region` | Secure storage of Alibaba EAS credentials; Lambda reads at cold start |
 | **Amazon CloudWatch** | Log groups per Lambda; metric alarms for error rate > 5%; dashboard for processed_ms percentiles | Observability; latency tracking for demo |
-| **AWS IAM** | Role: `safesend-lambda-exec`; policies: AWS RDS (PostgreSQL) CRUD, Kinesis PutRecord, Bedrock InvokeModel, SNS Publish, SSM GetParameter, CloudWatch Logs | Least-privilege execution role |
+| **AWS IAM** | Role: `safesend-lambda-exec`; policies: PostgreSQL CRUD, Kinesis PutRecord, Bedrock InvokeModel, SNS Publish, SSM GetParameter, CloudWatch Logs | Least-privilege execution role |
 
 ---
 
@@ -899,7 +899,7 @@ If `choice = "report"`, response includes:
         ├→ Alibaba EAS → ml_score (Isolation Forest)
         ├→ final_score = 0.4 * rule_score + 0.6 * ml_score
         ├→ if final_score > 70: Bedrock Claude Haiku → explanation JSON
-        ├→ AWS RDS (PostgreSQL): write alert record (if score > 40)
+        ├→ PostgreSQL: write alert record (if score > 40)
         └→ Kinesis: log transaction event
         → Returns: action + full response contract (see Section 7.2)
 
@@ -910,7 +910,7 @@ If `choice = "report"`, response includes:
         ↓ GET /api/stats (polling 10s)
         ↓ GET /api/network-graph?focal_node=...
 [API Gateway] → [Lambda: get-alerts / get-stats / agent-action / get-network-graph]
-        → AWS RDS (PostgreSQL) reads/writes
+        → PostgreSQL reads/writes
         → SNS SMS (on block)
         → OSS label write (on any action)
 
@@ -943,8 +943,8 @@ If `choice = "report"`, response includes:
 
 **Person B:**
 - AWS account + IAM role `safesend-lambda-exec` created
-- Kinesis stream `safesend-events` (1 shard) created
-- AWS RDS (PostgreSQL) table `SafeSendAlerts` created with GSI
+- Kinesis polling `safesend-events` (1 shard) created
+- PostgreSQL table `alerts` created with GSI
 - Lambda functions scaffolded (empty handlers) + deployed via AWS SAM or manual zip
 - API Gateway HTTP API created with all routes registered (returning 501 stubs)
 - SSM parameters populated: `/safesend/eas-endpoint`, `/safesend/eas-api-key`
@@ -969,9 +969,9 @@ If `choice = "report"`, response includes:
 **Person B (priority: Lambda + API Gateway fully functional):**
 - `screen-transaction` Lambda: rule engine logic complete (7 signals, weighted scoring)
 - `analyse-message` Lambda: regex keyword dictionary loaded; returns correct `is_scam` + `matched_patterns`
-- `get-alerts` Lambda: AWS RDS (PostgreSQL) query + pagination working
-- `agent-action` Lambda: AWS RDS (PostgreSQL) update + SNS SMS stub (SNS wired but SMS not yet tested)
-- `get-stats` Lambda: AWS RDS (PostgreSQL) scan with aggregation
+- `get-alerts` Lambda: PostgreSQL query + pagination working
+- `agent-action` Lambda: PostgreSQL update + SNS SMS stub (SNS wired but SMS not yet tested)
+- `get-stats` Lambda: PostgreSQL scan with aggregation
 - **Integration test:** Postman collection covers all endpoints with correct request/response shapes
 
 **Person C (priority: EAS endpoint live and returning scores):**
@@ -1001,7 +1001,7 @@ If `choice = "report"`, response includes:
 - `screen-transaction` Lambda: adds Bedrock `invoke_model` call when `rule_score > 60`
 - Bedrock prompt structured exactly per Section 10 (Bedrock Prompt Reference)
 - JSON response parsed: `explanation_en`, `explanation_bm`, `scam_type`, `confidence` extracted
-- Full pipeline tested end-to-end: Transfer UI → API Gateway → Lambda rule engine → EAS → Bedrock → AWS RDS (PostgreSQL) → response back to UI
+- Full pipeline tested end-to-end: Transfer UI → API Gateway → Lambda rule engine → EAS → Bedrock → PostgreSQL → response back to UI
 - Lambda error handling: if EAS times out (>1s), fall back to deterministic mock score
 
 **Person A (priority: SafeSend warning screen + bilingual toggle):**
@@ -1101,7 +1101,7 @@ If `choice = "report"`, response includes:
 - EAS slow → Lambda deterministic fallback active (score from rules only); announce "our fallback system" — it's a feature
 - Bedrock slow → pre-canned JSON response string in Lambda env var; response is identical
 - API Gateway down → switch to localhost mock-api; same frontend URL points to local port
-- AWS RDS (PostgreSQL) cold → pre-seed with 3 demo alerts so dashboard is never empty
+- PostgreSQL cold → pre-seed with 3 demo alerts so dashboard is never empty
 
 ---
 
@@ -1251,7 +1251,7 @@ OSS labels → DataWorks cron → PAI retrain → EAS redeploy
 | Bedrock latency > 3s during pitch | Medium | High | Pre-generate 3 canned responses in Lambda env var. Use real Bedrock for judging Q&A, canned for demo flow |
 | PAI training fails during hackathon | Low | Medium | Local scikit-learn model (`data/fallback_model.pkl`) committed to repo. Lambda can load from local if EAS unreachable |
 | Browser extension blocked by Chrome | High | Low | Plugin is a standalone React web demo page — this risk is already mitigated by design |
-| AWS RDS (PostgreSQL) cold start empty dashboard | Medium | High | Pre-seed `SafeSendAlerts` table with 3 demo alerts before demo. Seeding script: `scripts/seed-demo-data.py` |
+| PostgreSQL cold start empty dashboard | Medium | High | Pre-seed `alerts` table with 3 demo alerts before demo. Seeding script: `scripts/seed-demo-data.py` |
 | CORS errors in demo | Medium | Medium | API Gateway CORS configured with `*` origin; test from deployed URL (not localhost) 2 hours before demo |
 | Team runs out of time | Medium | High | Priority order: Layer 2 intercept → Agent dashboard → Layer 1 plugin → Network graph. Core demo (Layers 1+2 + dashboard) wins without graph |
 | EAS cross-cloud latency > 500ms | Low | Medium | Lambda calls EAS with 800ms timeout; falls back to deterministic score. EAS in same region (Singapore) minimises latency |
@@ -1267,7 +1267,7 @@ OSS labels → DataWorks cron → PAI retrain → EAS redeploy
 | Interception latency | < 500ms | CloudWatch `processed_ms` p95 on `screen-transaction` Lambda |
 | Bedrock explanation quality | Bilingual, ≤ 2 sentences, references scam type | Manual review of 5 sample outputs |
 | Feedback loop demo | ≥ 1 live retraining cycle | DataWorks job triggered and EAS model version incremented |
-| Dashboard update latency | < 15s after transaction flagged | Polling interval: 10s; AWS RDS (PostgreSQL) write: < 50ms |
+| Dashboard update latency | < 15s after transaction flagged | Polling interval: 10s; PostgreSQL write: < 50ms |
 
 ---
 
