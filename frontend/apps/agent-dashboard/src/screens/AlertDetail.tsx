@@ -1,12 +1,13 @@
-import type { Alert, AgentDecision, MuleProfile } from 'shared';
+import type { AgentDecision } from 'shared';
 import { ActionButtons } from '../components/ActionButtons.js';
 import { ExplanationCard } from '../components/ExplanationCard.js';
-import { RiskScoreBadge, bandLabel } from '../components/RiskScoreBadge.js';
 import { RiskSignalsList } from '../components/RiskSignalsList.js';
+import { RiskScoreBadge, bandLabel } from '../components/RiskScoreBadge.js';
 import { ScamTypeChip } from '../components/ScamTypeChip.js';
+import type { InvestigationAlert } from '../lib/investigations/types.js';
 
 interface Props {
-  alert: Alert | null;
+  alert: InvestigationAlert | null;
   onDecide: (alertId: string, action: AgentDecision) => Promise<void>;
 }
 
@@ -14,220 +15,198 @@ export function AlertDetail({ alert, onDecide }: Props) {
   if (!alert) {
     return (
       <aside
-        className="hidden h-full flex-col items-center justify-center rounded-lg bg-white p-8 text-center text-muted-text shadow-card xl:flex"
+        className="flex h-full flex-col items-center justify-center rounded-[24px] bg-white p-8 text-center text-muted-text shadow-card"
         style={{ border: '1px solid #E5E7EB' }}
       >
         <div
           className="mb-4 flex h-16 w-16 items-center justify-center rounded-pill"
           style={{ backgroundColor: '#EAF3FF', color: '#005BAC', fontSize: '28px' }}
         >
-          !
+          Q
         </div>
         <p className="text-card-title text-text-primary">Select an alert</p>
-        <p className="mt-2 text-caption">
-          Click any row to inspect mule signals, AI explanation, and containment readiness.
-        </p>
+        <p className="mt-2 text-caption">Pick a queue row.</p>
       </aside>
     );
   }
 
-  const band = bandLabel(alert.score);
-  const isMule = alert.alert_type === 'mule_eviction';
+  const riskBand = bandLabel(alert.alert.score);
 
   return (
     <aside
-      className="flex h-full flex-col overflow-hidden rounded-lg bg-white shadow-card"
+      className="flex h-full flex-col overflow-hidden rounded-[24px] bg-white shadow-card"
       style={{ border: '1px solid #E5E7EB' }}
     >
       <header
-        className="flex items-start justify-between gap-4 px-6 py-5"
-        style={{ borderBottom: '1px solid #E5E7EB' }}
+        className="px-6 py-5"
+        style={{
+          borderBottom: '1px solid #E5E7EB',
+          background:
+            alert.stage === 'stage_3'
+              ? 'linear-gradient(135deg, #FEF2F2 0%, #FFF7ED 100%)'
+              : 'linear-gradient(135deg, #EFF6FF 0%, #F8FAFC 100%)',
+        }}
       >
-        <div className="min-w-0 flex-1">
-          <p className="text-small-label uppercase tracking-wide text-muted-text">
-            {isMule ? `Mule eviction ${stageLabel(alert)}` : 'Sender interception'} - {alert.id}
-          </p>
-          <h2 className="mt-1 truncate text-section-heading text-text-primary">
-            {alert.txn.payee_name}
-          </h2>
-          <p className="text-caption text-muted-text">
-            Account {alert.txn.payee_account} from user {alert.txn.user_id}
-          </p>
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <p className="text-small-label uppercase tracking-wide text-muted-text">
+              {alert.alertLabel}
+            </p>
+            <h2 className="mt-1 text-section-heading text-text-primary">{alert.accountLabel}</h2>
+            <p className="text-caption text-muted-text">
+              {alert.transactionSummary} · {new Date(alert.alert.txn.timestamp).toLocaleString()}
+            </p>
+          </div>
+          <div className="flex flex-col items-end gap-2">
+            <RiskScoreBadge score={alert.alert.score} size="lg" />
+            <span className="text-small-label font-semibold" style={{ color: riskBand.color }}>
+              {riskBand.text}
+            </span>
+          </div>
         </div>
-        <div className="flex flex-col items-end gap-2">
-          <RiskScoreBadge score={alert.score} size="lg" />
-          <span className="text-small-label font-semibold" style={{ color: band.color }}>
-            {band.text}
-          </span>
+
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <StageBadge stage={alert.stage} />
+          <ScamTypeChip scamType={alert.alert.explanation.scam_type} />
+          <Pill label={alert.alertType === 'mule_eviction' ? 'Receiver-side case' : 'Sender-side case'} />
+          <Pill label={`RM ${alert.rmAtRisk.toLocaleString('en-MY')} at risk`} />
+        </div>
+
+        <div className="mt-4 rounded-2xl bg-white/75 p-4" style={{ border: '1px solid #E5E7EB' }}>
+          <p className="text-small-label uppercase tracking-wide text-muted-text">Summary</p>
+          <p className="mt-2 text-sm leading-6 text-text-primary">{alert.investigationSummary}</p>
+          <p className="mt-2 text-caption font-semibold text-muted-text">{alert.recommendedAction}</p>
         </div>
       </header>
 
       <div className="flex-1 space-y-6 overflow-y-auto px-6 py-5">
-        {isMule && alert.mule_profile ? (
-          <MuleStagePanel profile={alert.mule_profile} exposure={alert.rm_at_risk ?? alert.txn.amount} />
-        ) : (
-          <TransactionPanel alert={alert} />
-        )}
-
         <section>
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h3 className="text-card-title text-text-primary">
-              {isMule ? 'Mule risk signals' : 'Risk signals'}
-            </h3>
-            <ScamTypeChip scamType={alert.explanation.scam_type} />
+          <h3 className="mb-3 text-card-title text-text-primary">Stage</h3>
+          <div className="grid gap-3 xl:grid-cols-3">
+            {alert.stageTimeline.map((step, index) => {
+              const status = step.split(' - ')[0];
+              return (
+                <div
+                  key={step}
+                  className="rounded-2xl p-4"
+                  style={{
+                    backgroundColor:
+                      status === 'Done' ? '#ECFDF5' : status === 'Active' ? '#EFF6FF' : '#F8FAFC',
+                    border: `1px solid ${status === 'Done' ? '#86EFAC' : status === 'Active' ? '#BFDBFE' : '#E5E7EB'}`,
+                  }}
+                >
+                  <p className="text-small-label uppercase tracking-wide text-muted-text">
+                    Stage {index + 1}
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-text-primary">
+                    {step.replace(/^[A-Za-z]+\s-\s/, '')}
+                  </p>
+                  <p className="mt-2 text-caption text-muted-text">{status}</p>
+                </div>
+              );
+            })}
           </div>
-          <RiskSignalsList signals={alert.signals} />
         </section>
 
-        {isMule && alert.containment_accounts && (
-          <section>
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-card-title text-text-primary">Containment preview</h3>
-              <span className="text-small-label font-semibold text-muted-text">
-                {alert.containment_accounts.length} linked accounts
-              </span>
-            </div>
-            <div className="space-y-2">
-              {alert.containment_accounts.slice(0, 4).map((account) => (
-                <div
-                  key={account.account_id}
-                  className="flex items-center justify-between rounded-md bg-app-gray px-4 py-3"
-                >
-                  <div>
-                    <p className="font-semibold text-text-primary">{account.display_name}</p>
-                    <p className="text-caption text-muted-text">
-                      {connectionLabel(account.connection_type)} - degree {account.degree}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-mono font-bold text-text-primary">
-                      RM {account.rm_exposure.toLocaleString('en-MY')}
-                    </p>
-                    <p className="text-small-label font-semibold" style={{ color: '#DC2626' }}>
-                      {account.risk_score}/100
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <p className="mt-3 text-caption text-muted-text">
-              Open Network to execute the one-click containment demo.
-            </p>
-          </section>
-        )}
+        <section className="grid gap-4 xl:grid-cols-2">
+          <InfoCard title="Account">
+            <KeyValue label="Payee account" value={alert.alert.txn.payee_account} mono />
+            <KeyValue label="Account age" value={`${alert.alert.txn.payee_account_age_days} days`} />
+            <KeyValue label="Linked accounts" value={String(alert.linkedAccountCount)} />
+            <KeyValue label="Stage reason" value={alert.stageReason} />
+          </InfoCard>
+
+          <InfoCard title="Transaction">
+            <KeyValue label="Amount" value={`RM ${alert.alert.txn.amount.toLocaleString('en-MY')}`} />
+            <KeyValue label="User 30-day average" value={`RM ${alert.alert.txn.user_avg_30d.toLocaleString('en-MY')}`} />
+            <KeyValue label="Amount ratio" value={`${alert.alert.txn.amount_ratio.toFixed(2)}x`} />
+            <KeyValue label="Device match" value={alert.alert.txn.device_match ? 'Recognised' : 'Mismatch'} />
+          </InfoCard>
+        </section>
 
         <section>
-          <ExplanationCard explanation={alert.explanation} />
+          <h3 className="mb-3 text-card-title text-text-primary">Signals</h3>
+          <RiskSignalsList signals={alert.alert.signals} />
+        </section>
+
+        <section>
+          <ExplanationCard
+            explanation={alert.alert.explanation}
+            heading="Bedrock explanation"
+            subtitle={alert.alertType === 'mule_eviction' ? 'Stage rationale.' : 'Transfer rationale.'}
+          />
         </section>
       </div>
 
       <footer
         className="px-6 py-5"
-        style={{ borderTop: '1px solid #E5E7EB', backgroundColor: '#F5F7FA' }}
+        style={{ borderTop: '1px solid #E5E7EB', backgroundColor: '#F8FAFC' }}
       >
         <ActionButtons
-          alertId={alert.id}
-          status={alert.status}
-          onDecide={(action) => onDecide(alert.id, action)}
+          alertId={alert.alert.id}
+          status={alert.alert.status}
+          onDecide={(action) => onDecide(alert.alert.id, action)}
         />
       </footer>
     </aside>
   );
 }
 
-function MuleStagePanel({ profile, exposure }: { profile: MuleProfile; exposure: number }) {
+function StageBadge({ stage }: { stage: InvestigationAlert['stage'] }) {
+  const style =
+    stage === 'stage_3'
+      ? { bg: '#DC2626', fg: '#FFFFFF', label: 'Stage 3' }
+      : stage === 'stage_2'
+        ? { bg: '#FFEDD5', fg: '#C2410C', label: 'Stage 2' }
+        : { bg: '#FEF3C7', fg: '#92400E', label: 'Stage 1' };
   return (
-    <section>
-      <div
-        className="rounded-lg p-4"
-        style={{ backgroundColor: '#FEF2F2', border: '1px solid #FECACA' }}
-      >
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-small-label uppercase tracking-wide" style={{ color: '#DC2626' }}>
-              Stage {profile.stage} auto-eviction
-            </p>
-            <h3 className="mt-1 text-card-title text-text-primary">
-              Withdrawals blocked, funds held in escrow
-            </h3>
-          </div>
-          <div className="text-right">
-            <p className="text-small-label text-muted-text">Total exposure</p>
-            <p className="font-mono text-xl font-bold text-text-primary">
-              RM {exposure.toLocaleString('en-MY')}
-            </p>
-          </div>
-        </div>
-      </div>
+    <span
+      className="inline-flex rounded-pill px-3 py-1 text-small-label font-semibold uppercase tracking-wide"
+      style={{ backgroundColor: style.bg, color: style.fg }}
+    >
+      {style.label}
+    </span>
+  );
+}
 
-      <div className="mt-4 grid grid-cols-2 gap-4 rounded-md bg-app-gray p-4">
-        <Field label="Inbound senders, 6h" value={String(profile.unique_inbound_senders_6h)} warn />
-        <Field label="Avg inbound gap" value={`${profile.avg_inbound_gap_minutes} min`} warn />
-        <Field label="Inbound/outbound ratio" value={`${profile.inbound_outbound_ratio}%`} warn />
-        <Field label="Merchant spend, 7d" value={`RM ${profile.merchant_spend_7d}`} warn />
-        <Field label="Withdrawal status" value={profile.withdrawal_status.replace(/_/g, ' ')} warn />
-        <Field label="Escrow amount" value={`RM ${profile.escrow_amount.toLocaleString('en-MY')}`} highlight />
-      </div>
+function Pill({ label }: { label: string }) {
+  return (
+    <span
+      className="inline-flex rounded-pill px-3 py-1 text-small-label font-semibold"
+      style={{ backgroundColor: '#FFFFFF', color: '#0F172A', border: '1px solid #E5E7EB' }}
+    >
+      {label}
+    </span>
+  );
+}
+
+function InfoCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section
+      className="rounded-2xl bg-app-gray p-4"
+      style={{ border: '1px solid #E5E7EB' }}
+    >
+      <h3 className="text-card-title text-text-primary">{title}</h3>
+      <div className="mt-4 space-y-3">{children}</div>
     </section>
   );
 }
 
-function TransactionPanel({ alert }: { alert: Alert }) {
-  return (
-    <section>
-      <h3 className="mb-3 text-card-title text-text-primary">Transaction</h3>
-      <div className="grid grid-cols-2 gap-4 rounded-md bg-app-gray p-4">
-        <Field label="Amount" value={`RM ${alert.txn.amount.toLocaleString('en-MY')}`} highlight />
-        <Field label="Payee account" value={alert.txn.payee_account} mono />
-        <Field
-          label="Account age"
-          value={`${alert.txn.payee_account_age_days} days`}
-          warn={alert.txn.payee_account_age_days < 14}
-        />
-        <Field
-          label="Hour"
-          value={`${String(alert.txn.hour_of_day).padStart(2, '0')}:00`}
-          warn={alert.txn.hour_of_day < 6 || alert.txn.hour_of_day >= 22}
-        />
-        <Field label="User 30-day avg" value={`RM ${alert.txn.user_avg_30d.toLocaleString('en-MY')}`} />
-        <Field label="Amount ratio" value={`${alert.txn.amount_ratio.toFixed(2)}x`} warn={alert.txn.amount_ratio > 3} />
-        <Field label="Device" value={alert.txn.device_match ? 'Recognised' : 'Mismatch'} warn={!alert.txn.device_match} />
-        <Field label="Prior transfers" value={String(alert.txn.prior_txns_to_payee)} warn={alert.txn.prior_txns_to_payee === 0} />
-      </div>
-    </section>
-  );
-}
-
-interface FieldProps {
+function KeyValue({
+  label,
+  value,
+  mono = false,
+}: {
   label: string;
   value: string;
-  highlight?: boolean;
-  warn?: boolean;
   mono?: boolean;
-}
-
-function Field({ label, value, highlight, warn, mono }: FieldProps) {
+}) {
   return (
-    <div>
-      <p className="text-small-label uppercase tracking-wide text-muted-text">
-        {label}
-      </p>
-      <p
-        className={`mt-1 capitalize ${mono ? 'font-mono' : ''} ${
-          highlight ? 'text-txn-amount' : 'text-base font-semibold'
-        }`}
-        style={{ color: warn ? '#DC2626' : '#111827' }}
-      >
+    <div className="flex items-start justify-between gap-3">
+      <span className="text-caption text-muted-text">{label}</span>
+      <span className={`text-right text-sm font-semibold text-text-primary ${mono ? 'font-mono' : ''}`}>
         {value}
-      </p>
+      </span>
     </div>
   );
-}
-
-function stageLabel(alert: Alert): string {
-  return alert.mule_stage ? `Stage ${alert.mule_stage}` : '';
-}
-
-function connectionLabel(type: string): string {
-  return type.replace(/_/g, ' ');
 }
