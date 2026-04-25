@@ -1,13 +1,17 @@
-import type { ScanMessageResponse } from 'shared';
+import type { AnalyseMessageResponse, UIlang } from 'shared';
 
 interface Props {
-  result: ScanMessageResponse;
+  result: AnalyseMessageResponse;
+  lang: UIlang;
 }
 
-const RISK_LABEL: Record<ScanMessageResponse['risk'], { en: string; bm: string; tone: string }> = {
-  high: { en: 'High risk — likely a scam', bm: 'Risiko tinggi — kemungkinan penipuan', tone: 'red' },
-  medium: { en: 'Medium risk — be careful', bm: 'Risiko sederhana — berhati-hati', tone: 'orange' },
-  low: { en: 'Low risk — looks normal', bm: 'Risiko rendah — kelihatan biasa', tone: 'green' },
+const RISK_LABEL: Record<
+  AnalyseMessageResponse['risk_level'],
+  { en: string; bm: string }
+> = {
+  high: { en: 'High risk - likely a scam', bm: 'Risiko tinggi - kemungkinan penipuan' },
+  medium: { en: 'Medium risk - be careful', bm: 'Risiko sederhana - berhati-hati' },
+  low: { en: 'No suspicious content detected', bm: 'Tiada kandungan mencurigakan dikesan' },
 };
 
 const SCAM_TYPE_LABEL: Record<string, string> = {
@@ -19,36 +23,33 @@ const SCAM_TYPE_LABEL: Record<string, string> = {
   false_positive: 'Likely safe',
 };
 
-export default function WarningBanner({ result }: Props) {
-  const meta = RISK_LABEL[result.risk];
-  const isLow = result.risk === 'low';
+export default function WarningBanner({ result, lang }: Props) {
+  const isScam = result.is_scam;
+  const meta = RISK_LABEL[result.risk_level];
 
   return (
-    <div className="rounded-xl overflow-hidden shadow-elevated border-2"
+    <div
+      className="rounded-xl overflow-hidden shadow-elevated border-2"
       style={{
-        background: isLow ? '#ECFDF5' : '#FEF2F2',
-        borderColor: isLow ? '#BBF7D0' : '#FCA5A5',
+        background: isScam ? '#FEF2F2' : '#ECFDF5',
+        borderColor: isScam ? '#FCA5A5' : '#BBF7D0',
       }}
     >
-      {/* Header band */}
-      <div
-        className="px-4 py-3 flex items-start gap-3"
-        style={{ background: isLow ? '#ECFDF5' : '#FEF2F2' }}
-      >
+      <div className="px-4 py-3 flex items-start gap-3">
         <div
           className={[
             'w-11 h-11 rounded-xl grid place-items-center flex-shrink-0 shadow-card text-white',
-            isLow ? 'bg-success-green' : 'bg-risk-red',
+            isScam ? 'bg-risk-red' : 'bg-success-green',
           ].join(' ')}
         >
-          {isLow ? (
+          {isScam ? (
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-              <path d="m5 12 5 5L20 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5l-8-3Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+              <path d="M12 8v4M12 16h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
             </svg>
           ) : (
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-              <path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5l-8-3Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
-              <path d="M12 8v4M12 16h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              <path d="m5 12 5 5L20 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           )}
         </div>
@@ -57,55 +58,62 @@ export default function WarningBanner({ result }: Props) {
             <span
               className={[
                 'text-[11px] font-extrabold uppercase tracking-wider',
-                isLow ? 'text-success-green' : 'text-risk-red',
+                isScam ? 'text-risk-red' : 'text-success-green',
               ].join(' ')}
             >
-              SafeSend Plugin · {meta.en.split(' — ')[0]}
+              SafeSend Plugin
             </span>
-            {result.scam_type && (
+            {result.scam_type_hint && (
               <span
                 className={[
                   'px-2 py-0.5 rounded-pill text-[10px] font-bold uppercase tracking-wider',
-                  isLow ? 'bg-success-green text-white' : 'bg-risk-red text-white',
+                  isScam ? 'bg-risk-red text-white' : 'bg-success-green text-white',
                 ].join(' ')}
               >
-                {SCAM_TYPE_LABEL[result.scam_type] ?? result.scam_type}
+                {SCAM_TYPE_LABEL[result.scam_type_hint] ?? result.scam_type_hint}
               </span>
             )}
           </div>
           <div className="text-[14px] font-bold text-text-primary mt-1">
-            {meta.en}
+            {lang === 'en' ? meta.en : meta.bm}
           </div>
-          <div className="text-[12px] text-muted-text mt-0.5">{meta.bm}</div>
+          <div className="text-[12px] text-muted-text mt-0.5">
+            {lang === 'en'
+              ? `Confidence ${(result.confidence * 100).toFixed(0)}%`
+              : `Keyakinan ${(result.confidence * 100).toFixed(0)}%`}
+          </div>
         </div>
       </div>
 
-      {/* Yellow attention strip — DESIGN Enhanced Attention Variant */}
-      {!isLow && (
+      {isScam && (
         <div className="bg-electric-yellow px-4 py-2.5 border-y-2 border-fraud-warning-border">
           <div className="text-[11px] font-extrabold uppercase tracking-wider text-royal-blue">
-            Why we flagged this
+            {lang === 'en' ? 'Warning' : 'Amaran'}
           </div>
           <div className="text-[13px] font-semibold text-text-primary mt-0.5 leading-snug">
-            {result.explanation_en}
+            {lang === 'en' ? result.warning_en : result.warning_bm}
           </div>
         </div>
       )}
 
-      {/* Body */}
       <div className="bg-white px-4 py-3 space-y-3">
-        {!isLow && result.matched_phrases.length > 0 && (
+        {result.matched_patterns.length > 0 && (
           <div>
             <div className="text-[11px] font-bold text-muted-text uppercase tracking-wider">
-              Matched phrases
+              {lang === 'en' ? 'Matched patterns' : 'Corak yang dipadankan'}
             </div>
             <div className="flex flex-wrap gap-1.5 mt-1.5">
-              {result.matched_phrases.map((p) => (
+              {result.matched_patterns.map((pattern) => (
                 <span
-                  key={p}
-                  className="px-2 py-0.5 rounded-pill bg-fraud-warning-bg text-risk-red text-[11px] font-bold border border-fraud-warning-border"
+                  key={`${pattern.pattern}-${pattern.category}`}
+                  className={[
+                    'px-2 py-0.5 rounded-pill text-[11px] font-bold border',
+                    isScam
+                      ? 'bg-fraud-warning-bg text-risk-red border-fraud-warning-border'
+                      : 'bg-success-green/10 text-success-green border-success-green/30',
+                  ].join(' ')}
                 >
-                  {p}
+                  {pattern.pattern}
                 </span>
               ))}
             </div>
@@ -114,28 +122,34 @@ export default function WarningBanner({ result }: Props) {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           <div className="rounded-md bg-app-gray p-2.5">
-            <div className="text-[10px] font-bold text-muted-text uppercase tracking-wider mb-0.5">English</div>
-            <div className="text-[13px] text-text-primary leading-relaxed">{result.explanation_en}</div>
+            <div className="text-[10px] font-bold text-muted-text uppercase tracking-wider mb-0.5">
+              English
+            </div>
+            <div className="text-[13px] text-text-primary leading-relaxed">
+              {result.warning_en}
+            </div>
           </div>
           <div className="rounded-md bg-app-gray p-2.5">
-            <div className="text-[10px] font-bold text-muted-text uppercase tracking-wider mb-0.5">Bahasa Malaysia</div>
-            <div className="text-[13px] text-text-primary leading-relaxed">{result.explanation_bm}</div>
+            <div className="text-[10px] font-bold text-muted-text uppercase tracking-wider mb-0.5">
+              Bahasa Malaysia
+            </div>
+            <div className="text-[13px] text-text-primary leading-relaxed">
+              {result.warning_bm}
+            </div>
           </div>
         </div>
 
-        {!isLow && (
-          <a
-            href="https://www.bnm.gov.my/scam-alert"
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1.5 text-[13px] font-bold text-tng-blue hover:underline"
-          >
-            Learn about this scam
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-              <path d="M7 17 17 7M7 7h10v10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </a>
-        )}
+        <a
+          href={result.education_url}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1.5 text-[13px] font-bold text-tng-blue hover:underline"
+        >
+          {lang === 'en' ? 'Learn about this scam' : 'Ketahui lebih lanjut tentang penipuan ini'}
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <path d="M7 17 17 7M7 7h10v10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </a>
       </div>
     </div>
   );
