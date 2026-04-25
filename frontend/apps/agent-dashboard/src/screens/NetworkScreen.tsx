@@ -3,10 +3,19 @@ import type { NetworkGraph } from 'shared';
 import { fetchNetworkGraph } from '../lib/api.js';
 import { NetworkGraphModule } from '../modules/investigations/NetworkGraphModule.js';
 
-export function NetworkScreen() {
-  const [graph, setGraph] = useState<NetworkGraph | null>(null);
+type Props = {
+  initialGraph?: NetworkGraph | null;
+};
+
+export function NetworkScreen({ initialGraph = null }: Props) {
+  const [graph, setGraph] = useState<NetworkGraph | null>(initialGraph);
 
   useEffect(() => {
+    if (initialGraph) {
+      setGraph(initialGraph);
+      return;
+    }
+
     let active = true;
 
     fetchNetworkGraph()
@@ -22,7 +31,7 @@ export function NetworkScreen() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [initialGraph]);
 
   return (
     <div className="flex h-full min-h-[760px] flex-col">
