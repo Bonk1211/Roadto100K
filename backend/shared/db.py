@@ -320,7 +320,7 @@ def get_alert(txn_id: str) -> Optional[dict]:
 
 
 def update_alert_status(
-    txn_id: str,
+    alert_or_txn_id: str,
     status: str,
     agent_id: str,
     decided_at: str,
@@ -372,7 +372,10 @@ def update_alert_status(
         return get_alert(txn_id)
     except Exception as e:
         print(f"[db] update_alert_status error: {e}")
+        conn.rollback()
         return None
+    finally:
+        cursor.close()
 
 
 def query_alerts(

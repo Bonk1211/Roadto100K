@@ -6,9 +6,19 @@ import type {
   UserChoiceResponse,
 } from 'shared';
 
+const baseURL =
+  import.meta.env.VITE_API_URL ??
+  import.meta.env.VITE_API_BASE_URL ??
+  'http://localhost:4000';
+
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:4000',
+  baseURL,
   timeout: 8000,
+  headers: import.meta.env.VITE_API_KEY
+    ? {
+        'x-api-key': import.meta.env.VITE_API_KEY,
+      }
+    : undefined,
 });
 
 export async function screenTransaction(

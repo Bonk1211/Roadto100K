@@ -1,12 +1,12 @@
 # SafeSend
 
-Multi-layer scam prevention system for **Touch 'n Go FinHack hackathon** (April 2026).
+Multi-layer scam prevention system for **Touch 'n Go FinHack hackathon**.
 
 SafeSend intercepts scams at two points — at the moment of transfer (TnG in-app warning), and at the agent-review network level (fraud console).
 
 ## Repo Structure
 
-```
+```text
 safesend/
 ├── frontend/                  # All user-facing React apps + mock API
 │   ├── apps/
@@ -36,10 +36,9 @@ safesend/
 └── docs/                      # PRD + Design system specs
 ```
 
-## Quick Start (Local Dev)
+## Local Frontend
 
 ```bash
-# Frontend (mock API + React apps)
 cd frontend
 npm install
 npm run dev              # boots mock-api + 2 React apps concurrently
@@ -51,18 +50,47 @@ npm run dev              # boots mock-api + 2 React apps concurrently
 | Agent dashboard  | http://localhost:5175     |
 | Mock API         | http://localhost:4000     |
 
-## Backend Deployment (AWS)
+## Postgres-Backed Agent Dashboard
 
 ```bash
-# Deploy Lambda functions + infrastructure
+cd backend
+pip install -r requirements.txt
+python test_pg_connection.py
+python local_pg_api.py
+```
+
+The local Postgres API runs on:
+
+```text
+http://localhost:4100
+```
+
+The agent dashboard reads `frontend/apps/agent-dashboard/.env.local`:
+
+```env
+VITE_API_URL=http://localhost:4100
+```
+
+## Database
+
+```bash
+cd backend
+python init_full_schema.py      # recreates ERD tables and seeds built-in demo rows
+python seed_erd_mock_data.py    # resets to exactly 5 rows per ERD table
+python test_pg_connection.py
+```
+
+PostgreSQL RDS is the source of truth for alert state, transactions, mule cases,
+network links, containment records, explanations, actions, and model labels.
+
+## Backend Deployment
+
+```bash
 cd backend
 pip install -r requirements.txt
 sam build
-sam deploy --guided       # first time
-sam deploy                # subsequent deploys
-
-# Seed demo data
-python scripts/seed_demo_data.py
+sam deploy --guided
+sam deploy
 ```
 
 ## Architecture
@@ -97,16 +125,12 @@ python scripts/seed_demo_data.py
 
 ## AWS Services
 
-| Service | Resource | Purpose |
-|---------|----------|---------|
-| **API Gateway** | HTTP API | REST endpoints under `/api/*` |
-| **Lambda** (×6) | Python 3.12 | One function per endpoint |
-| **DynamoDB** | `SafeSendAlerts` | Alert state store (GSI + TTL) |
-| **Kinesis** | `safesend-events` | Event log stream (24h retention) |
-| **Bedrock** | Claude 3 Haiku | Bilingual scam explanations |
-| **SNS** | `safesend-user-alerts` | SMS on block action |
-| **SSM** | Parameter Store | EAS endpoint + API keys |
-
-## Design
-
-All colors, typography, radii, and shadows come from `docs/DESIGN.md`. The single source of truth is `frontend/shared/src/design-tokens.ts` and `frontend/tailwind.preset.js`.
+| Service | Purpose |
+|---------|---------|
+| API Gateway | REST endpoints under `/api/*` |
+| Lambda | One Python handler per endpoint |
+| PostgreSQL RDS | ERD data store |
+| Kinesis | Event log stream |
+| Bedrock | Bilingual scam explanations |
+| SNS | SMS on block action |
+| SSM | EAS endpoint + API keys |

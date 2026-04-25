@@ -1,7 +1,7 @@
 """
 Lambda: get-alerts
 
-Paginated query on SafeSendAlerts table.
+Paginated query on the PostgreSQL alerts table.
 Sorted by risk_score DESC (default) or created_at.
 Supports status filtering and cursor-based pagination.
 """

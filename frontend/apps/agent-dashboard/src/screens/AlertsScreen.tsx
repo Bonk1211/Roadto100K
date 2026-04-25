@@ -20,10 +20,13 @@ interface Toast {
 }
 
 export function AlertsScreen() {
-  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [alerts, setAlerts] = useState<InvestigationAlert[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [graph, setGraph] = useState<NetworkGraph | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<'all' | 'open' | 'decided'>('all');
+  const [query, setQuery] = useState('');
+  const [queryState, setQueryState] = useState<QueryResultState>(DEFAULT_QUERY_STATE);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
   const [loading, setLoading] = useState(true);
   const [queryResults, setQueryResults] = useState<FraudQueryResponse | null>(null);
@@ -33,15 +36,19 @@ export function AlertsScreen() {
 
     async function refresh() {
       try {
-        const [a, s] = await Promise.all([fetchAlerts(), fetchStats()]);
+        const [rawAlerts, rawStats, rawGraph] = await Promise.all([
+          fetchAlerts(),
+          fetchStats(),
+          fetchNetworkGraph(),
+        ]);
         if (!active) return;
-        setAlerts(a);
-        setStats(s);
+        setGraph(rawGraph);
+        setAlerts(buildInvestigationAlerts(rawAlerts, rawGraph));
+        setStats(rawStats);
         setLoading(false);
-      } catch (err) {
+      } catch (error) {
         if (!active) return;
-        // eslint-disable-next-line no-console
-        console.error('refresh failed', err);
+        console.error('refresh failed', error);
         setLoading(false);
       }
     }
@@ -54,51 +61,61 @@ export function AlertsScreen() {
     };
   }, []);
 
-  const sorted = useMemo(
-    () => [...alerts].sort((a, b) => b.score - a.score),
-    [alerts],
+  const computedQueryState = useMemo(
+    () => runNaturalLanguageQuery(query, alerts),
+    [alerts, query],
   );
+
+  useEffect(() => {
+    setQueryState(computedQueryState);
+  }, [computedQueryState]);
 
   const filtered = useMemo(() => {
-    if (filter === 'all') return sorted;
-    if (filter === 'open') return sorted.filter((a) => a.status === 'open');
-    return sorted.filter((a) => a.status !== 'open');
-  }, [sorted, filter]);
+    const allowed = new Set(queryState.matchingIds);
+    if (allowed.size === 0) return alerts;
+    return alerts.filter((alert) => allowed.has(alert.alert.id));
+  }, [alerts, queryState.matchingIds]);
 
   const selected = useMemo(
-    () => alerts.find((a) => a.id === selectedId) ?? null,
-    [alerts, selectedId],
+    () => filtered.find((alert) => alert.alert.id === selectedId) ?? filtered[0] ?? null,
+    [filtered, selectedId],
   );
 
-  // Auto-select the highest-risk open alert if nothing selected.
+  const containmentCandidates = useMemo(
+    () => deriveContainmentCandidates(graph, selected),
+    [graph, selected],
+  );
+
   useEffect(() => {
-    if (selectedId !== null) return;
-    const top = sorted.find((a) => a.status === 'open');
-    if (top) setSelectedId(top.id);
-  }, [sorted, selectedId]);
+    if (!selected && filtered.length > 0) {
+      setSelectedId(filtered[0].alert.id);
+    }
+  }, [filtered, selected]);
 
   async function handleDecide(alertId: string, action: AgentDecision) {
     try {
-      const res = await postDecision(alertId, action);
-      setAlerts((prev) => prev.map((a) => (a.id === alertId ? res.alert : a)));
-      const verb =
-        action === 'block'
-          ? 'blocked transaction'
-          : action === 'warn'
-            ? 'sent warning to user'
-            : 'cleared as false positive';
+      const result = await postDecision(alertId, action);
+      setAlerts((prev) =>
+        buildInvestigationAlerts(
+          prev.map((item) => (item.alert.id === alertId ? result.alert : item.alert)),
+          graph,
+        ),
+      );
       setToast({
-        message: `Successfully ${verb}${res.sms_sent ? ' · SMS sent' : ''}.`,
+        message:
+          action === 'block'
+            ? 'Block recorded.'
+            : action === 'warn'
+              ? 'Warning recorded.'
+              : 'Alert cleared.',
         tone: 'success',
       });
-      const fresh = await fetchStats();
-      setStats(fresh);
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error(err);
-      setToast({ message: 'Failed to record decision. See console.', tone: 'error' });
+      setStats(await fetchStats());
+    } catch (error) {
+      console.error(error);
+      setToast({ message: 'Action failed.', tone: 'error' });
     } finally {
-      window.setTimeout(() => setToast(null), 3500);
+      window.setTimeout(() => setToast(null), 3000);
     }
   }
 
@@ -160,13 +177,25 @@ export function AlertsScreen() {
         </div>
 
         <div className="min-h-0">
-          <AlertDetail alert={selected} onDecide={handleDecide} />
+          <ContainmentPanel
+            candidates={containmentCandidates}
+            focusLabel={selected?.accountLabel}
+          />
         </div>
       </div>
 
+      <NlpQueryDrawer
+        isOpen={drawerOpen}
+        query={query}
+        queryState={queryState}
+        onClose={() => setDrawerOpen(false)}
+        onQueryChange={setQuery}
+        onReset={resetQuery}
+      />
+
       {toast && (
         <div
-          className="pointer-events-none fixed bottom-6 right-6 z-50 rounded-lg px-5 py-4 shadow-elevated"
+          className="pointer-events-none fixed bottom-6 right-6 z-50 rounded-2xl px-5 py-4 shadow-elevated"
           style={{
             backgroundColor: toast.tone === 'success' ? '#0055D4' : '#DC2626',
             color: '#FFFFFF',

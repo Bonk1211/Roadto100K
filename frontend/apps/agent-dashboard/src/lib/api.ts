@@ -2,6 +2,7 @@ import axios from 'axios';
 import type {
   Alert,
   AgentDecision,
+  ContainmentExecutionResponse,
   DashboardStats,
   NetworkGraph,
   RiskBand,
@@ -11,9 +12,15 @@ import type {
   ScamType,
 } from 'shared';
 
-const baseURL = import.meta.env.VITE_API_URL ?? 'http://localhost:4000';
+const baseURL =
+  import.meta.env.VITE_API_URL ??
+  import.meta.env.VITE_API_BASE_URL ??
+  'http://localhost:4000';
 
 export const api = axios.create({ baseURL, timeout: 8000 });
+if (import.meta.env.VITE_API_KEY) {
+  api.defaults.headers.common['x-api-key'] = import.meta.env.VITE_API_KEY;
+}
 
 interface BackendAlert {
   alert_id: string;
@@ -268,5 +275,18 @@ export async function fraudQuery(query: string): Promise<FraudQueryResponse> {
     { query },
     { timeout: 20000 },
   );
+  return data;
+}
+
+export async function executeContainment(
+  muleAccountId: string,
+  accountIds: string[],
+  agentId = 'agent_console',
+): Promise<ContainmentExecutionResponse> {
+  const { data } = await api.post<ContainmentExecutionResponse>('/api/containment/execute', {
+    mule_account_id: muleAccountId,
+    account_ids: accountIds,
+    agent_id: agentId,
+  });
   return data;
 }
