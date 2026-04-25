@@ -13,6 +13,9 @@ const baseURL =
   'http://localhost:4000';
 
 export const api = axios.create({ baseURL, timeout: 8000 });
+if (import.meta.env.VITE_API_KEY) {
+  api.defaults.headers.common['x-api-key'] = import.meta.env.VITE_API_KEY;
+}
 
 export async function fetchAlerts(): Promise<Alert[]> {
   const { data } = await api.get<Alert[] | { alerts: Alert[] }>('/api/alerts');
