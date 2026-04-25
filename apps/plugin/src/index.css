@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body, #root {
+    height: 100%;
+  }
+  body {
+    font-family: 'Inter', 'SF Pro Display', 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg, #E6F0FF 0%, #F5F7FA 100%);
+    color: #111827;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply h-11 px-5 rounded-lg bg-tng-blue text-white font-bold text-[14px]
+           transition-colors active:bg-primary-pressed hover:bg-primary-hover
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-yellow {
+    @apply h-11 px-5 rounded-lg bg-electric-yellow text-royal-blue font-extrabold text-[14px]
+           shadow-yellow-depth transition-transform active:translate-y-[2px] active:shadow-none
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+}
