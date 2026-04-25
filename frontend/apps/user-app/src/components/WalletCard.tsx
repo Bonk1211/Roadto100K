@@ -11,55 +11,48 @@ interface Props {
 export default function WalletCard({ balance, userName, lang }: Props) {
   return (
     <div
-      className="relative overflow-hidden rounded-[28px] p-5 text-white shadow-elevated"
+      className="relative overflow-hidden rounded-[28px] px-5 pb-6 pt-6 text-white shadow-elevated"
       style={{
         background: 'linear-gradient(145deg, #005BAC 0%, #004B91 45%, #003F7D 100%)',
       }}
     >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,230,0,0.18),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.12),transparent_30%)]" />
-      <div className="absolute left-6 right-6 top-0 h-[4px] rounded-b-pill bg-electric-yellow opacity-90" />
+      <div className="absolute left-9 right-9 top-0 h-[5px] rounded-b-pill bg-electric-yellow opacity-90" />
 
       <div className="relative flex items-center justify-between">
         <div>
           <div className="text-[12px] font-semibold uppercase tracking-wider opacity-80">
             {t('tngWallet', lang)}
           </div>
-          <div className="text-[14px] font-medium opacity-90 mt-0.5">{userName}</div>
+          <div className="mt-1 text-[14px] font-medium opacity-90">Personal wallet</div>
         </div>
         <div className="relative group">
           <button
             aria-label="SafeSend"
-            className="w-10 h-10 rounded-full bg-white/15 grid place-items-center transition-all duration-200 hover:bg-white/25"
+            className="grid h-11 w-11 place-items-center rounded-full bg-white/14 transition-all duration-200 hover:bg-white/22"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
               <path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5l-8-3Z" fill="#FFE600" stroke="#FFE600" strokeWidth="1" />
               <path d="m9 12 2 2 4-4" stroke="#0055D4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
-          <div className="pointer-events-none absolute right-0 top-[calc(100%+8px)] z-10 w-max max-w-[180px] rounded-xl bg-dark-security-blue px-3 py-2 text-[11px] font-semibold text-white shadow-elevated opacity-0 translate-y-1 transition-all duration-200 group-hover:opacity-100 group-hover:translate-y-0 group-focus-within:opacity-100 group-focus-within:translate-y-0">
-            SafeSend is protecting this wallet
-          </div>
         </div>
       </div>
 
-      <div className="relative mt-6">
+      <div className="relative mt-7">
         <div className="text-[12px] font-semibold opacity-80 uppercase tracking-wider">
           {t('availableBalance', lang)}
         </div>
         <div className="text-wallet-balance mt-1 tracking-tight">
           {formatRM(balance)}
         </div>
-        <div className="mt-3 inline-flex items-center gap-2 rounded-pill bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-white/90">
-          <span className="h-2 w-2 rounded-full bg-electric-yellow" />
-          Protected by SafeSend
-        </div>
       </div>
 
-      <div className="relative mt-5 flex gap-2">
-        <button className="flex-1 h-10 rounded-pill bg-white text-tng-blue text-[13px] font-bold shadow-sm">
+      <div className="relative mt-6 flex gap-3">
+        <button className="flex-1 h-11 rounded-pill bg-white text-tng-blue text-[13px] font-bold shadow-sm">
           {t('reload', lang)}
         </button>
-        <button className="flex-1 h-10 rounded-pill bg-white/15 text-white text-[13px] font-bold border border-white/30">
+        <button className="flex-1 h-11 rounded-pill border border-white/35 bg-white/10 text-white text-[13px] font-bold">
           {t('viewHistory', lang)}
         </button>
       </div>

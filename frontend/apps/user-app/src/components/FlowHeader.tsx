@@ -38,11 +38,12 @@ export default function FlowHeader({
 
   return (
     <div
-      className={
+      className={[
+        'sticky top-0 z-30',
         theme === 'security'
-          ? ''
-          : '-mx-4 bg-[linear-gradient(180deg,#005BAC_0%,#004B91_100%)] px-4 pb-8 shadow-[inset_0_-1px_0_rgba(255,255,255,0.12)]'
-      }
+          ? '-mx-4 bg-dark-security-blue px-4'
+          : '-mx-4 bg-[linear-gradient(180deg,#005BAC_0%,#004B91_100%)] px-4 pb-8 shadow-[inset_0_-1px_0_rgba(255,255,255,0.12)]',
+      ].join(' ')}
     >
       <TopBar
         title={title}

@@ -77,7 +77,7 @@ export default function BottomTabBar({ lang }: Props) {
   const activeKey: TabKey = location.pathname.startsWith('/home') ? 'home' : 'home';
 
   return (
-    <nav className="sticky bottom-0 left-0 right-0 border-t border-white/70 bg-white/94 pt-2 backdrop-blur">
+    <nav className="absolute bottom-0 left-0 right-0 z-20 border-t border-border-gray bg-white pt-2">
       <div className="grid grid-cols-5">
         {tabs.map((tab) => {
           const active = tab.key === activeKey;

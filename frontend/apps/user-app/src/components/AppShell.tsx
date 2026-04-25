@@ -18,7 +18,7 @@ export default function AppShell({
   return (
     <div
       className={[
-        'phone-frame flex min-h-screen flex-col overflow-hidden',
+        'phone-frame flex h-full flex-col overflow-hidden',
         security ? 'bg-dark-security-blue text-white' : 'text-text-primary',
       ].join(' ')}
     >
@@ -43,8 +43,8 @@ export default function AppShell({
         />
       </div>
 
-      <div className="relative z-10 flex min-h-screen flex-col">
-        <main className={['flex-1 px-4 pb-5', contentClassName].join(' ').trim()}>
+      <div className="relative z-10 flex h-full min-h-0 flex-col">
+        <main className={['app-scroll-hidden flex-1 min-h-0 overflow-y-auto overscroll-contain pb-5', contentClassName].join(' ').trim()}>
           {children}
         </main>
         {footer}
