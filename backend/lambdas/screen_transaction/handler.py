@@ -177,6 +177,11 @@ def handler(event, context):
         "hour_of_day": _parse_hour(body["timestamp"]),
         "device_match": 1 if body.get("device_match", True) else 0,
         "prior_txns_to_payee": body.get("prior_txns_to_payee", 0),
+        "sender_account_age_days": body.get("sender_account_age_days", 365),
+        "unique_inbound_senders_6h": 0,
+        "avg_inbound_gap_minutes": 0,
+        "inbound_outbound_ratio": 0,
+        "merchant_spend_7d": 0,
     }
     eas_result = call_eas(eas_features)
     ml_score = eas_result["fraud_score"]
