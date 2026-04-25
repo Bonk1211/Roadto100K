@@ -1,4 +1,9 @@
 export function SettingsScreen() {
+  const endpoint =
+    import.meta.env.VITE_API_URL ??
+    import.meta.env.VITE_API_BASE_URL ??
+    'http://localhost:4000';
+
   return (
     <div className="flex h-full items-center justify-center">
       <div
@@ -8,10 +13,8 @@ export function SettingsScreen() {
         <h2 className="text-section-heading text-text-primary">Settings</h2>
         <p className="mt-3 text-base text-muted-text">
           Agent configuration is managed via the SafeSend admin console (out of
-          scope for this demo). The mock-api endpoint is{' '}
-          <span className="font-mono text-text-primary">
-            http://localhost:4000
-          </span>
+          scope for this demo). The active API endpoint is{' '}
+          <span className="font-mono text-text-primary">{endpoint}</span>
           .
         </p>
       </div>
