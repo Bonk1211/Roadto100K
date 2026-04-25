@@ -7,12 +7,43 @@ body,
 #root {
   height: 100%;
   margin: 0;
-  font-family: 'Inter', 'SF Pro Display', 'Segoe UI', sans-serif;
-  background-color: #f5f7fa;
-  color: #111827;
+  font-family: 'Haas', 'Inter', -apple-system, system-ui, 'Segoe UI', Roboto, sans-serif;
+  background-color: #ffffff;
+  color: #181d26;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: 0.18px;
 }
 
 * {
   box-sizing: border-box;
+}
+
+/* Airtable typography refinements */
+h1, h2, h3, h4, h5, h6 {
+  letter-spacing: 0.1px;
+  font-weight: 600;
+  color: #181d26;
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+  letter-spacing: 0.08px;
+}
+
+/* Subtle Airtable scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #e0e2e6;
+  border-radius: 999px;
+  border: 2px solid #ffffff;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #c8ccd2;
 }

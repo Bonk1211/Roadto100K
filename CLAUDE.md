@@ -6,7 +6,9 @@ Guide Claude Code in this repo.
 
 SafeSend = multi-layer scam-prevention demo for Touch 'n Go FinHack.
 
-Active DB: PostgreSQL RDS. Backend DB work use `backend/shared/db.py`, `backend/init_full_schema.py`, `backend/seed_erd_mock_data.py`, `backend/local_pg_api.py`.
+Backend = AWS Lambda + API Gateway (SAM stack `safesend-backend`, region `ap-southeast-1`). DB = PostgreSQL RDS. Backend DB work use `backend/shared/db.py`, `backend/init_full_schema.py`, `backend/seed_erd_mock_data.py`.
+
+Mock-api removed — frontend calls deployed API Gateway directly.
 
 ## Commands
 
@@ -18,44 +20,38 @@ npm run build --workspaces --if-present
 ```
 
 ```bash
-cd backend
-python test_pg_connection.py
-python seed_erd_mock_data.py
-python local_pg_api.py
+# Backend (from repo root)
+make backend-build
+make backend-deploy RDS_PWD=...
+make backend-logs
+make api-url
 ```
 
 ## Ports
 
 | Port | Service |
 |------|---------|
-| 4000 | mock-api |
-| 4100 | local Postgres API |
 | 5173 | user-app |
 | 5174 | plugin |
 | 5175 | agent-dashboard |
 
 ## Data Flow
 
-Agent dashboard call HTTP API, not DB direct.
-
-Postgres-backed local dev:
-
 ```text
-agent-dashboard -> http://localhost:4100 -> backend/local_pg_api.py -> PostgreSQL RDS
+agent-dashboard / user-app
+  -> https://<api-id>.execute-api.ap-southeast-1.amazonaws.com/prod
+  -> Lambda (safesend-backend)
+  -> PostgreSQL RDS / Bedrock / Kinesis
 ```
 
-Fully offline demo:
-
-```text
-agent-dashboard -> http://localhost:4000 -> frontend/services/mock-api -> in-memory mock data
-```
+`VITE_API_URL` overrides the default API Gateway URL per app.
 
 ## Shared Contracts
 
-Frontend API/type contract changes start in `frontend/shared/src/types.ts`, flow to frontend consumers + backend API responses.
+Frontend API/type contract changes start in `frontend/shared/src/types.ts`, flow to frontend consumers + Lambda response shapes. Adapter layer in `apps/agent-dashboard/src/lib/api.ts` (`adaptGraphNode`/`adaptGraphEdge`) maps raw Lambda payloads to frontend types when fields drift.
 
 ## Demo Invariants
 
 - Agent dashboard show Stage 3 mule alert.
 - Network graph show linked accounts + RM exposure.
-- One-click containment work against local Postgres API or mock API.
+- One-click containment work against deployed API Gateway.

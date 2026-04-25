@@ -7,7 +7,6 @@ import {
 } from 'recharts';
 import type { VerificationRun } from '../../lib/agentops.js';
 import { relativeTime } from '../../lib/agentops.js';
-import { CHART_COLORS } from '../../lib/charts.js';
 
 interface Props {
   runs: VerificationRun[];
@@ -29,14 +28,26 @@ export function LiveCasePanel({ runs }: Props) {
 function EmptyState() {
   return (
     <div
-      className="flex h-full flex-col items-center justify-center rounded-2xl border-2 border-dashed p-6 text-center"
-      style={{ borderColor: '#CBD5E1', backgroundColor: '#FFFFFF' }}
+      className="flex h-full flex-col items-center justify-center p-8 text-center"
+      style={{
+        border: '1px dashed #e0e2e6',
+        backgroundColor: '#ffffff',
+        borderRadius: 16,
+      }}
     >
-      <span className="text-[40px]">🛰️</span>
-      <p className="mt-2 text-card-title text-text-primary">No live case right now</p>
-      <p className="mt-1 max-w-sm text-caption text-muted-text">
-        Worker idle. Click <span className="font-bold text-text-primary">+ Inject</span> in the
-        top bar to push a synthetic alert. Team picks it up in &lt;2s.
+      <div
+        className="flex h-12 w-12 items-center justify-center"
+        style={{ backgroundColor: '#eef4fc', color: '#1b61c9', borderRadius: 999 }}
+      >
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 7v5l3 2" />
+        </svg>
+      </div>
+      <p className="mt-3 text-card-title" style={{ color: '#181d26' }}>No live case right now</p>
+      <p className="mt-1 max-w-sm text-caption" style={{ color: 'rgba(4,14,32,0.69)' }}>
+        Worker idle. Click <span style={{ color: '#1b61c9', fontWeight: 600 }}>+ Inject alert</span> in the
+        top bar to push a synthetic case.
       </p>
     </div>
   );
@@ -50,57 +61,61 @@ function CaseCard({ run }: { run: VerificationRun }) {
 
   return (
     <div
-      className="flex items-stretch gap-4 overflow-hidden rounded-2xl bg-white p-4 shadow-elevated"
-      style={{ border: '1px solid #BFDBFE' }}
+      className="flex items-stretch gap-4 overflow-hidden bg-white p-5"
+      style={{
+        border: '1px solid #e0e2e6',
+        borderRadius: 16,
+        boxShadow: 'rgba(15,48,106,0.05) 0px 0px 20px, rgba(45,127,249,0.18) 0px 4px 12px',
+      }}
     >
       <RadialProgress done={completedCount} total={5} elapsedMs={elapsedMs} />
 
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex items-center gap-2">
           <PulseDot />
-          <p className="text-small-label uppercase tracking-wide" style={{ color: '#0F3B82' }}>
+          <p className="text-small-label uppercase" style={{ color: '#1b61c9', letterSpacing: '0.28px', fontWeight: 600 }}>
             Live verification
           </p>
-          <span className="text-caption text-muted-text">
+          <span className="text-caption" style={{ color: 'rgba(4,14,32,0.69)' }}>
             started {relativeTime(run.started_at)}
           </span>
         </div>
 
-        <p className="mt-1 truncate text-card-title font-mono font-bold text-text-primary">
+        <p className="mt-1 truncate text-card-title font-mono" style={{ color: '#181d26', fontWeight: 600 }}>
           {run.alert_id}
         </p>
 
         <div className="mt-2 flex flex-wrap items-center gap-2 text-caption">
-          <Pill bg="#FEF2F2" fg="#B91C1C">Risk {Math.round(run.risk_score)}/100</Pill>
-          <Pill bg="#FFFFFF" fg="#111827">RM {Math.round(run.amount).toLocaleString('en-MY')}</Pill>
-          <Pill bg="#EAF3FF" fg="#0F3B82">
+          <Pill bg="#FEF2F2" fg="#B91C1C" border="#FCA5A5">Risk {Math.round(run.risk_score)}/100</Pill>
+          <Pill bg="#ffffff" fg="#181d26" border="#e0e2e6">RM {Math.round(run.amount).toLocaleString('en-MY')}</Pill>
+          <Pill bg="#eef4fc" fg="#1b61c9" border="#cfe0f5">
             {(run.alert_type ?? 'alert').replace(/_/g, ' ')}
           </Pill>
           {run.scam_type && (
-            <Pill bg="#FFFBEB" fg="#92400E">{run.scam_type.replace(/_/g, ' ')}</Pill>
+            <Pill bg="#FFFBEB" fg="#92400E" border="#FDE68A">{run.scam_type.replace(/_/g, ' ')}</Pill>
           )}
         </div>
 
         <div className="mt-3">
           <div className="flex items-center justify-between text-small-label">
-            <span className="font-bold text-text-primary">
+            <span style={{ color: '#181d26', fontWeight: 600 }}>
               {completedCount}/5 agents reporting
             </span>
             {completedCount >= 5 && (
-              <span className="rounded-pill px-2 py-0.5 text-[10px] font-bold" style={{ backgroundColor: '#0055D4', color: '#FFFFFF' }}>
+              <span className="px-2 py-0.5 text-[10px]" style={{ backgroundColor: '#1b61c9', color: '#ffffff', borderRadius: 999, fontWeight: 600 }}>
                 Arbiter deciding…
               </span>
             )}
           </div>
           <div
-            className="mt-1 h-2 w-full overflow-hidden rounded-pill"
-            style={{ backgroundColor: '#E5E7EB' }}
+            className="mt-1 h-1.5 w-full overflow-hidden rounded-pill"
+            style={{ backgroundColor: '#e0e2e6' }}
           >
             <div
               className="h-full rounded-pill transition-all duration-500"
               style={{
                 width: `${progressPct}%`,
-                background: 'linear-gradient(90deg, #0055D4 0%, #0EA5E9 100%)',
+                background: 'linear-gradient(90deg, #1b61c9 0%, #254fad 100%)',
               }}
             />
           </div>
@@ -108,12 +123,12 @@ function CaseCard({ run }: { run: VerificationRun }) {
 
         {completedCount > 0 && (
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="text-[10px] uppercase tracking-wide text-muted-text">Tally</span>
-            {tally.block > 0 && <TallyBadge label="BLOCK" count={tally.block} bg="#FEF2F2" fg="#B91C1C" />}
-            {tally.warn > 0 && <TallyBadge label="WARN" count={tally.warn} bg="#FFFBEB" fg="#92400E" />}
-            {tally.clear > 0 && <TallyBadge label="CLEAR" count={tally.clear} bg="#ECFDF5" fg="#166534" />}
+            <span className="text-[10px] uppercase" style={{ color: 'rgba(4,14,32,0.55)', letterSpacing: '0.28px', fontWeight: 500 }}>Tally</span>
+            {tally.block > 0 && <TallyBadge label="Block" count={tally.block} bg="#FEF2F2" fg="#B91C1C" />}
+            {tally.warn > 0 && <TallyBadge label="Warn" count={tally.warn} bg="#FFFBEB" fg="#92400E" />}
+            {tally.clear > 0 && <TallyBadge label="Clear" count={tally.clear} bg="#ECFDF5" fg="#166534" />}
             {tally.inconclusive > 0 && (
-              <TallyBadge label="—" count={tally.inconclusive} bg="#F3F4F6" fg="#374151" />
+              <TallyBadge label="—" count={tally.inconclusive} bg="#f8fafc" fg="rgba(4,14,32,0.69)" />
             )}
           </div>
         )}
@@ -132,7 +147,7 @@ function RadialProgress({
   elapsedMs: number;
 }) {
   const pct = Math.min(100, Math.round((done / total) * 100));
-  const data = [{ name: 'progress', value: pct, fill: CHART_COLORS.brand }];
+  const data = [{ name: 'progress', value: pct, fill: '#1b61c9' }];
   return (
     <div className="relative flex h-[140px] w-[140px] shrink-0 items-center justify-center">
       <ResponsiveContainer width="100%" height="100%">
@@ -147,22 +162,22 @@ function RadialProgress({
         >
           <PolarAngleAxis type="number" domain={[0, 100]} angleAxisId={0} tick={false} />
           <RadialBar
-            background={{ fill: '#E5E7EB' }}
+            background={{ fill: '#e0e2e6' }}
             dataKey="value"
             cornerRadius={12}
-            fill={CHART_COLORS.brand}
+            fill="#1b61c9"
           />
         </RadialBarChart>
       </ResponsiveContainer>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <p className="text-[28px] font-bold leading-none text-text-primary">
+        <p className="text-[28px] leading-none" style={{ color: '#181d26', fontWeight: 600 }}>
           {done}
-          <span className="text-card-title text-muted-text">/{total}</span>
+          <span className="text-card-title" style={{ color: 'rgba(4,14,32,0.55)' }}>/{total}</span>
         </p>
-        <p className="mt-0.5 text-[10px] uppercase tracking-wide text-muted-text">
+        <p className="mt-0.5 text-[10px] uppercase" style={{ color: 'rgba(4,14,32,0.55)', letterSpacing: '0.28px', fontWeight: 500 }}>
           agents in
         </p>
-        <p className="text-caption font-bold" style={{ color: '#0055D4' }}>
+        <p className="text-caption" style={{ color: '#1b61c9', fontWeight: 600 }}>
           {fmtElapsed(elapsedMs)}
         </p>
       </div>
@@ -195,15 +210,17 @@ function Pill({
   children,
   bg,
   fg,
+  border = '#e0e2e6',
 }: {
   children: React.ReactNode;
   bg: string;
   fg: string;
+  border?: string;
 }) {
   return (
     <span
-      className="rounded-pill px-2.5 py-1 text-small-label font-semibold"
-      style={{ backgroundColor: bg, color: fg, border: '1px solid #E5E7EB' }}
+      className="rounded-pill px-2.5 py-1 text-small-label"
+      style={{ backgroundColor: bg, color: fg, border: `1px solid ${border}`, fontWeight: 500 }}
     >
       {children}
     </span>

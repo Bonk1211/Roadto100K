@@ -203,15 +203,15 @@ export function verdictPalette(verdict: Verdict | FinalVerdict | null | undefine
 } {
   switch (verdict) {
     case 'block':
-      return { bg: '#FEF2F2', fg: '#B91C1C', border: '#FCA5A5', label: 'BLOCK' };
+      return { bg: '#FEF2F2', fg: '#B91C1C', border: '#FCA5A5', label: 'Block' };
     case 'warn':
-      return { bg: '#FFFBEB', fg: '#92400E', border: '#FDE68A', label: 'WARN' };
+      return { bg: '#FFFBEB', fg: '#92400E', border: '#FDE68A', label: 'Warn' };
     case 'clear':
-      return { bg: '#ECFDF5', fg: '#166534', border: '#BBF7D0', label: 'CLEAR' };
+      return { bg: '#ECFDF5', fg: '#166534', border: '#BBF7D0', label: 'Clear' };
     case 'inconclusive':
-      return { bg: '#F3F4F6', fg: '#374151', border: '#D1D5DB', label: 'INCONCLUSIVE' };
+      return { bg: '#f8fafc', fg: 'rgba(4,14,32,0.69)', border: '#e0e2e6', label: 'Inconclusive' };
     default:
-      return { bg: '#F3F4F6', fg: '#6B7280', border: '#E5E7EB', label: '—' };
+      return { bg: '#f8fafc', fg: 'rgba(4,14,32,0.55)', border: '#e0e2e6', label: '—' };
   }
 }
 

@@ -31,22 +31,26 @@ const PERSONA: Record<AgentName, string> = {
 export function CompactAgentStrip({ activeRun, recentByAgent, statsByAgent }: Props) {
   return (
     <div
-      className="overflow-hidden rounded-2xl bg-white shadow-card"
-      style={{ border: '1px solid #E5E7EB' }}
+      className="overflow-hidden bg-white"
+      style={{
+        border: '1px solid #e0e2e6',
+        borderRadius: 16,
+        boxShadow: 'rgba(15,48,106,0.05) 0px 0px 20px',
+      }}
     >
       <header
-        className="flex items-center justify-between px-4 py-2.5"
-        style={{ backgroundColor: '#0F3B82', color: '#FFFFFF' }}
+        className="flex items-center justify-between px-4 py-3"
+        style={{ backgroundColor: '#ffffff', borderBottom: '1px solid #e0e2e6', color: '#181d26' }}
       >
-        <p className="text-small-label uppercase tracking-wide">Agent team</p>
-        <p className="text-small-label text-white/70">
+        <p className="text-small-label uppercase" style={{ letterSpacing: '0.28px', fontWeight: 600, color: '#1b61c9' }}>Agent team</p>
+        <p className="text-small-label" style={{ color: 'rgba(4,14,32,0.69)' }}>
           {activeRun
             ? `Reviewing ${shortAlertId(activeRun.alert_id)}`
             : 'Awaiting next alert'}
         </p>
       </header>
 
-      <div className="grid grid-cols-1 divide-y md:grid-cols-5 md:divide-x md:divide-y-0" style={{ borderColor: '#E5E7EB' }}>
+      <div className="grid grid-cols-1 divide-y md:grid-cols-5 md:divide-x md:divide-y-0" style={{ borderColor: '#e0e2e6' }}>
         {AGENT_ORDER.map((agent) => {
           const liveFinding = activeRun?.findings.find((f) => f.agent_name === agent) ?? null;
           const stream = activeRun?.streams?.find((s) => s.agent_name === agent) ?? null;
@@ -88,12 +92,12 @@ function AgentCell({ agent, working, live, last, stats, stream }: CellProps) {
   const palette = verdictPalette(verdict);
   const showWorkingBg = working;
   const cellTint = showWorkingBg
-    ? '#EAF3FF'
+    ? '#eef4fc'
     : live
       ? palette.bg
-      : '#FFFFFF';
+      : '#ffffff';
   const borderTone = showWorkingBg
-    ? '#BFDBFE'
+    ? '#1b61c9'
     : live
       ? palette.border
       : 'transparent';
@@ -107,26 +111,29 @@ function AgentCell({ agent, working, live, last, stats, stream }: CellProps) {
     >
       <div className="flex items-center gap-2">
         <span
-          className="flex h-9 w-9 items-center justify-center rounded-pill text-small-label font-bold"
+          className="flex h-9 w-9 items-center justify-center text-small-label"
           style={{
-            backgroundColor: '#0055D4',
-            color: '#FFE600',
+            backgroundColor: '#eef4fc',
+            color: '#1b61c9',
+            borderRadius: 12,
+            fontWeight: 600,
+            border: '1px solid #cfe0f5',
           }}
         >
           {meta.icon}
         </span>
         <div className="min-w-0 flex-1 leading-tight">
-          <p className="truncate text-small-label font-bold uppercase tracking-wide text-muted-text">
+          <p className="truncate text-small-label uppercase" style={{ color: 'rgba(4,14,32,0.55)', letterSpacing: '0.28px', fontWeight: 600 }}>
             {persona}
           </p>
-          <p className="truncate text-feature-title text-text-primary">{meta.label}</p>
+          <p className="truncate text-feature-title" style={{ color: '#181d26' }}>{meta.label}</p>
         </div>
         {working ? (
           <Spinner />
         ) : (
           <span
-            className="rounded-pill px-2 py-0.5 text-[10px] font-bold"
-            style={{ backgroundColor: palette.fg, color: '#FFFFFF' }}
+            className="px-2 py-0.5 text-[10px]"
+            style={{ backgroundColor: palette.fg, color: '#ffffff', borderRadius: 999, fontWeight: 600 }}
           >
             {palette.label}
           </span>
@@ -138,16 +145,16 @@ function AgentCell({ agent, working, live, last, stats, stream }: CellProps) {
           <WorkingTicker />
         ) : display ? (
           <>
-            <span className="font-bold text-text-primary">{display.confidence}%</span>
+            <span style={{ color: '#181d26', fontWeight: 600 }}>{display.confidence}%</span>
             <ConfidenceBar pct={display.confidence} color={palette.fg} />
-            <span className="font-mono text-muted-text">{formatLatency(display.latency_ms)}</span>
+            <span className="font-mono" style={{ color: 'rgba(4,14,32,0.69)' }}>{formatLatency(display.latency_ms)}</span>
           </>
         ) : (
-          <span className="text-muted-text">No data yet</span>
+          <span style={{ color: 'rgba(4,14,32,0.55)' }}>No data yet</span>
         )}
       </div>
 
-      <div className="flex items-center justify-between text-[10px] text-muted-text">
+      <div className="flex items-center justify-between text-[10px]" style={{ color: 'rgba(4,14,32,0.69)' }}>
         <span>
           {stats ? (
             <>
@@ -187,24 +194,24 @@ function ReasoningPanel({
     const hasPartial = partial.trim().length > 0;
     return (
       <div
-        className="rounded-lg px-2 py-1.5 text-[10px] leading-snug"
-        style={{ backgroundColor: '#F8FAFC', border: '1px dashed #BFDBFE', color: '#1E3A8A' }}
+        className="px-2 py-1.5 text-[10px] leading-snug"
+        style={{ backgroundColor: '#f8fafc', border: '1px dashed #cfe0f5', color: '#254fad', borderRadius: 12 }}
       >
-        <p className="mb-1 flex items-center gap-1 font-bold uppercase tracking-wide" style={{ fontSize: 9 }}>
+        <p className="mb-1 flex items-center gap-1 uppercase" style={{ fontSize: 9, letterSpacing: '0.28px', fontWeight: 600 }}>
           Reasoning
           <span
             className="inline-block h-1.5 w-1.5 animate-pulse rounded-pill"
-            style={{ backgroundColor: '#EF4444' }}
+            style={{ backgroundColor: '#DC2626' }}
             aria-label="streaming"
           />
         </p>
         {hasPartial ? (
-          <p className="line-clamp-4 whitespace-pre-wrap text-text-primary">
+          <p className="line-clamp-4 whitespace-pre-wrap" style={{ color: '#181d26' }}>
             {stripJsonNoise(partial)}
-            <span className="ml-0.5 inline-block h-2 w-1 animate-pulse" style={{ backgroundColor: '#0055D4' }} />
+            <span className="ml-0.5 inline-block h-2 w-1 animate-pulse" style={{ backgroundColor: '#1b61c9' }} />
           </p>
         ) : (
-          <p className="italic text-muted-text">Awaiting first token…</p>
+          <p className="italic" style={{ color: 'rgba(4,14,32,0.55)' }}>Awaiting first token…</p>
         )}
       </div>
     );
@@ -213,20 +220,21 @@ function ReasoningPanel({
   const evidence = display.evidence?.slice(0, 3) ?? [];
   return (
     <div
-      className="rounded-lg px-2 py-1.5 text-[10px] leading-snug"
+      className="px-2 py-1.5 text-[10px] leading-snug"
       style={{
-        backgroundColor: live ? 'rgba(255,255,255,0.6)' : '#F8FAFC',
-        border: '1px solid #E5E7EB',
-        color: '#0F172A',
+        backgroundColor: live ? 'rgba(255,255,255,0.7)' : '#f8fafc',
+        border: '1px solid #e0e2e6',
+        color: '#181d26',
+        borderRadius: 12,
       }}
     >
       <p
-        className="mb-1 font-bold uppercase tracking-wide text-muted-text"
-        style={{ fontSize: 9 }}
+        className="mb-1 uppercase"
+        style={{ fontSize: 9, letterSpacing: '0.28px', fontWeight: 600, color: 'rgba(4,14,32,0.55)' }}
       >
         Reasoning
       </p>
-      <p className="line-clamp-3 text-text-primary">
+      <p className="line-clamp-3" style={{ color: '#181d26' }}>
         {display.reasoning?.trim() || 'No reasoning recorded.'}
       </p>
       {evidence.length > 0 && (
@@ -236,9 +244,10 @@ function ReasoningPanel({
               key={i}
               className="rounded-pill px-1.5 py-0.5 font-mono"
               style={{
-                backgroundColor: '#EEF2FF',
-                color: '#3730A3',
+                backgroundColor: '#eef4fc',
+                color: '#254fad',
                 fontSize: 9,
+                fontWeight: 500,
               }}
               title={typeof e.value === 'object' ? JSON.stringify(e.value) : String(e.value)}
             >
@@ -289,7 +298,7 @@ function ConfidenceBar({ pct, color }: { pct: number; color: string }) {
   return (
     <div
       className="h-1.5 flex-1 overflow-hidden rounded-pill"
-      style={{ backgroundColor: '#E5E7EB' }}
+      style={{ backgroundColor: '#e0e2e6' }}
     >
       <div
         className="h-full rounded-pill"
@@ -303,8 +312,8 @@ function Tally({ label, v, c }: { label: string; v: number; c: string }) {
   if (v === 0) return null;
   return (
     <span
-      className="rounded-pill px-1.5 py-0.5 font-bold"
-      style={{ backgroundColor: '#F1F5F9', color: c }}
+      className="rounded-pill px-1.5 py-0.5"
+      style={{ backgroundColor: '#f8fafc', color: c, fontWeight: 600, border: '1px solid #e0e2e6' }}
     >
       {v}{label}
     </span>
@@ -325,7 +334,7 @@ function WorkingTicker() {
     const id = setInterval(() => setI((p) => (p + 1) % WORKING_STEPS.length), 900);
     return () => clearInterval(id);
   }, []);
-  return <span className="text-muted-text">{WORKING_STEPS[i]}</span>;
+  return <span style={{ color: 'rgba(4,14,32,0.69)' }}>{WORKING_STEPS[i]}</span>;
 }
 
 function Spinner() {
@@ -333,8 +342,8 @@ function Spinner() {
     <span
       className="inline-block h-4 w-4 animate-spin rounded-pill"
       style={{
-        border: '2px solid rgba(0,85,212,0.18)',
-        borderTopColor: '#0055D4',
+        border: '2px solid rgba(27,97,201,0.18)',
+        borderTopColor: '#1b61c9',
       }}
     />
   );

@@ -70,17 +70,19 @@ export function CommandBar({
   const statusDot = paused
     ? '#F59E0B'
     : workerOnline
-      ? '#22C55E'
+      ? '#16A34A'
       : '#9CA3AF';
-  const statusLabel = paused ? 'PAUSED' : workerOnline ? 'OPERATING' : 'IDLE';
+  const statusLabel = paused ? 'Paused' : workerOnline ? 'Operating' : 'Idle';
 
   return (
     <header
-      className="flex flex-wrap items-center gap-3 rounded-2xl px-5 py-3 shadow-card"
+      className="flex flex-wrap items-center gap-4 px-5 py-3"
       style={{
-        background: 'linear-gradient(90deg, #071B33 0%, #0A2A4D 50%, #0F3B82 100%)',
-        color: '#FFFFFF',
-        border: '1px solid rgba(255,255,255,0.08)',
+        backgroundColor: '#ffffff',
+        color: '#181d26',
+        border: '1px solid #e0e2e6',
+        borderRadius: 16,
+        boxShadow: 'rgba(15,48,106,0.05) 0px 0px 20px',
         minHeight: 76,
       }}
     >
@@ -93,32 +95,32 @@ export function CommandBar({
 
       <Divider />
 
-      <KPI label="Decided" value={decided.toString()} accent="#FFE600" />
-      <KPI label="Avg cycle" value={avgMs > 0 ? fmtSec(avgMs) : '—'} accent="#FFE600" />
-      <KPI
-        label="Speed"
-        value={speedup > 0 ? `${speedup}× human` : '—'}
-        accent="#22C55E"
-      />
+      <KPI label="Decided" value={decided.toString()} />
+      <KPI label="Avg cycle" value={avgMs > 0 ? fmtSec(avgMs) : '—'} />
+      <KPI label="Speed" value={speedup > 0 ? `${speedup}× human` : '—'} accent="#16A34A" />
 
       <Divider />
 
       <VerdictTrio blocks={blocks} warns={warns} clears={clears} />
 
       <div className="ml-auto flex flex-wrap items-center gap-2">
-        {error && <span className="text-small-label text-rose-300">⚠ {error}</span>}
+        {error && <span className="text-small-label" style={{ color: '#DC2626' }}>⚠ {error}</span>}
         <InjectMenu busy={busy === 'inject'} onPick={inject} />
         <button
           type="button"
           onClick={toggle}
           disabled={busy !== null}
-          className="rounded-pill px-4 py-2 text-small-label font-bold transition-colors disabled:opacity-50"
+          className="px-4 py-2 text-small-label transition-colors disabled:opacity-50"
           style={{
-            backgroundColor: paused ? '#22C55E' : '#EF4444',
-            color: '#FFFFFF',
+            backgroundColor: paused ? '#16A34A' : '#DC2626',
+            color: '#ffffff',
+            borderRadius: 12,
+            fontWeight: 600,
+            letterSpacing: '0.08px',
+            boxShadow: 'rgba(0,0,0,0.06) 0px 0px 0px 0.5px inset',
           }}
         >
-          {busy === 'pause' ? '…' : paused ? '▶ Resume' : '■ Stop'}
+          {busy === 'pause' ? '…' : paused ? 'Resume' : 'Stop'}
         </button>
       </div>
     </header>
@@ -151,18 +153,18 @@ function StatusBlock({
         />
       </span>
       <div className="leading-tight">
-        <p className="text-feature-title font-bold">{label}</p>
-        <p className="text-small-label text-white/65">{sub}</p>
+        <p className="text-feature-title" style={{ color: '#181d26', fontWeight: 600 }}>{label}</p>
+        <p className="text-small-label" style={{ color: 'rgba(4,14,32,0.69)' }}>{sub}</p>
       </div>
     </div>
   );
 }
 
-function KPI({ label, value, accent }: { label: string; value: string; accent: string }) {
+function KPI({ label, value, accent }: { label: string; value: string; accent?: string }) {
   return (
     <div className="flex flex-col leading-tight">
-      <span className="text-[10px] uppercase tracking-wide text-white/50">{label}</span>
-      <span className="text-card-title font-bold" style={{ color: accent }}>
+      <span className="text-[10px] uppercase" style={{ color: 'rgba(4,14,32,0.55)', letterSpacing: '0.28px', fontWeight: 500 }}>{label}</span>
+      <span className="text-card-title" style={{ color: accent ?? '#181d26', fontWeight: 600 }}>
         {value}
       </span>
     </div>
@@ -179,31 +181,33 @@ function VerdictTrio({
   clears: number;
 }) {
   return (
-    <div className="flex items-center gap-3">
-      <Pill icon="⛔" value={blocks} bg="#7F1D1D" fg="#FCA5A5" />
-      <Pill icon="⚠" value={warns} bg="#78350F" fg="#FDE68A" />
-      <Pill icon="✓" value={clears} bg="#14532D" fg="#86EFAC" />
+    <div className="flex items-center gap-2">
+      <Pill label="Block" value={blocks} bg="#FEF2F2" fg="#B91C1C" border="#FCA5A5" />
+      <Pill label="Warn" value={warns} bg="#FFFBEB" fg="#92400E" border="#FDE68A" />
+      <Pill label="Clear" value={clears} bg="#ECFDF5" fg="#166534" border="#BBF7D0" />
     </div>
   );
 }
 
 function Pill({
-  icon,
+  label,
   value,
   bg,
   fg,
+  border,
 }: {
-  icon: string;
+  label: string;
   value: number;
   bg: string;
   fg: string;
+  border: string;
 }) {
   return (
     <span
-      className="inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1 text-small-label font-bold"
-      style={{ backgroundColor: bg, color: fg }}
+      className="inline-flex items-center gap-1.5 px-2.5 py-1 text-small-label"
+      style={{ backgroundColor: bg, color: fg, border: `1px solid ${border}`, borderRadius: 999, fontWeight: 600 }}
     >
-      <span>{icon}</span>
+      <span>{label}</span>
       <span>{value}</span>
     </span>
   );
@@ -214,7 +218,7 @@ function Divider() {
     <span
       aria-hidden
       className="h-10 w-px"
-      style={{ backgroundColor: 'rgba(255,255,255,0.18)' }}
+      style={{ backgroundColor: '#e0e2e6' }}
     />
   );
 }
@@ -233,18 +237,27 @@ function InjectMenu({
         type="button"
         onClick={() => setOpen((v) => !v)}
         disabled={busy}
-        className="rounded-pill px-3 py-2 text-small-label font-bold transition-colors disabled:opacity-50"
+        className="px-4 py-2 text-small-label transition-colors disabled:opacity-50"
         style={{
-          backgroundColor: '#FFE600',
-          color: '#0055D4',
+          backgroundColor: '#1b61c9',
+          color: '#ffffff',
+          borderRadius: 12,
+          fontWeight: 600,
+          letterSpacing: '0.08px',
+          boxShadow: 'rgba(45,127,249,0.28) 0px 1px 3px, rgba(0,0,0,0.06) 0px 0px 0px 0.5px inset',
         }}
       >
-        {busy ? '…' : '+ Inject'}
+        {busy ? '…' : '+ Inject alert'}
       </button>
       {open && (
         <div
-          className="absolute right-0 top-full z-30 mt-2 flex w-48 flex-col gap-1 rounded-xl p-2 shadow-elevated"
-          style={{ backgroundColor: '#FFFFFF', border: '1px solid #E5E7EB' }}
+          className="absolute right-0 top-full z-30 mt-2 flex w-52 flex-col gap-1 p-2"
+          style={{
+            backgroundColor: '#ffffff',
+            border: '1px solid #e0e2e6',
+            borderRadius: 16,
+            boxShadow: 'rgba(15,48,106,0.08) 0px 16px 48px, rgba(45,127,249,0.18) 0px 4px 12px',
+          }}
           onMouseLeave={() => setOpen(false)}
         >
           <ProfileButton
@@ -295,12 +308,13 @@ function ProfileButton({
     <button
       type="button"
       onClick={onClick}
-      className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-app-gray"
+      className="flex items-center gap-2 px-2 py-2 text-left transition-colors hover:bg-airtable-soft-surface"
+      style={{ borderRadius: 12 }}
     >
       <span className="inline-block h-2 w-2 rounded-pill" style={{ backgroundColor: color }} />
       <div>
-        <p className="text-small-label font-bold text-text-primary">{label}</p>
-        <p className="text-[10px] text-muted-text">{sub}</p>
+        <p className="text-small-label" style={{ color: '#181d26', fontWeight: 600 }}>{label}</p>
+        <p className="text-[10px]" style={{ color: 'rgba(4,14,32,0.69)' }}>{sub}</p>
       </div>
     </button>
   );

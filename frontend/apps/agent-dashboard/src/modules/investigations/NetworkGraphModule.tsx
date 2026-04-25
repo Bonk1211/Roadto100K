@@ -20,10 +20,10 @@ type WashChain = {
 
 const FILL = {
   flagged: '#DC2626',
-  normal: '#005BAC',
-  device: '#071B33',
+  normal: '#1b61c9',
+  device: '#181d26',
   focus: '#FF8A00',
-  cashFlow: '#2563EB',
+  cashFlow: '#254fad',
   shared: '#FF8A00',
 };
 
@@ -212,7 +212,7 @@ export function NetworkGraphModule({ graph, focusAlert }: Props) {
       .attr('text-anchor', 'middle')
       .attr('font-size', 12)
       .attr('font-weight', 700)
-      .attr('fill', '#111827')
+      .attr('fill', '#181d26')
       .attr('paint-order', 'stroke')
       .attr('stroke', '#FFFFFF')
       .attr('stroke-width', 4)
@@ -265,7 +265,7 @@ export function NetworkGraphModule({ graph, focusAlert }: Props) {
       nodeGroup.attr('opacity', (node) => (chain.nodeIds.has(node.id) ? 1 : 0.18));
       nodeGroup
         .select<SVGElement>('.node-shape')
-        .attr('stroke', (node) => (chain.nodeIds.has(node.id) ? '#111827' : '#FFFFFF'))
+        .attr('stroke', (node) => (chain.nodeIds.has(node.id) ? '#181d26' : '#FFFFFF'))
         .attr('stroke-width', (node) => (chain.nodeIds.has(node.id) ? 5 : node.id === focusId ? 4 : 3));
       const completedCount = matchingChains.filter((item) => item.terminalType === 'completed_wash').length;
       const holdingCount = matchingChains.length - completedCount;
@@ -309,8 +309,12 @@ export function NetworkGraphModule({ graph, focusAlert }: Props) {
     <section className="h-full">
       <div
         ref={containerRef}
-        className="relative h-full min-h-[720px] overflow-hidden rounded-[24px] bg-white shadow-card"
-        style={{ border: '1px solid #E5E7EB' }}
+        className="relative h-full min-h-[720px] overflow-hidden bg-white"
+        style={{
+          border: '1px solid #e0e2e6',
+          borderRadius: 24,
+          boxShadow: 'rgba(15,48,106,0.05) 0px 0px 20px',
+        }}
       >
         {graph ? (
           <svg ref={svgRef} className="h-full w-full" preserveAspectRatio="xMidYMid meet" />
@@ -323,8 +327,8 @@ export function NetworkGraphModule({ graph, focusAlert }: Props) {
         <Legend />
         {focusAlert && (
           <span
-            className="absolute left-4 top-4 rounded-pill px-3 py-1 text-small-label font-semibold"
-            style={{ backgroundColor: '#FFF7ED', color: '#C2410C' }}
+            className="absolute left-4 top-4 px-3 py-1 text-small-label"
+            style={{ backgroundColor: '#FFF7ED', color: '#C2410C', border: '1px solid #FED7AA', borderRadius: 999, fontWeight: 600 }}
           >
             {focusAlert.accountLabel}
           </span>
@@ -347,16 +351,21 @@ function ZoomControls({
 }) {
   return (
     <div
-      className="absolute bottom-3 right-3 flex overflow-hidden rounded-xl text-sm font-bold shadow-card"
-      style={{ backgroundColor: 'rgba(255,255,255,0.96)', border: '1px solid #E5E7EB' }}
+      className="absolute bottom-3 right-3 flex overflow-hidden text-sm"
+      style={{
+        backgroundColor: '#ffffff',
+        border: '1px solid #e0e2e6',
+        borderRadius: 12,
+        boxShadow: 'rgba(15,48,106,0.05) 0px 0px 20px',
+      }}
     >
-      <button type="button" className="h-10 w-10 text-text-primary hover:bg-app-gray" onClick={onZoomOut} title="Zoom out">
-        -
+      <button type="button" className="h-10 w-10 hover:bg-airtable-soft-surface" style={{ color: '#181d26', fontWeight: 600 }} onClick={onZoomOut} title="Zoom out">
+        −
       </button>
-      <button type="button" className="h-10 w-14 border-x text-text-primary hover:bg-app-gray" style={{ borderColor: '#E5E7EB' }} onClick={onReset} title="Reset zoom">
+      <button type="button" className="h-10 w-14 border-x hover:bg-airtable-soft-surface" style={{ borderColor: '#e0e2e6', color: '#181d26', fontWeight: 600 }} onClick={onReset} title="Reset zoom">
         1:1
       </button>
-      <button type="button" className="h-10 w-10 text-text-primary hover:bg-app-gray" onClick={onZoomIn} title="Zoom in">
+      <button type="button" className="h-10 w-10 hover:bg-airtable-soft-surface" style={{ color: '#181d26', fontWeight: 600 }} onClick={onZoomIn} title="Zoom in">
         +
       </button>
     </div>
@@ -366,13 +375,18 @@ function ZoomControls({
 function ChainSummary({ summary }: { summary: string }) {
   return (
     <div
-      className="absolute left-4 top-4 rounded-xl px-4 py-3 shadow-card"
-      style={{ backgroundColor: 'rgba(255,255,255,0.96)', border: '1px solid #BFDBFE' }}
+      className="absolute left-4 top-4 px-4 py-3"
+      style={{
+        backgroundColor: '#ffffff',
+        border: '1px solid #cfe0f5',
+        borderRadius: 12,
+        boxShadow: 'rgba(15,48,106,0.05) 0px 0px 20px, rgba(45,127,249,0.18) 0px 1px 3px',
+      }}
     >
-      <p className="text-small-label font-semibold uppercase tracking-wide" style={{ color: '#1D4ED8' }}>
+      <p className="text-small-label uppercase" style={{ color: '#1b61c9', letterSpacing: '0.28px', fontWeight: 600 }}>
         Fraud chain
       </p>
-      <p className="mt-1 text-sm font-semibold text-text-primary">{summary}</p>
+      <p className="mt-1 text-sm" style={{ color: '#181d26', fontWeight: 600 }}>{summary}</p>
     </div>
   );
 }
@@ -387,8 +401,13 @@ function Legend() {
   ];
   return (
     <div
-      className="absolute bottom-3 left-3 flex gap-2 rounded-xl p-3 text-caption"
-      style={{ backgroundColor: 'rgba(255,255,255,0.96)', border: '1px solid #E5E7EB' }}
+      className="absolute bottom-3 left-3 flex gap-3 p-3 text-caption"
+      style={{
+        backgroundColor: '#ffffff',
+        border: '1px solid #e0e2e6',
+        borderRadius: 12,
+        boxShadow: 'rgba(15,48,106,0.05) 0px 0px 20px',
+      }}
     >
       {items.map((item) => (
         <div key={item.label} className="flex items-center gap-2">
@@ -404,7 +423,7 @@ function Legend() {
               }}
             />
           )}
-          <span className="text-text-primary">{item.label}</span>
+          <span style={{ color: '#181d26' }}>{item.label}</span>
         </div>
       ))}
     </div>
@@ -414,20 +433,24 @@ function Legend() {
 function NodeInfoPanel({ node, pinned }: { node: NetworkNode; pinned: boolean }) {
   return (
     <aside
-      className="absolute right-4 top-4 z-10 w-[340px] rounded-[18px] bg-white p-5 shadow-elevated"
-      style={{ border: '1px solid #E5E7EB' }}
+      className="absolute right-4 top-4 z-10 w-[340px] bg-white p-5"
+      style={{
+        border: '1px solid #e0e2e6',
+        borderRadius: 16,
+        boxShadow: 'rgba(15,48,106,0.08) 0px 16px 48px, rgba(45,127,249,0.18) 0px 4px 12px',
+      }}
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-small-label uppercase tracking-wide text-muted-text">
+          <p className="text-small-label uppercase" style={{ color: 'rgba(4,14,32,0.55)', letterSpacing: '0.28px', fontWeight: 600 }}>
             {node.type === 'device' ? 'Device' : 'Account'}
           </p>
-          <h4 className="mt-1 text-card-title text-text-primary">{node.label}</h4>
+          <h4 className="mt-1 text-card-title" style={{ color: '#181d26' }}>{node.label}</h4>
         </div>
         {pinned && (
           <span
-            className="rounded-pill px-2 py-1 text-small-label font-semibold"
-            style={{ backgroundColor: '#EFF6FF', color: '#1D4ED8' }}
+            className="px-2 py-1 text-small-label"
+            style={{ backgroundColor: '#eef4fc', color: '#1b61c9', border: '1px solid #cfe0f5', borderRadius: 999, fontWeight: 600 }}
           >
             Pinned
           </span>
@@ -435,8 +458,8 @@ function NodeInfoPanel({ node, pinned }: { node: NetworkNode; pinned: boolean })
       </div>
       {node.flagged && (
         <span
-          className="mt-3 inline-flex rounded-pill px-3 py-1 text-small-label font-semibold"
-          style={{ backgroundColor: '#FEF2F2', color: '#DC2626' }}
+          className="mt-3 inline-flex px-3 py-1 text-small-label"
+          style={{ backgroundColor: '#FEF2F2', color: '#DC2626', border: '1px solid #FCA5A5', borderRadius: 999, fontWeight: 600 }}
         >
           Flagged
         </span>
@@ -455,8 +478,8 @@ function NodeInfoPanel({ node, pinned }: { node: NetworkNode; pinned: boolean })
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <span className="text-caption text-muted-text">{label}</span>
-      <span className="text-sm font-semibold text-text-primary">{value}</span>
+      <span className="text-caption" style={{ color: 'rgba(4,14,32,0.69)' }}>{label}</span>
+      <span className="text-sm" style={{ color: '#181d26', fontWeight: 600 }}>{value}</span>
     </div>
   );
 }

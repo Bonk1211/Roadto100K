@@ -59,25 +59,29 @@ export function DecisionFeed({ runs }: Props) {
 
   return (
     <div
-      className="flex h-full flex-col overflow-hidden rounded-2xl bg-white shadow-card"
-      style={{ border: '1px solid #E5E7EB' }}
+      className="flex h-full flex-col overflow-hidden bg-white"
+      style={{
+        border: '1px solid #e0e2e6',
+        borderRadius: 16,
+        boxShadow: 'rgba(15,48,106,0.05) 0px 0px 20px',
+      }}
     >
       <header
-        className="flex items-center justify-between gap-2 px-4 py-2.5"
-        style={{ backgroundColor: '#0F3B82', color: '#FFFFFF' }}
+        className="flex items-center justify-between gap-2 px-4 py-3"
+        style={{ backgroundColor: '#ffffff', borderBottom: '1px solid #e0e2e6', color: '#181d26' }}
       >
-        <p className="text-small-label uppercase tracking-wide">Decision feed</p>
-        <div className="inline-flex rounded-pill p-0.5" style={{ backgroundColor: 'rgba(255,255,255,0.10)' }}>
+        <p className="text-small-label uppercase" style={{ letterSpacing: '0.28px', fontWeight: 600, color: '#1b61c9' }}>Decision feed</p>
+        <div className="inline-flex p-0.5" style={{ backgroundColor: '#f8fafc', border: '1px solid #e0e2e6', borderRadius: 999 }}>
           <FilterButton id="all" active={filter} onSelect={setFilter} count={decided.length} label="All" />
-          <FilterButton id="block" active={filter} onSelect={setFilter} count={tally.block} label="⛔" />
-          <FilterButton id="warn" active={filter} onSelect={setFilter} count={tally.warn} label="⚠" />
-          <FilterButton id="clear" active={filter} onSelect={setFilter} count={tally.clear} label="✓" />
+          <FilterButton id="block" active={filter} onSelect={setFilter} count={tally.block} label="Block" />
+          <FilterButton id="warn" active={filter} onSelect={setFilter} count={tally.warn} label="Warn" />
+          <FilterButton id="clear" active={filter} onSelect={setFilter} count={tally.clear} label="Clear" />
         </div>
       </header>
 
       <ul className="flex-1 overflow-auto">
         {visible.length === 0 && (
-          <li className="px-5 py-12 text-center text-caption text-muted-text">
+          <li className="px-5 py-12 text-center text-caption" style={{ color: 'rgba(4,14,32,0.69)' }}>
             {decided.length === 0
               ? 'No verifications yet. Inject a test alert above to see live cycles.'
               : 'No matches for this filter.'}
@@ -87,25 +91,24 @@ export function DecisionFeed({ runs }: Props) {
         {visible.map((run) => {
           const palette = verdictPalette(run.final_verdict);
           return (
-            <li key={run.run_id} className="border-t" style={{ borderColor: '#F3F4F6' }}>
+            <li key={run.run_id} className="border-t" style={{ borderColor: '#e0e2e6' }}>
               <button
                 type="button"
                 onClick={() => setSelectedId(run.run_id)}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-app-gray"
+                className="flex w-full items-center gap-2 px-4 py-2.5 text-left transition-colors hover:bg-airtable-soft-surface"
               >
                 <span
-                  className="flex items-center gap-1 rounded-pill px-2 py-1 text-small-label font-bold"
-                  style={{ backgroundColor: palette.fg, color: '#FFFFFF' }}
+                  className="flex items-center gap-1 px-2.5 py-1 text-small-label"
+                  style={{ backgroundColor: palette.fg, color: '#ffffff', borderRadius: 999, fontWeight: 600 }}
                 >
-                  <span className="text-[12px]">{verdictIcon(run.final_verdict)}</span>
                   {palette.label}
                 </span>
 
                 <div className="min-w-0 flex-1 leading-tight">
-                  <p className="truncate font-mono text-small-label font-bold text-text-primary">
+                  <p className="truncate font-mono text-small-label" style={{ color: '#181d26', fontWeight: 600 }}>
                     {shortAlertId(run.alert_id)}
                   </p>
-                  <p className="text-[10px] text-muted-text">
+                  <p className="text-[10px]" style={{ color: 'rgba(4,14,32,0.69)' }}>
                     Risk {Math.round(run.risk_score)} · RM {Math.round(run.amount).toLocaleString('en-MY')} · {relativeTime(run.completed_at ?? run.started_at)}
                   </p>
                 </div>
@@ -123,13 +126,13 @@ export function DecisionFeed({ runs }: Props) {
                     max={latencyMax}
                     avg={latencyAvg}
                   />
-                  <span className="text-[10px] text-muted-text">
+                  <span className="text-[10px]" style={{ color: 'rgba(4,14,32,0.69)' }}>
                     {run.agreement_pct ?? 0}% agree
                   </span>
                 </div>
 
-                <span className="ml-1 text-muted-text" aria-hidden>
-                  ⤢
+                <span className="ml-1" aria-hidden style={{ color: 'rgba(4,14,32,0.55)' }}>
+                  →
                 </span>
               </button>
             </li>
@@ -149,46 +152,50 @@ function DetailModal({ run, onClose }: { run: VerificationRun; onClose: () => vo
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ backgroundColor: 'rgba(15, 23, 42, 0.55)' }}
+      style={{ backgroundColor: 'rgba(24, 29, 38, 0.45)' }}
       onClick={onClose}
       role="dialog"
       aria-modal="true"
     >
       <div
-        className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-elevated"
+        className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden bg-white"
         onClick={(e) => e.stopPropagation()}
+        style={{
+          borderRadius: 24,
+          boxShadow: 'rgba(15,48,106,0.08) 0px 16px 48px, rgba(45,127,249,0.22) 0px 8px 24px',
+          border: '1px solid #e0e2e6',
+        }}
       >
         <header
-          className="flex items-center gap-3 px-5 py-3"
-          style={{ backgroundColor: '#0F3B82', color: '#FFFFFF' }}
+          className="flex items-center gap-3 px-6 py-4"
+          style={{ backgroundColor: '#ffffff', borderBottom: '1px solid #e0e2e6', color: '#181d26' }}
         >
           <span
-            className="flex items-center gap-1 rounded-pill px-3 py-1 text-small-label font-bold"
-            style={{ backgroundColor: palette.fg, color: '#FFFFFF' }}
+            className="flex items-center gap-1 px-3 py-1 text-small-label"
+            style={{ backgroundColor: palette.fg, color: '#ffffff', borderRadius: 999, fontWeight: 600 }}
           >
-            <span className="text-[12px]">{verdictIcon(run.final_verdict)}</span>
             {palette.label}
           </span>
           <div className="min-w-0 flex-1 leading-tight">
-            <p className="truncate font-mono text-feature-title">
+            <p className="truncate font-mono text-feature-title" style={{ color: '#181d26' }}>
               {shortAlertId(run.alert_id)}
             </p>
-            <p className="text-[11px] text-white/70">
+            <p className="text-[11px]" style={{ color: 'rgba(4,14,32,0.69)' }}>
               Risk {Math.round(run.risk_score)} · RM {Math.round(run.amount).toLocaleString('en-MY')} · {relativeTime(run.completed_at ?? run.started_at)} · {run.agreement_pct ?? 0}% agree · {formatLatency(run.total_latency_ms ?? 0)}
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-pill px-3 py-1 text-small-label font-bold transition-colors hover:bg-white/10"
-            style={{ color: '#FFFFFF' }}
+            className="px-3 py-1 text-small-label transition-colors hover:bg-airtable-soft-surface"
+            style={{ color: 'rgba(4,14,32,0.69)', borderRadius: 999, fontWeight: 600 }}
             aria-label="Close detail"
           >
-            ✕
+            Close
           </button>
         </header>
 
-        <div className="flex-1 overflow-auto bg-app-gray px-5 py-4">
+        <div className="flex-1 overflow-auto px-6 py-5" style={{ backgroundColor: '#f8fafc' }}>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {AGENT_ORDER.map((agent) => {
               const f = run.findings.find((x) => x.agent_name === agent);
@@ -197,36 +204,40 @@ function DetailModal({ run, onClose }: { run: VerificationRun; onClose: () => vo
               return (
                 <div
                   key={agent}
-                  className="rounded-xl bg-white p-3 shadow-card"
-                  style={{ border: `1.5px solid ${p.border}` }}
+                  className="bg-white p-4"
+                  style={{
+                    border: `1px solid ${p.border === 'transparent' ? '#e0e2e6' : p.border}`,
+                    borderRadius: 16,
+                    boxShadow: 'rgba(15,48,106,0.05) 0px 0px 20px',
+                  }}
                 >
                   <div className="flex items-center gap-2">
                     <span
-                      className="flex h-8 w-8 items-center justify-center rounded-pill font-bold"
-                      style={{ backgroundColor: '#0055D4', color: '#FFE600' }}
+                      className="flex h-8 w-8 items-center justify-center"
+                      style={{ backgroundColor: '#eef4fc', color: '#1b61c9', borderRadius: 12, fontWeight: 600, border: '1px solid #cfe0f5' }}
                     >
                       {meta.icon}
                     </span>
-                    <p className="text-feature-title text-text-primary">
+                    <p className="text-feature-title" style={{ color: '#181d26' }}>
                       {meta.label}
                     </p>
                     <span
-                      className="ml-auto rounded-pill px-2 py-0.5 text-small-label font-bold"
-                      style={{ backgroundColor: p.fg, color: '#FFFFFF' }}
+                      className="ml-auto px-2 py-0.5 text-small-label"
+                      style={{ backgroundColor: p.fg, color: '#ffffff', borderRadius: 999, fontWeight: 600 }}
                     >
                       {p.label}
                     </span>
                   </div>
                   {f ? (
                     <>
-                      <p className="mt-2 text-caption text-text-primary">{f.reasoning}</p>
-                      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-pill" style={{ backgroundColor: '#F1F5F9' }}>
+                      <p className="mt-2 text-caption" style={{ color: '#181d26' }}>{f.reasoning}</p>
+                      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-pill" style={{ backgroundColor: '#e0e2e6' }}>
                         <div
                           className="h-full rounded-pill"
                           style={{ width: `${f.confidence}%`, backgroundColor: p.fg }}
                         />
                       </div>
-                      <p className="mt-1 text-small-label text-muted-text">
+                      <p className="mt-1 text-small-label" style={{ color: 'rgba(4,14,32,0.69)' }}>
                         {f.confidence}% confidence · {formatLatency(f.latency_ms)}
                       </p>
                       {f.evidence.length > 0 && (
@@ -236,10 +247,10 @@ function DetailModal({ run, onClose }: { run: VerificationRun; onClose: () => vo
                               key={`${run.run_id}_${agent}_${i}`}
                               className="flex items-center justify-between gap-2 text-small-label"
                             >
-                              <span className="text-muted-text">
+                              <span style={{ color: 'rgba(4,14,32,0.69)' }}>
                                 {e.signal.replace(/_/g, ' ')}
                               </span>
-                              <span className="truncate font-mono text-text-primary">
+                              <span className="truncate font-mono" style={{ color: '#181d26' }}>
                                 {String(e.value)}
                               </span>
                             </li>
@@ -248,7 +259,7 @@ function DetailModal({ run, onClose }: { run: VerificationRun; onClose: () => vo
                       )}
                     </>
                   ) : (
-                    <p className="mt-2 text-caption text-muted-text">Awaiting reply…</p>
+                    <p className="mt-2 text-caption" style={{ color: 'rgba(4,14,32,0.55)' }}>Awaiting reply…</p>
                   )}
                 </div>
               );
@@ -257,19 +268,24 @@ function DetailModal({ run, onClose }: { run: VerificationRun; onClose: () => vo
 
           {run.arbiter_reasoning && (
             <div
-              className="mt-4 flex items-start gap-3 rounded-xl p-3"
-              style={{ backgroundColor: '#0F3B82', color: '#FFFFFF' }}
+              className="mt-4 flex items-start gap-3 p-4"
+              style={{ backgroundColor: '#ffffff', color: '#181d26', borderRadius: 16, border: '1px solid #e0e2e6' }}
             >
-              <span className="text-[20px]">⚖️</span>
+              <span
+                className="flex h-9 w-9 items-center justify-center text-feature-title"
+                style={{ backgroundColor: '#eef4fc', color: '#1b61c9', borderRadius: 12, fontWeight: 600 }}
+              >
+                A
+              </span>
               <div className="flex-1">
-                <p className="text-small-label uppercase tracking-wide text-white/70">
+                <p className="text-small-label uppercase" style={{ letterSpacing: '0.28px', fontWeight: 600, color: '#1b61c9' }}>
                   Arbiter
                 </p>
-                <p className="text-caption">{run.arbiter_reasoning}</p>
+                <p className="text-caption" style={{ color: '#181d26' }}>{run.arbiter_reasoning}</p>
               </div>
               <span
-                className="rounded-pill px-3 py-1 text-small-label font-bold"
-                style={{ backgroundColor: palette.fg, color: '#FFFFFF' }}
+                className="px-3 py-1 text-small-label"
+                style={{ backgroundColor: palette.fg, color: '#ffffff', borderRadius: 999, fontWeight: 600 }}
               >
                 {palette.label}
               </span>
@@ -302,10 +318,13 @@ function FilterButton({
         e.stopPropagation();
         onSelect(id);
       }}
-      className="rounded-pill px-2 py-0.5 text-[11px] font-bold transition-colors"
+      className="px-2.5 py-1 text-[11px] transition-colors"
       style={{
-        backgroundColor: isActive ? '#FFE600' : 'transparent',
-        color: isActive ? '#0055D4' : 'rgba(255,255,255,0.85)',
+        backgroundColor: isActive ? '#1b61c9' : 'transparent',
+        color: isActive ? '#ffffff' : 'rgba(4,14,32,0.69)',
+        borderRadius: 999,
+        fontWeight: 600,
+        letterSpacing: '0.08px',
       }}
     >
       {label} <span style={{ opacity: isActive ? 1 : 0.7 }}>{count}</span>
@@ -319,7 +338,7 @@ function LatencyBar({ ms, max, avg }: { ms: number; max: number; avg: number }) 
   const tone = ms < avg ? CHART_COLORS.clear : ms < avg * 1.5 ? CHART_COLORS.warn : CHART_COLORS.block;
   return (
     <div className="flex items-center gap-2" title={`Latency ${formatLatency(ms)} (avg ${formatLatency(avg)})`}>
-      <div className="relative h-1.5 w-24 overflow-hidden rounded-pill" style={{ backgroundColor: '#E5E7EB' }}>
+      <div className="relative h-1.5 w-24 overflow-hidden rounded-pill" style={{ backgroundColor: '#e0e2e6' }}>
         <div
           className="h-full rounded-pill"
           style={{ width: `${pct}%`, backgroundColor: tone }}
@@ -329,31 +348,14 @@ function LatencyBar({ ms, max, avg }: { ms: number; max: number; avg: number }) 
             className="absolute top-0 h-full w-0.5"
             style={{
               left: `${Math.max(0, Math.min(100, Math.round((avg / max) * 100)))}%`,
-              backgroundColor: '#0F3B82',
+              backgroundColor: '#254fad',
               opacity: 0.55,
             }}
           />
         )}
       </div>
-      <span className="font-mono text-small-label text-text-primary">{formatLatency(ms)}</span>
+      <span className="font-mono text-small-label" style={{ color: '#181d26' }}>{formatLatency(ms)}</span>
     </div>
-  );
-}
-
-function FlowChip({ title, subtitle }: { title: string; subtitle: string }) {
-  return (
-    <div className="rounded-xl px-3 py-2" style={{ backgroundColor: '#EAF3FF' }}>
-      <p className="font-mono text-small-label font-bold text-text-primary">{title}</p>
-      <p className="text-[10px] text-muted-text">{subtitle}</p>
-    </div>
-  );
-}
-
-function Arrow() {
-  return (
-    <span className="text-feature-title text-muted-text" aria-hidden>
-      →
-    </span>
   );
 }
 
@@ -369,28 +371,17 @@ function AgentDot({
   const isPending = verdict === null;
   return (
     <span
-      className="relative flex h-8 w-8 items-center justify-center rounded-pill text-[12px] font-bold"
+      className="relative flex h-7 w-7 items-center justify-center text-[11px]"
       style={{
-        backgroundColor: isPending ? '#E5E7EB' : palette.fg,
-        color: isPending ? '#6B7280' : '#FFFFFF',
-        border: `1.5px solid ${isPending ? '#CBD5E1' : palette.border}`,
+        backgroundColor: isPending ? '#f8fafc' : palette.fg,
+        color: isPending ? 'rgba(4,14,32,0.55)' : '#ffffff',
+        border: `1px solid ${isPending ? '#e0e2e6' : palette.border === 'transparent' ? palette.fg : palette.border}`,
+        borderRadius: 8,
+        fontWeight: 600,
       }}
       title={`${meta.label}: ${palette.label}`}
     >
       {meta.icon}
     </span>
   );
-}
-
-function verdictIcon(verdict: 'block' | 'warn' | 'clear' | null): string {
-  switch (verdict) {
-    case 'block':
-      return '⛔';
-    case 'warn':
-      return '⚠';
-    case 'clear':
-      return '✓';
-    default:
-      return '?';
-  }
 }

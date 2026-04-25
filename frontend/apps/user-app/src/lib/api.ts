@@ -9,7 +9,7 @@ import type {
 const baseURL =
   import.meta.env.VITE_API_URL ??
   import.meta.env.VITE_API_BASE_URL ??
-  'http://localhost:4000';
+  'https://yognv4d3gl.execute-api.ap-southeast-1.amazonaws.com/prod';
 
 export const api = axios.create({
   baseURL,

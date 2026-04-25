@@ -5,14 +5,11 @@
   "description": "SafeSend — multi-layer scam prevention demo for Touch 'n Go FinHack hackathon",
   "workspaces": [
     "shared",
-    "services/*",
     "apps/*"
   ],
   "scripts": {
     "install:all": "npm install",
     "dev": "concurrently -n user,agent -c green,magenta \"npm run dev -w apps/user-app\" \"npm run dev -w apps/agent-dashboard\"",
-    "dev:all": "concurrently -n api,user,agent -c blue,green,magenta \"npm run dev -w services/mock-api\" \"npm run dev -w apps/user-app\" \"npm run dev -w apps/agent-dashboard\"",
-    "dev:api": "npm run dev -w services/mock-api",
     "dev:user": "npm run dev -w apps/user-app",
     "dev:agent": "npm run dev -w apps/agent-dashboard",
     "build": "npm run build --workspaces --if-present",
