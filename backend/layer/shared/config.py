@@ -48,6 +48,11 @@ ML_WEIGHT           = 0.6
 # EAS timeout (milliseconds)
 EAS_TIMEOUT_MS = 800
 
+# ---------------------------------------------------------------------------
+# EC2 ML scorer endpoint (replaces Alibaba EAS)
+# ---------------------------------------------------------------------------
+EC2_SCORER_URL = os.environ.get("EC2_SCORER_URL", "http://13.212.182.108/score")
+
 
 # ---------------------------------------------------------------------------
 # SSM Parameter Store loader (cached per cold start)

@@ -1,59 +1,49 @@
 """
-SafeSend Backend — Alibaba EAS Client + Deterministic Fallback
+SafeSend Backend — EC2 ML Scorer Client + Deterministic Fallback
 
-Calls Alibaba EAS Isolation Forest model for ML fraud scoring.
-Falls back to rule-based score if EAS is unreachable.
+Calls EC2 FastAPI Isolation Forest scorer for ML fraud scoring.
+Falls back to rule-based score if EC2 is unreachable.
 """
 
-import json
 import requests
-from .config import get_eas_endpoint, get_eas_api_key, EAS_TIMEOUT_MS
+from .config import EC2_SCORER_URL, EAS_TIMEOUT_MS
+
 
 def call_eas(features: dict) -> dict:
     """
-    Call Alibaba EAS for fraud scoring.
-    
+    Call EC2 FastAPI scorer for fraud scoring.
+
     Args:
-        features: dict with amount_ratio, payee_account_age_days,
-                  is_new_payee, hour_of_day, device_match, prior_txns_to_payee
-    
+        features: dict with all 11 model features
+
     Returns:
         dict with fraud_score (0-100), is_anomaly (bool), model_version
     """
-    endpoint = get_eas_endpoint()
-    api_key = get_eas_api_key()
-
-    if not endpoint:
-        print("[eas] No endpoint configured, using fallback")
+    if not EC2_SCORER_URL:
+        print("[scorer] No EC2_SCORER_URL configured, using fallback")
         return _fallback_score(features)
-
-    payload = {"instances": [features]}
 
     try:
         resp = requests.post(
-            endpoint,
-            json=payload,
-            headers={"Authorization": api_key} if api_key else {},
+            EC2_SCORER_URL,
+            json=features,
             timeout=EAS_TIMEOUT_MS / 1000,
         )
         resp.raise_for_status()
         data = resp.json()
-        prediction = data.get("predictions", [{}])[0]
+        score = data.get("fraud_score", _fallback_score(features)["fraud_score"])
         return {
-            "fraud_score": prediction.get("fraud_score", _fallback_score(features)["fraud_score"]),
-            "is_anomaly": prediction.get("is_anomaly", False),
-            "model_version": prediction.get("model_version", "fallback"),
+            "fraud_score": score,
+            "is_anomaly": score >= 60,
+            "model_version": data.get("model_version", "ec2-isolation-forest"),
         }
     except Exception as e:
-        print(f"[eas] Error calling EAS: {e}")
+        print(f"[scorer] Error calling EC2 scorer: {e}")
         return _fallback_score(features)
 
 
 def _fallback_score(features: dict) -> dict:
-    """
-    Deterministic fallback score (PRD Section 4 — Person C):
-    if amount_ratio > 3 and is_new_payee → score 85, else score 20
-    """
+    """Deterministic fallback — fires if EC2 is unreachable."""
     amount_ratio = features.get("amount_ratio", 0)
     is_new = features.get("is_new_payee", 0)
 
