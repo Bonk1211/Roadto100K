@@ -4,7 +4,6 @@ import AppShell from '../components/AppShell';
 import BilingualToggle from '../components/BilingualToggle';
 import BottomTabBar from '../components/BottomTabBar';
 import QuickActionGrid from '../components/QuickActionGrid';
-import SafeSendBadge from '../components/SafeSendBadge';
 import WalletCard from '../components/WalletCard';
 import { formatRM } from '../lib/format';
 import { t, useLang } from '../lib/i18n';
@@ -20,24 +19,20 @@ export default function Home() {
   const dateLocale = lang === 'en' ? 'en-MY' : 'ms-MY';
 
   return (
-    <AppShell contentClassName="px-0 pb-0" footer={<BottomTabBar lang={lang} />}>
-      <section className="bg-[linear-gradient(180deg,#005BAC_0%,#004B91_100%)] px-4 pb-8 pt-4 text-white">
-        <div className="flex items-start justify-between gap-3">
+    <AppShell contentClassName="px-0 pb-[112px]" footer={<BottomTabBar lang={lang} />}>
+      <section className="bg-[linear-gradient(180deg,#005BAC_0%,#004B91_100%)] px-4 pb-10 pt-4 text-white">
+        <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="text-[12px] font-medium text-white/75">{t('welcomeBack', lang)}</div>
             <div className="mt-1 text-[24px] font-extrabold leading-tight">{currentUser.name}</div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="shrink-0 pt-0.5">
             <BilingualToggle value={lang} onChange={setLang} />
-            <SafeSendBadge size="sm" />
           </div>
-        </div>
-        <div className="mt-4 rounded-[22px] bg-white/10 px-4 py-3 text-[12px] text-white/80">
-          Real-time protection is active while you pay, transfer, and review recipients.
         </div>
       </section>
 
-      <div className="-mt-8 space-y-4 px-4 pb-4 app-screen-enter motion-stagger">
+      <div className="-mt-5 px-4 pb-5 space-y-5 px-4 pb-4 app-screen-enter motion-stagger">
         <WalletCard balance={walletBalance} userName={currentUser.name} lang={lang} />
 
         <QuickActionGrid lang={lang} />

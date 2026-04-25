@@ -40,7 +40,11 @@
 
 @layer components {
   .phone-frame {
-    @apply mx-auto w-full max-w-md min-h-screen relative overflow-hidden;
+    @apply mx-auto w-full max-w-md relative overflow-hidden;
+    height: 100vh;
+    max-height: 100vh;
+    height: 100dvh;
+    max-height: 100dvh;
     background:
       linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(245,247,250,0.98) 18%, #f5f7fa 100%);
   }
@@ -102,5 +106,12 @@
   }
   .collapsible-panel > .collapsible-inner {
     overflow: hidden;
+  }
+  .app-scroll-hidden {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .app-scroll-hidden::-webkit-scrollbar {
+    display: none;
   }
 }
