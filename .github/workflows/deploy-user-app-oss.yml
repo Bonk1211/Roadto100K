@@ -1,0 +1,74 @@
+name: Deploy user-app to Alibaba OSS
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/deploy-user-app-oss.yml"
+      - "frontend/package.json"
+      - "frontend/package-lock.json"
+      - "frontend/shared/**"
+      - "frontend/apps/user-app/**"
+  workflow_dispatch:
+
+concurrency:
+  group: user-app-oss-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      OSS_ACCESS_KEY_ID: ${{ secrets.ALIBABA_OSS_ACCESS_KEY_ID }}
+      OSS_ACCESS_KEY_SECRET: ${{ secrets.ALIBABA_OSS_ACCESS_KEY_SECRET }}
+      OSS_REGION: ${{ vars.ALIBABA_OSS_REGION }}
+      OSS_ENDPOINT: ${{ vars.ALIBABA_OSS_ENDPOINT }}
+      OSS_BUCKET: ${{ vars.ALIBABA_OSS_BUCKET }}
+      OSS_PREFIX: ${{ vars.ALIBABA_OSS_PREFIX }}
+      VITE_API_URL: ${{ vars.USER_APP_API_URL }}
+      VITE_API_KEY: ${{ secrets.USER_APP_API_KEY }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Build user-app
+        run: npm run build -w apps/user-app
+        working-directory: frontend
+
+      - name: Install ossutil
+        run: |
+          curl -fsSL -o ossutil.zip https://gosspublic.alicdn.com/ossutil/v2/2.2.1/ossutil-2.2.1-linux-amd64.zip
+          unzip -q ossutil.zip
+          chmod +x ossutil-2.2.1-linux-amd64/ossutil
+          echo "$PWD/ossutil-2.2.1-linux-amd64" >> "$GITHUB_PATH"
+
+      - name: Validate OSS settings
+        run: |
+          test -n "$OSS_ACCESS_KEY_ID" || (echo "Missing secret: ALIBABA_OSS_ACCESS_KEY_ID" && exit 1)
+          test -n "$OSS_ACCESS_KEY_SECRET" || (echo "Missing secret: ALIBABA_OSS_ACCESS_KEY_SECRET" && exit 1)
+          test -n "$OSS_REGION" || (echo "Missing variable: ALIBABA_OSS_REGION" && exit 1)
+          test -n "$OSS_BUCKET" || (echo "Missing variable: ALIBABA_OSS_BUCKET" && exit 1)
+
+      - name: Deploy dist to OSS
+        run: |
+          DESTINATION="oss://${OSS_BUCKET}/"
+          if [ -n "$OSS_PREFIX" ]; then
+            DESTINATION="oss://${OSS_BUCKET}/${OSS_PREFIX#/}/"
+          fi
+
+          echo "Deploying frontend/apps/user-app/dist to ${DESTINATION}"
+          ossutil sync frontend/apps/user-app/dist/ "$DESTINATION" --force --delete
+

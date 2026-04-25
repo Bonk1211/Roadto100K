@@ -84,3 +84,46 @@ Offline behavior in v1:
 - static shell assets are cached after the first successful load
 - API requests are not cached
 - transfer screening and other backend-backed flows still require network access
+
+## Deploy User App To Alibaba OSS
+
+This repo includes a GitHub Actions workflow at `.github/workflows/deploy-user-app-oss.yml` that builds `frontend/apps/user-app` and syncs the generated `dist/` folder to Alibaba OSS.
+
+### 1. Add GitHub secrets
+
+In your GitHub repository, go to `Settings -> Secrets and variables -> Actions` and create:
+
+- `ALIBABA_OSS_ACCESS_KEY_ID`
+- `ALIBABA_OSS_ACCESS_KEY_SECRET`
+- `USER_APP_API_KEY` (optional, only if your API Gateway requires `x-api-key`)
+
+Use a RAM user with the minimum bucket permissions needed for deploys:
+
+- `oss:ListObjects`
+- `oss:PutObject`
+- `oss:DeleteObject`
+
+### 2. Add GitHub variables
+
+Create these repository variables:
+
+- `ALIBABA_OSS_BUCKET`: your OSS bucket name, for example `my-user-app-bucket`
+- `ALIBABA_OSS_REGION`: your OSS region ID, for example `ap-southeast-1`
+- `ALIBABA_OSS_ENDPOINT`: optional custom endpoint or CNAME endpoint
+- `ALIBABA_OSS_PREFIX`: optional folder inside the bucket, for example `user-app`
+- `USER_APP_API_URL`: optional API base URL injected at build time
+
+If `ALIBABA_OSS_PREFIX` is blank, the app deploys to the bucket root.
+
+### 3. Trigger the workflow
+
+The workflow runs when you push changes to `main` that touch the `user-app`, shared frontend code, or the workflow file itself. You can also run it manually from the GitHub Actions tab using `workflow_dispatch`.
+
+### 4. OSS static website settings
+
+Because `user-app` uses React Router with browser history routes like `/home` and `/transfer`, configure the OSS bucket's static website hosting so refreshes do not fail:
+
+- index document: `index.html`
+- error document: `index.html`
+
+If your bucket is in a Chinese mainland region and was created after March 20, 2025, Alibaba Cloud requires a custom domain (CNAME) for data API operations. If that applies to your bucket, set `ALIBABA_OSS_ENDPOINT` to that custom domain endpoint in GitHub Actions.
