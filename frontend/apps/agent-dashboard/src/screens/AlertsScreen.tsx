@@ -1,19 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { AgentDecision, DashboardStats, NetworkGraph } from 'shared';
+import type { Alert, AgentDecision, DashboardStats } from 'shared';
+import { AlertTable } from '../components/AlertTable.js';
+import { FraudQueryBar } from '../components/FraudQueryBar.js';
+import { FraudQueryResults } from '../components/FraudQueryResults.js';
 import { StatsBar } from '../components/StatsBar.js';
-import { fetchAlerts, fetchNetworkGraph, fetchStats, postDecision } from '../lib/api.js';
-import { buildInvestigationAlerts } from '../lib/investigations/alertAdapter.js';
-import { deriveContainmentCandidates } from '../lib/investigations/containmentAdapter.js';
 import {
-  DEFAULT_QUERY_STATE,
-  runNaturalLanguageQuery,
-} from '../lib/investigations/queryAdapter.js';
-import type { InvestigationAlert, QueryResultState } from '../lib/investigations/types.js';
-import { ContainmentPanel } from '../modules/investigations/ContainmentPanel.js';
-import { InvestigationDetailPanel } from '../modules/investigations/InvestigationDetailPanel.js';
-import { InvestigationQueuePanel } from '../modules/investigations/InvestigationQueuePanel.js';
-import { InvestigationToolbar } from '../modules/investigations/InvestigationToolbar.js';
-import { NlpQueryDrawer } from '../modules/investigations/NlpQueryDrawer.js';
+  fetchAlerts,
+  fetchStats,
+  postDecision,
+  type FraudQueryResponse,
+} from '../lib/api.js';
+import { AlertDetail } from './AlertDetail.js';
 
 const POLL_INTERVAL_MS = 5000;
 
@@ -32,6 +29,7 @@ export function AlertsScreen() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
   const [loading, setLoading] = useState(true);
+  const [queryResults, setQueryResults] = useState<FraudQueryResponse | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -121,32 +119,61 @@ export function AlertsScreen() {
     }
   }
 
-  function resetQuery() {
-    setQuery('');
-  }
+  const showingQuery = queryResults !== null;
 
   return (
     <div className="flex h-full flex-col gap-6">
       <StatsBar stats={stats} />
 
-      <InvestigationToolbar
-        filteredCount={filtered.length}
-        totalCount={alerts.length}
-        queryActive={query.trim().length > 0}
-        queryState={queryState}
-        onOpenDrawer={() => setDrawerOpen(true)}
-      />
+      <FraudQueryBar onResults={setQueryResults} />
 
-      <div className="grid flex-1 grid-cols-1 gap-6 2xl:grid-cols-[minmax(340px,1.15fr)_minmax(420px,1fr)_minmax(360px,0.9fr)]">
-        <InvestigationQueuePanel
-          alerts={filtered}
-          selectedId={selected?.alert.id ?? null}
-          loading={loading}
-          onSelect={setSelectedId}
-        />
+      <div className="grid flex-1 grid-cols-1 gap-6 xl:grid-cols-[minmax(0,2.1fr)_minmax(420px,1fr)]">
+        <div className="flex flex-col gap-4 overflow-hidden">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-section-heading text-text-primary">
+                {showingQuery ? 'Query results' : 'Live alert queue'}
+              </h2>
+              <p className="text-caption text-muted-text">
+                {showingQuery
+                  ? `${queryResults!.count} match${queryResults!.count === 1 ? '' : 'es'} for "${queryResults!.question}"`
+                  : loading
+                    ? 'Loading flagged transactions…'
+                    : `${filtered.length} alert${filtered.length === 1 ? '' : 's'} · refreshes every ${POLL_INTERVAL_MS / 1000}s`}
+              </p>
+            </div>
+            <div
+              className="inline-flex rounded-pill p-1"
+              style={{ backgroundColor: '#EAF3FF' }}
+            >
+              {(['all', 'open', 'decided'] as const).map((opt) => (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => setFilter(opt)}
+                  className="rounded-pill px-4 py-1 text-small-label font-semibold capitalize transition-colors"
+                  style={{
+                    backgroundColor: filter === opt ? '#005BAC' : 'transparent',
+                    color: filter === opt ? '#FFFFFF' : '#005BAC',
+                  }}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+          </div>
 
-        <div className="min-h-0">
-          <InvestigationDetailPanel alert={selected} onDecide={handleDecide} />
+          <div className="flex-1 overflow-auto">
+            {showingQuery ? (
+              <FraudQueryResults alerts={queryResults!.alerts} />
+            ) : (
+              <AlertTable
+                alerts={filtered}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+              />
+            )}
+          </div>
         </div>
 
         <div className="min-h-0">
