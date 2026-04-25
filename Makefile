@@ -1,22 +1,20 @@
-.PHONY: help install dev dev-all stop restart clean api user agent build typecheck status \
+.PHONY: help install dev stop restart clean user agent build typecheck status \
         backend-build backend-deploy backend-logs api-url
 
-PORTS := 4000 5173 5175
+PORTS := 5173 5175
 API_URL := https://yognv4d3gl.execute-api.ap-southeast-1.amazonaws.com/prod
 STACK   := safesend-backend
 REGION  := ap-southeast-1
 RDS_PWD ?= Roadto100K
 
 help:
-	@echo "SafeSend — make targets"
+	@echo "SafeSend — make targets (AWS Lambda backend)"
 	@echo ""
 	@echo "  Frontend"
 	@echo "    make install         install all workspace deps"
-	@echo "    make dev             start user-app + agent-dashboard (deployed AWS backend)"
-	@echo "    make dev-all         start user, agent, AND local mock-api (legacy)"
+	@echo "    make dev             start user-app + agent-dashboard"
 	@echo "    make user            user-app only         (:5173)"
 	@echo "    make agent           agent-dashboard only  (:5175)"
-	@echo "    make api             local mock-api only   (:4000) — legacy/optional"
 	@echo "    make stop            kill anything on ports $(PORTS)"
 	@echo "    make restart         stop + dev"
 	@echo "    make status          show what is running on ports $(PORTS)"
@@ -29,19 +27,13 @@ help:
 	@echo "    make backend-logs    tail fraud-query lambda logs"
 	@echo "    make api-url         print deployed API Gateway URL"
 	@echo ""
-	@echo "    make clean           remove node_modules + dist"
+	@echo "    make clean           remove node_modules + dist + .aws-sam"
 
 install:
 	cd frontend && npm install
 
 dev:
 	cd frontend && npm run dev
-
-dev-all:
-	cd frontend && npm run dev:all
-
-api:
-	cd frontend && npm run dev:api
 
 user:
 	cd frontend && npm run dev:user

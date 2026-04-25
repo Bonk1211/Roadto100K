@@ -2,7 +2,7 @@
 
 ## Architecture
 
-The frontend is a **monorepo** with npm workspaces containing three React (Vite) apps and a mock API server.
+The frontend is a **monorepo** with npm workspaces containing three React (Vite) apps. Backend is **AWS Lambda + API Gateway** (SAM stack `safesend-backend`).
 
 ```
 frontend/
@@ -10,8 +10,6 @@ frontend/
 │   ├── user-app/          # TnG Transfer Flow + SafeSend Warning Screen
 │   ├── plugin/            # Layer 1 Scam Message Detector Demo
 │   └── agent-dashboard/   # Agent Dashboard (internal analyst tool)
-├── services/
-│   └── mock-api/          # Express mock server (mirrors Lambda responses)
 ├── shared/                # Shared types, design tokens, mock data
 ├── package.json           # Workspace root
 ├── tailwind.preset.js     # Shared Tailwind config
@@ -23,37 +21,35 @@ frontend/
 ```bash
 cd frontend
 npm install
-npm run dev          # Starts all 4 services concurrently
+npm run dev          # Starts user-app + agent-dashboard concurrently
 ```
 
 ## Ports
 
 | Port | Service |
 |------|---------|
-| 4000 | mock-api (Express) |
 | 5173 | user-app (Vite) |
 | 5174 | plugin (Vite) |
 | 5175 | agent-dashboard (Vite) |
 
-## Switching to Real Backend
+## Backend Endpoint
 
-Set these in `frontend/.env`:
+Apps call the deployed API Gateway by default. Override per-app via `.env`:
 
 ```bash
-# Local mock:
-VITE_API_BASE_URL="http://localhost:4000"
-
-# AWS API Gateway (production):
-VITE_API_BASE_URL="https://{api-id}.execute-api.ap-southeast-1.amazonaws.com/prod"
+# AWS API Gateway:
+VITE_API_URL="https://yognv4d3gl.execute-api.ap-southeast-1.amazonaws.com/prod"
 
 # Optional when API Gateway is protected by an API key:
 VITE_API_KEY="your-api-key"
 ```
 
+Deploy backend with `make backend-deploy` from repo root.
+
 ## Tech Stack
 
 - **React 18** + **Vite 5** + **TypeScript**
-- **Tailwind CSS 3.4** (dark theme for dashboard, TnG blue for user app)
+- **Tailwind CSS 3.4** (Airtable design system on agent-dashboard, TnG blue on user-app)
 - **D3.js v7** (network graph)
 - **Recharts 2.x** (charts)
 - **Axios** (HTTP client)

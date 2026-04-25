@@ -1,16 +1,14 @@
-.PHONY: help install dev dev-all stop restart clean api user agent build typecheck status
+.PHONY: help install dev stop restart clean user agent build typecheck status
 
-PORTS := 4000 5173 5175
+PORTS := 5173 5175
 
 help:
-	@echo "SafeSend frontend — make targets"
+	@echo "SafeSend frontend — make targets (AWS Lambda backend)"
 	@echo "  make install     install all workspace deps"
-	@echo "  make dev         user-app + agent-dashboard (deployed AWS backend)"
-	@echo "  make dev-all     user + agent + local mock-api (legacy)"
+	@echo "  make dev         user-app + agent-dashboard"
 	@echo "  make stop        kill anything on ports $(PORTS)"
 	@echo "  make restart     stop + dev"
 	@echo "  make status      show what is running on ports $(PORTS)"
-	@echo "  make api         local mock-api only (:4000)"
 	@echo "  make user        user-app only       (:5173)"
 	@echo "  make agent       agent-dashboard     (:5175)"
 	@echo "  make build       build all workspaces"
@@ -22,12 +20,6 @@ install:
 
 dev:
 	npm run dev
-
-dev-all:
-	npm run dev:all
-
-api:
-	npm run dev:api
 
 user:
 	npm run dev:user

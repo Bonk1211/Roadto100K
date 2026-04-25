@@ -4,7 +4,9 @@ import type {
   AgentDecision,
   ContainmentExecutionResponse,
   DashboardStats,
+  NetworkEdge,
   NetworkGraph,
+  NetworkNode,
   RiskBand,
   RiskSignal,
   Transaction,
@@ -15,7 +17,7 @@ import type {
 const baseURL =
   import.meta.env.VITE_API_URL ??
   import.meta.env.VITE_API_BASE_URL ??
-  'http://localhost:4000';
+  'https://yognv4d3gl.execute-api.ap-southeast-1.amazonaws.com/prod';
 
 export const api = axios.create({ baseURL, timeout: 8000 });
 if (import.meta.env.VITE_API_KEY) {
@@ -202,9 +204,84 @@ export async function fetchStats(): Promise<DashboardStats> {
   };
 }
 
+interface BackendGraphNode {
+  id: string;
+  type?: string;
+  label?: string;
+  flagged?: boolean;
+  risk_score?: number;
+  status?: string;
+  account_age_days?: number;
+  cluster_id?: number | string;
+  is_focal?: boolean;
+  metadata?: Record<string, string | number | boolean>;
+}
+
+interface BackendGraphEdge {
+  source: string;
+  target: string;
+  type?: string;
+  relationship?: string;
+  weight?: number;
+  label?: string;
+}
+
+const EDGE_TYPE_MAP: Record<string, NetworkEdge['type']> = {
+  transaction: 'transaction',
+  transferred_to: 'transaction',
+  payment: 'transaction',
+  shared_device: 'shared_device',
+  used_device: 'shared_device',
+  same_device: 'shared_device',
+  shared_ip: 'shared_ip',
+  same_ip: 'shared_ip',
+  overlapping_timing: 'overlapping_timing',
+  same_registration_time: 'overlapping_timing',
+  same_card_bin: 'same_card_bin',
+  same_bin: 'same_card_bin',
+  shared_attribute: 'shared_attribute',
+};
+
+function adaptGraphNode(n: BackendGraphNode): NetworkNode {
+  const score = n.risk_score ?? 0;
+  const flagged =
+    n.flagged ??
+    (n.is_focal === true ||
+      n.status === 'blocked' ||
+      n.status === 'flagged' ||
+      score >= 70);
+  const metadata: Record<string, string | number | boolean> = { ...(n.metadata ?? {}) };
+  if (n.risk_score != null) metadata.risk_score = n.risk_score;
+  if (n.status) metadata.status = n.status;
+  if (n.account_age_days != null) metadata.account_age_days = n.account_age_days;
+  if (n.cluster_id != null) metadata.cluster_id = String(n.cluster_id);
+  if (n.is_focal) metadata.focal = true;
+  return {
+    id: n.id,
+    type: n.type === 'device' ? 'device' : 'account',
+    label: n.label ?? n.id,
+    flagged: Boolean(flagged),
+    metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
+  };
+}
+
+function adaptGraphEdge(e: BackendGraphEdge): NetworkEdge {
+  const raw = (e.type ?? e.relationship ?? '').toLowerCase();
+  const type = EDGE_TYPE_MAP[raw] ?? 'shared_attribute';
+  return {
+    source: e.source,
+    target: e.target,
+    type,
+    weight: e.weight,
+  };
+}
+
 export async function fetchNetworkGraph(): Promise<NetworkGraph> {
-  const { data } = await api.get<NetworkGraph>('/api/network-graph');
-  return data;
+  const { data } = await api.get<{ nodes: BackendGraphNode[]; edges: BackendGraphEdge[] }>('/api/network-graph');
+  return {
+    nodes: (data.nodes ?? []).map(adaptGraphNode),
+    edges: (data.edges ?? []).map(adaptGraphEdge),
+  };
 }
 
 export interface DecisionResponse {
