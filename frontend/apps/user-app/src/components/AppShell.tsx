@@ -44,7 +44,7 @@ export default function AppShell({
       </div>
 
       <div className="relative z-10 flex min-h-screen flex-col">
-        <main className={['flex-1 px-4 pb-6', contentClassName].join(' ').trim()}>
+        <main className={['flex-1 px-4 pb-5', contentClassName].join(' ').trim()}>
           {children}
         </main>
         {footer}

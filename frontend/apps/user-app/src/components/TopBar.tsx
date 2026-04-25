@@ -30,7 +30,7 @@ export default function TopBar({
       : 'border border-white/15 bg-white/12 text-white';
 
   return (
-    <header className={['relative z-10 px-4 pt-5 pb-4', themeClass].join(' ')}>
+    <header className={['relative z-10 px-4 pt-4 pb-4', themeClass].join(' ')}>
       <div className="flex items-start gap-3">
         {onBack ? (
           <button
@@ -46,11 +46,11 @@ export default function TopBar({
 
         <div className="min-w-0 flex-1">
           {badge ? <div className="mb-2">{badge}</div> : null}
-          <h1 className="text-[22px] font-extrabold leading-tight">{title}</h1>
+          <h1 className="text-[18px] font-extrabold leading-tight">{title}</h1>
           {subtitle ? (
-            <p className={theme === 'light' ? 'mt-1 text-[12px] text-muted-text' : 'mt-1 text-[12px] text-white/75'}>
+            <div className={theme === 'light' ? 'mt-1 text-[12px] text-muted-text' : 'mt-1 text-[12px] text-white/75'}>
               {subtitle}
-            </p>
+            </div>
           ) : null}
         </div>
 

@@ -8,7 +8,8 @@
   }
   body {
     font-family: 'Inter', 'SF Pro Display', 'Segoe UI', sans-serif;
-    background-color: #F5F7FA;
+    background:
+      radial-gradient(circle at top, #dfeeff 0%, #f5f7fa 34%, #eef3f8 100%);
     color: #111827;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -17,26 +18,41 @@
 
 @layer components {
   .phone-frame {
-    @apply mx-auto w-full max-w-md min-h-screen bg-app-gray relative;
+    @apply mx-auto w-full max-w-md min-h-screen relative overflow-hidden;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(245,247,250,0.98) 18%, #f5f7fa 100%);
   }
   .btn-primary {
-    @apply h-[52px] w-full rounded-lg bg-tng-blue text-white font-bold text-[16px]
-           transition-colors active:bg-primary-pressed hover:bg-primary-hover
+    @apply h-[54px] w-full rounded-2xl bg-tng-blue text-white font-bold text-[16px]
+           shadow-card transition-all active:bg-primary-pressed hover:bg-primary-hover
            disabled:opacity-50 disabled:cursor-not-allowed;
   }
   .btn-danger {
-    @apply h-[52px] w-full rounded-lg bg-risk-red text-white font-bold text-[16px]
+    @apply h-[54px] w-full rounded-2xl bg-risk-red text-white font-bold text-[16px]
            transition-colors active:bg-red-700 hover:bg-red-700;
   }
   .btn-secondary {
-    @apply h-[52px] w-full rounded-lg bg-soft-blue-surface text-tng-blue font-bold text-[16px]
+    @apply h-[54px] w-full rounded-2xl border border-sky-blue bg-soft-blue-surface text-tng-blue font-bold text-[16px]
            transition-colors hover:bg-sky-blue;
   }
   .btn-ghost {
-    @apply h-[52px] w-full rounded-lg bg-transparent text-tng-blue font-bold text-[16px]
-           border border-border-gray hover:bg-app-gray;
+    @apply h-[54px] w-full rounded-2xl border border-border-gray bg-white text-tng-blue font-bold text-[16px]
+           backdrop-blur hover:bg-white;
   }
   .card {
-    @apply bg-white rounded-lg shadow-card border border-border-gray;
+    @apply rounded-2xl border border-white bg-white shadow-card backdrop-blur;
+  }
+  .app-panel {
+    @apply rounded-[28px] border border-white bg-white shadow-card backdrop-blur;
+  }
+  .app-input {
+    @apply w-full rounded-2xl border border-sky-blue bg-white px-4 text-[16px] text-text-primary outline-none transition-colors placeholder:text-muted-text focus:border-tng-blue;
+  }
+  .section-label {
+    @apply text-[11px] font-extrabold uppercase tracking-[0.16em] text-tng-blue;
+  }
+  .bottom-action-bar {
+    @apply sticky bottom-0 left-0 right-0 border-t border-white bg-white px-4 pt-3 backdrop-blur;
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
   }
 }

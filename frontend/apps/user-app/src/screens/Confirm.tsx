@@ -1,36 +1,44 @@
 import { useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { LoadingDots, currentUser, type ScreenTransactionResponse } from 'shared';
 import AppShell from '../components/AppShell';
+import BalanceSnapshotCard from '../components/BalanceSnapshotCard';
 import BilingualToggle from '../components/BilingualToggle';
+import BottomActionBar from '../components/BottomActionBar';
+import FlowHeader from '../components/FlowHeader';
+import RecipientSummaryCard from '../components/RecipientSummaryCard';
 import SafeSendBadge from '../components/SafeSendBadge';
-import TopBar from '../components/TopBar';
-import type { TransferConfirmState } from '../lib/flow';
 import { formatRM, maskAccount } from '../lib/format';
 import { screenTransaction, submitUserChoice } from '../lib/api';
 import { useLang } from '../lib/i18n';
+import { useTransferSession } from '../lib/transfer-session';
 
 export default function Confirm() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const state = (location.state as TransferConfirmState | null) ?? null;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [softWarning, setSoftWarning] = useState<ScreenTransactionResponse | null>(null);
   const [choicePending, setChoicePending] = useState<'cancel' | 'proceed' | null>(null);
   const [lang, setLang] = useLang();
+  const {
+    walletBalance,
+    transfer,
+    remainingBalance,
+    setTransferScreening,
+    completeTransfer,
+  } = useTransferSession();
 
   const formattedTimestamp = useMemo(
     () => new Date().toLocaleString('en-MY', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' }),
     [],
   );
 
-  if (!state?.payee) {
+  if (!transfer.payee || transfer.amount <= 0) {
     navigate('/transfer', { replace: true });
     return null;
   }
 
-  const { payee, amount, note, sessionId } = state;
+  const { payee, amount, note, sessionId } = transfer;
 
   const handleConfirm = async () => {
     setLoading(true);
@@ -49,12 +57,8 @@ export default function Confirm() {
       });
 
       if (result.action === 'hard_intercept') {
-        navigate('/intercept', {
-          state: {
-            ...state,
-            screening: result,
-          },
-        });
+        setTransferScreening(result);
+        navigate('/intercept');
         return;
       }
 
@@ -63,9 +67,8 @@ export default function Confirm() {
         return;
       }
 
-      navigate('/done', {
-        state: { payee, amount, status: 'success' },
-      });
+      completeTransfer('success');
+      navigate('/done', { state: { status: 'success' } });
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Transaction screening failed';
       setError(msg);
@@ -85,13 +88,9 @@ export default function Confirm() {
         user_id: currentUser.id,
         choice,
       });
-      navigate('/done', {
-        state: {
-          payee,
-          amount,
-          status: choice === 'proceed' ? 'soft_warn_proceed' : 'soft_warn_cancelled',
-        },
-      });
+      const status = choice === 'proceed' ? 'soft_warn_proceed' : 'soft_warn_cancelled';
+      completeTransfer(status);
+      navigate('/done', { state: { status } });
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Could not save your choice';
       setError(msg);
@@ -104,7 +103,7 @@ export default function Confirm() {
   return (
     <AppShell
       footer={(
-        <div className="sticky bottom-0 border-t border-white/70 bg-white/88 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur">
+        <BottomActionBar>
           <button onClick={handleConfirm} disabled={loading} className="btn-primary">
             {loading && !softWarning ? (
               <LoadingDots label="Running SafeSend screening" tone="inverse" size="sm" />
@@ -112,23 +111,21 @@ export default function Confirm() {
               `Confirm transfer ${formatRM(amount)}`
             )}
           </button>
-        </div>
+        </BottomActionBar>
       )}
     >
-      <TopBar
+      <FlowHeader
         title={lang === 'en' ? 'Confirm transfer' : 'Sahkan pemindahan'}
-        subtitle={lang === 'en'
-          ? 'Step 3 of 3 - SafeSend check before sending'
-          : 'Langkah 3 / 3 - semakan SafeSend sebelum hantar'}
         onBack={() => navigate(-1)}
         theme="light"
         right={<BilingualToggle value={lang} onChange={setLang} />}
-        badge={<div className="section-label">Review & protect</div>}
+        eyebrow="Review & protect"
+        step="Step 3 of 3"
       />
 
-      <div className="space-y-4 pt-2">
+      <div className="-mt-5 space-y-4 rounded-t-[32px] bg-app-gray pt-4">
         <section className="app-panel overflow-hidden">
-          <div className="bg-[linear-gradient(135deg,#071B33_0%,#0A274A_100%)] px-5 py-5 text-white">
+          <div className="bg-[linear-gradient(135deg,#005BAC_0%,#004B91_100%)] px-5 py-5 text-white">
             <div className="text-[12px] font-semibold uppercase tracking-[0.16em] text-white/70">
               You are sending
             </div>
@@ -145,19 +142,13 @@ export default function Confirm() {
             <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-text">
               To
             </div>
-            <div className="mt-3 flex items-start gap-3">
-              <div className="grid h-12 w-12 place-items-center rounded-[20px] bg-[linear-gradient(180deg,#F8FBFF_0%,#EAF3FF_100%)] text-[18px] font-bold text-tng-blue shadow-sm">
-                {payee.name.charAt(0)}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-card-title text-text-primary">{payee.name}</div>
-                <div className="mt-0.5 text-[13px] font-mono text-muted-text">
-                  TnG - {maskAccount(payee.account)}
-                </div>
-                <div className="mt-1 text-[12px] text-muted-text">
-                  Account opened {payee.account_age_days} days ago
-                </div>
-              </div>
+            <div className="mt-3">
+              <RecipientSummaryCard
+                name={payee.name}
+                detail={`TnG - ${maskAccount(payee.account)}`}
+                subdetail={`Account opened ${payee.account_age_days} days ago`}
+                badge={!payee.flagged_in_scam_graph ? 'Verified' : undefined}
+              />
             </div>
           </div>
         </section>
@@ -168,6 +159,12 @@ export default function Confirm() {
           {note && <Row label="Note" value={note} />}
           <Row label="Total" value={formatRM(amount)} valueClass="text-[18px] font-extrabold text-text-primary" />
         </section>
+
+        <BalanceSnapshotCard
+          walletBalance={walletBalance}
+          amount={amount}
+          remainingBalance={remainingBalance}
+        />
 
         <section className="app-panel flex items-start gap-3 p-4">
           <div className="grid h-11 w-11 place-items-center rounded-2xl bg-soft-blue-surface text-tng-blue shadow-sm">

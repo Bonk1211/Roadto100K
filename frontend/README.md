@@ -58,3 +58,33 @@ VITE_API_KEY="your-api-key"
 - **Recharts 2.x** (charts)
 - **Axios** (HTTP client)
 - **React Router v6** (routing)
+- **vite-plugin-pwa** (installable user-app shell)
+
+## User App PWA
+
+The `user-app` is configured as the first installable PWA in this repo.
+
+Local checks:
+
+```bash
+cd frontend
+npm run dev:user
+```
+
+Then open `http://localhost:5173` and confirm:
+- the manifest is visible in the browser application tools
+- the service worker registers without console errors
+- the app is installable in a supported browser
+
+Production-style validation:
+
+```bash
+cd frontend
+npm run build -w apps/user-app
+npm run preview -w apps/user-app
+```
+
+Offline behavior in v1:
+- static shell assets are cached after the first successful load
+- API requests are not cached
+- transfer screening and other backend-backed flows still require network access

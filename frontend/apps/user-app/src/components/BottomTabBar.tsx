@@ -77,7 +77,7 @@ export default function BottomTabBar({ lang }: Props) {
   const activeKey: TabKey = location.pathname.startsWith('/home') ? 'home' : 'home';
 
   return (
-    <nav className="sticky bottom-0 left-0 right-0 bg-white border-t border-border-gray pt-2 pb-[env(safe-area-inset-bottom)]">
+    <nav className="sticky bottom-0 left-0 right-0 border-t border-white/70 bg-white/94 pt-2 backdrop-blur">
       <div className="grid grid-cols-5">
         {tabs.map((tab) => {
           const active = tab.key === activeKey;
@@ -85,9 +85,9 @@ export default function BottomTabBar({ lang }: Props) {
             <button
               key={tab.key}
               onClick={() => navigate(tab.to)}
-              className="flex flex-col items-center gap-0.5 py-1.5"
+              className="flex flex-col items-center gap-1 py-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
             >
-              <span className={active ? 'text-tng-blue' : 'text-muted-text'}>
+              <span className={active ? 'rounded-full bg-soft-blue-surface p-2 text-tng-blue' : 'p-2 text-muted-text'}>
                 {tab.icon(active)}
               </span>
               <span className={`text-[11px] font-semibold ${active ? 'text-tng-blue' : 'text-muted-text'}`}>
