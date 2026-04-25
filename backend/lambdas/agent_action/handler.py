@@ -3,9 +3,9 @@ Lambda: agent-action
 
 Action handler for the agent dashboard. Receives Block / Warn / Clear
 from the agent and triggers downstream actions:
-- Block → SNS SMS + DynamoDB update + OSS label write
-- Warn  → DynamoDB update + in-app flag + OSS label write
-- Clear → DynamoDB update + OSS label write (false positive)
+- Block → SNS SMS + PostgreSQL update + OSS label write
+- Warn  → PostgreSQL update + in-app flag + OSS label write
+- Clear → PostgreSQL update + OSS label write (false positive)
 """
 
 import json
@@ -50,7 +50,7 @@ def handler(event, context):
     if not alert:
         return _error_response(404, "NOT_FOUND", f"Alert {txn_id} not found")
 
-    # Update DynamoDB
+    # Update PostgreSQL
     new_status = action_to_status(action)
     decided_at = now_iso()
     updated = update_alert_status(txn_id, new_status, agent_id, decided_at, notes)
@@ -77,7 +77,7 @@ def handler(event, context):
         "agent_id": agent_id,
         "timestamp": decided_at,
         "downstream_actions": {
-            "dynamodb_updated": updated is not None,
+            "db_updated": updated is not None,
             "sms_sent": sms_sent,
             "sms_to": sms_to,
             "oss_label_written": oss_label_written,

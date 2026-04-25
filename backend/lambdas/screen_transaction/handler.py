@@ -10,7 +10,7 @@ Flow:
 4. Compute final_score = 0.4 * rule_score + 0.6 * ml_score
 5. Determine action: proceed / soft_warn / hard_intercept
 6. If hard_intercept → call Bedrock for bilingual explanation
-7. Write alert to DynamoDB (if score > 40)
+7. Write alert to PostgreSQL (if score > 40)
 8. Publish event to Kinesis
 9. Return response per PRD Section 7.2
 """
@@ -201,7 +201,7 @@ def handler(event, context):
             fallback_scam_type=scam_type,
         )
 
-    # --- Step 5: Write alert to DynamoDB (if score >= 40) ---
+    # --- Step 5: Write alert to PostgreSQL (if score >= 40) ---
     if final_score >= RISK_THRESHOLD_LOW:
         alert_record = {
             "txn_id": txn_id,

@@ -19,7 +19,7 @@ API Gateway (HTTP API) → /api/*
 
 | Service | Purpose |
 |---------|---------|
-| **DynamoDB** | `SafeSendAlerts` table — alert state store |
+| **AWS RDS** | PostgreSQL instance — alert state store |
 | **Kinesis** | `safesend-events` stream — event log |
 | **Bedrock** | `anthropic.claude-3-haiku` — bilingual scam explanations |
 | **SNS** | `safesend-user-alerts` — SMS on block action |
@@ -33,11 +33,11 @@ backend/
 │   ├── screen_transaction/    # Rule engine + EAS + Bedrock orchestrator
 │   ├── analyse_message/       # Layer 1 NLP scam phrase detector
 │   ├── agent_action/          # Block / Warn / Clear action handler
-│   ├── get_alerts/            # Paginated DynamoDB query
+│   ├── get_alerts/            # Paginated PostgreSQL query
 │   ├── get_stats/             # Aggregation function
 │   └── get_network_graph/     # Graph data from OSS
 ├── shared/                    # Shared utilities across lambdas
-│   ├── db.py                  # DynamoDB helpers
+│   ├── db.py                  # PostgreSQL helpers
 │   ├── kinesis.py             # Kinesis event publisher
 │   ├── bedrock.py             # Bedrock LLM client
 │   ├── sns.py                 # SNS SMS sender
@@ -74,7 +74,11 @@ sam deploy            # subsequent
 
 | Variable | Source | Description |
 |----------|--------|-------------|
-| `DYNAMODB_TABLE` | hardcoded | `SafeSendAlerts` |
+| `RDSHOST` | env | RDS Endpoint |
+| `RDSPORT` | env | RDS Port (default 5432) |
+| `RDSDBNAME` | env | Database name |
+| `RDSUSER` | env | Username |
+| `RDSPASSWORD` | env | Password |
 | `KINESIS_STREAM` | hardcoded | `safesend-events` |
 | `SNS_TOPIC_ARN` | env | SNS topic for user SMS |
 | `BEDROCK_MODEL_ID` | env | `anthropic.claude-3-haiku-20240307-v1:0` |

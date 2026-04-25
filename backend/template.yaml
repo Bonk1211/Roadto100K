@@ -2,7 +2,7 @@ AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: >
   SafeSend — Multi-layer scam prevention system for Touch 'n Go FinHack.
-  AWS SAM template for Lambda functions, API Gateway, DynamoDB, Kinesis, SNS.
+  AWS SAM template for Lambda functions, API Gateway, PostgreSQL (RDS), Kinesis, SNS.
 
 Globals:
   Function:
@@ -205,9 +205,7 @@ Outputs:
     Description: API Gateway endpoint URL
     Value: !Sub "https://${SafeSendApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}"
 
-  AlertsTableName:
-    Description: DynamoDB table name
-    Value: !Ref AlertsTable
+
 
   EventsStreamName:
     Description: Kinesis stream name
