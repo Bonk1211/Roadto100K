@@ -80,13 +80,13 @@ export default function Intercept() {
           </div>
           <div className="text-[20px] font-extrabold mt-2 leading-tight">
             {lang === 'en'
-              ? 'Hold on - this transfer looks risky'
-              : 'Tunggu sebentar - pemindahan ini kelihatan berisiko'}
+              ? 'Hard stop - this transfer looks risky'
+              : 'Henti dahulu - pemindahan ini kelihatan berisiko'}
           </div>
           <div className="text-[12px] opacity-80 mt-1">
             {lang === 'en'
-              ? 'We paused the payment so you can double-check before any money leaves your wallet.'
-              : 'Kami hentikan bayaran ini supaya anda boleh semak sekali lagi sebelum wang keluar dari dompet anda.'}
+              ? 'SafeSend paused the payment before money left your wallet.'
+              : 'SafeSend menghentikan bayaran ini sebelum wang keluar dari dompet anda.'}
           </div>
         </div>
         <BilingualToggle value={lang} onChange={setLang} />
@@ -137,7 +137,7 @@ export default function Intercept() {
           </div>
         </div>
 
-        <details className="card p-4 group" open>
+        <details className="card p-4 group">
           <summary className="cursor-pointer list-none flex items-center justify-between">
             <span className="text-[13px] font-bold text-text-primary uppercase tracking-wider">
               {lang === 'en' ? 'Read in both languages' : 'Baca dalam dua bahasa'}
@@ -176,23 +176,6 @@ export default function Intercept() {
           </ul>
         </section>
 
-        <section className="rounded-xl p-4 bg-soft-blue-surface border border-sky-blue">
-          <div className="text-[13px] font-bold text-tng-blue uppercase tracking-wider">
-            {lang === 'en' ? 'Before you continue' : 'Sebelum anda teruskan'}
-          </div>
-          <ul className="mt-2 space-y-1.5 text-[13px] text-text-primary">
-            <li>{lang === 'en'
-              ? 'Call the recipient using a number you already trust.'
-              : 'Telefon penerima menggunakan nombor yang anda sudah percaya.'}</li>
-            <li>{lang === 'en'
-              ? 'Government agencies never ask for e-wallet transfers.'
-              : 'Agensi kerajaan tidak pernah meminta pemindahan e-dompet.'}</li>
-            <li>{lang === 'en'
-              ? 'If unsure, cancel now and verify first.'
-              : 'Jika ragu-ragu, batalkan dahulu dan sahkan terlebih dahulu.'}</li>
-          </ul>
-        </section>
-
         {error && (
           <div className="rounded-md bg-fraud-warning-bg border border-fraud-warning-border px-3 py-2 text-[13px] text-risk-red">
             {error}
@@ -208,7 +191,7 @@ export default function Intercept() {
         >
           {busyChoice === 'cancel'
             ? lang === 'en'
-              ? 'Saving...'
+              ? 'Recording cancel...'
               : 'Menyimpan...'
             : lang === 'en'
               ? 'Cancel transfer'
@@ -222,7 +205,7 @@ export default function Intercept() {
           >
             {busyChoice === 'report'
               ? lang === 'en'
-                ? 'Saving...'
+                ? 'Recording report...'
                 : 'Menyimpan...'
               : lang === 'en'
                 ? 'Report as scam'
@@ -235,7 +218,7 @@ export default function Intercept() {
           >
             {busyChoice === 'proceed'
               ? lang === 'en'
-                ? 'Saving...'
+                ? 'Recording override...'
                 : 'Menyimpan...'
               : lang === 'en'
                 ? 'Proceed anyway'

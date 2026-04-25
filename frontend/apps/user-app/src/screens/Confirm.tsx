@@ -167,7 +167,7 @@ export default function Confirm() {
 
       <div className="sticky bottom-0 bg-white border-t border-border-gray px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <button onClick={handleConfirm} disabled={loading} className="btn-primary">
-          {loading ? 'Checking with SafeSend...' : `Confirm transfer ${formatRM(amount)}`}
+          {loading ? 'Running SafeSend screening...' : `Confirm transfer ${formatRM(amount)}`}
         </button>
       </div>
 
@@ -267,10 +267,10 @@ function SoftWarningModal({
             <button onClick={onProceed} disabled={busy} className="btn-primary">
               {busy
                 ? lang === 'en'
-                  ? 'Saving choice...'
+                  ? 'Recording choice...'
                   : 'Menyimpan pilihan...'
                 : lang === 'en'
-                  ? 'Proceed anyway'
+                  ? 'Proceed with caution'
                   : 'Teruskan juga'}
             </button>
             <button onClick={onClose} disabled={busy} className="btn-ghost">
