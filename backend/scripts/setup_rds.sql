@@ -12,12 +12,6 @@ CREATE TABLE IF NOT EXISTS safesend_alerts (
 CREATE INDEX IF NOT EXISTS idx_safesend_alerts_status_risk 
 ON safesend_alerts (status, risk_score);
 
-CREATE TABLE IF NOT EXISTS safesend_telegram_chat_history (
-    chat_id VARCHAR(255) PRIMARY KEY,
-    expires_at TIMESTAMP WITH TIME ZONE
-);
-
 -- Note: To simulate DynamoDB's TTL feature, you can run a cron job or pg_cron 
 -- to periodically delete expired rows:
 -- DELETE FROM safesend_alerts WHERE expires_at < NOW();
--- DELETE FROM safesend_telegram_chat_history WHERE expires_at < NOW();

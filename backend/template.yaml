@@ -79,21 +79,7 @@ Resources:
             Path: /api/screen-transaction
             Method: POST
 
-  AnalyseMessageFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: safesend-analyse-message
-      CodeUri: lambdas/analyse_message/
-      Handler: handler.handler
-      Layers:
-        - !Ref SharedLayer
-      Events:
-        AnalyseMessage:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref SafeSendApi
-            Path: /api/analyse-message
-            Method: POST
+
 
   AgentActionFunction:
     Type: AWS::Serverless::Function
@@ -175,30 +161,6 @@ Resources:
             Path: /api/network-graph
             Method: GET
 
-  TelegramWebhookFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: safesend-telegram-webhook
-      CodeUri: lambdas/telegram_webhook/
-      Handler: handler.handler
-      Layers:
-        - !Ref SharedLayer
-      Policies:
-        - Statement:
-            - Effect: Allow
-              Action:
-                - bedrock:InvokeModel
-              Resource: "*"
-      Environment:
-        Variables:
-          TELEGRAM_BOT_TOKEN: "8652683424:AAHO_QfnAJCyCS_2VEREkmaCTFwkhJ77Nfo"
-      Events:
-        TelegramWebhook:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref SafeSendApi
-            Path: /api/telegram/webhook
-            Method: POST
 
   # =========================================================================
   # Shared Lambda Layer

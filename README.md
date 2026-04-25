@@ -2,7 +2,7 @@
 
 Multi-layer scam prevention system for **Touch 'n Go FinHack hackathon** (April 2026).
 
-SafeSend intercepts scams at three points — in messaging (WhatsApp plugin), at the moment of transfer (TnG in-app warning), and at the agent-review network level (fraud console).
+SafeSend intercepts scams at two points — at the moment of transfer (TnG in-app warning), and at the agent-review network level (fraud console).
 
 ## Repo Structure
 
@@ -11,7 +11,6 @@ safesend/
 ├── frontend/                  # All user-facing React apps + mock API
 │   ├── apps/
 │   │   ├── user-app/          # React: TnG transfer flow + SafeSend interception (port 5173)
-│   │   ├── plugin/            # React: WhatsApp scam-message plugin demo  (port 5174)
 │   │   └── agent-dashboard/   # React: fraud-analyst console + D3 graph    (port 5175)
 │   ├── services/
 │   │   └── mock-api/          # Express: rule engine + EAS + Bedrock mocks (port 4000)
@@ -23,7 +22,6 @@ safesend/
 ├── backend/                   # AWS Lambda functions (Python 3.12)
 │   ├── lambdas/
 │   │   ├── screen_transaction/  # Rule engine + EAS + Bedrock orchestrator
-│   │   ├── analyse_message/     # Layer 1 NLP scam phrase detector
 │   │   ├── agent_action/        # Block / Warn / Clear action handler
 │   │   ├── get_alerts/          # Paginated DynamoDB query
 │   │   ├── get_stats/           # Dashboard aggregation
@@ -44,13 +42,12 @@ safesend/
 # Frontend (mock API + React apps)
 cd frontend
 npm install
-npm run dev              # boots mock-api + 3 React apps concurrently
+npm run dev              # boots mock-api + 2 React apps concurrently
 ```
 
 | App              | URL                       |
 | ---------------- | ------------------------- |
 | User app (TnG)   | http://localhost:5173     |
-| WhatsApp plugin  | http://localhost:5174     |
 | Agent dashboard  | http://localhost:5175     |
 | Mock API         | http://localhost:4000     |
 
@@ -73,11 +70,11 @@ python scripts/seed_demo_data.py
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │                        Frontend (React)                       │
-│  ┌──────────┐  ┌──────────┐  ┌────────────────┐             │
-│  │ user-app │  │  plugin  │  │ agent-dashboard│             │
-│  └─────┬────┘  └─────┬────┘  └───────┬────────┘             │
-│        │             │               │                        │
-└────────┼─────────────┼───────────────┼────────────────────────┘
+│  ┌──────────┐                ┌────────────────┐             │
+│  │ user-app │                │ agent-dashboard│             │
+│  └─────┬────┘                └───────┬────────┘             │
+│        │                             │                        │
+└────────┼─────────────────────────────┼────────────────────────┘
          │             │               │
     ┌────▼─────────────▼───────────────▼────┐
     │       Amazon API Gateway (HTTP API)    │
