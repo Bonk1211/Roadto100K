@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { currentUser, getStoredLanguage, setStoredLanguage, type UIlang } from 'shared';
+import { LoadingDots, currentUser, getStoredLanguage, setStoredLanguage, type UIlang } from 'shared';
 import BilingualToggle from '../components/BilingualToggle';
 import { formatRM } from '../lib/format';
 import type { InterceptState } from '../lib/flow';
@@ -190,9 +190,7 @@ export default function Intercept() {
           className="btn-danger"
         >
           {busyChoice === 'cancel'
-            ? lang === 'en'
-              ? 'Recording cancel...'
-              : 'Menyimpan...'
+            ? <LoadingDots label={lang === 'en' ? 'Recording cancel' : 'Menyimpan'} tone="inverse" size="sm" />
             : lang === 'en'
               ? 'Cancel transfer'
               : 'Batalkan pemindahan'}
@@ -204,9 +202,7 @@ export default function Intercept() {
             className="btn-secondary"
           >
             {busyChoice === 'report'
-              ? lang === 'en'
-                ? 'Recording report...'
-                : 'Menyimpan...'
+              ? <LoadingDots label={lang === 'en' ? 'Recording report' : 'Menyimpan'} tone="primary" size="sm" />
               : lang === 'en'
                 ? 'Report as scam'
                 : 'Lapor sebagai penipuan'}
@@ -217,9 +213,7 @@ export default function Intercept() {
             className="btn-ghost"
           >
             {busyChoice === 'proceed'
-              ? lang === 'en'
-                ? 'Recording override...'
-                : 'Menyimpan...'
+              ? <LoadingDots label={lang === 'en' ? 'Recording override' : 'Menyimpan'} tone="primary" size="sm" />
               : lang === 'en'
                 ? 'Proceed anyway'
                 : 'Teruskan juga'}

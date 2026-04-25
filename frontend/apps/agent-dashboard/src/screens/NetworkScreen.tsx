@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { NetworkGraph } from 'shared';
+import { LoadingDots } from 'shared';
 import { fetchNetworkGraph } from '../lib/api.js';
 import { NetworkGraphModule } from '../modules/investigations/NetworkGraphModule.js';
 
@@ -44,7 +45,7 @@ export function NetworkScreen() {
             className="rounded-pill px-3 py-1 text-small-label font-semibold"
             style={{ backgroundColor: '#EFF6FF', color: '#1D4ED8' }}
           >
-            {loading ? 'Loading graph...' : 'Select a node'}
+            {loading ? <LoadingDots label="Loading graph" tone="primary" size="sm" /> : 'Select a node'}
           </span>
         </div>
       </section>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { LoadingDots } from 'shared';
 import type { ContainmentCandidate } from '../../lib/investigations/types.js';
 
 interface Props {
@@ -98,12 +99,12 @@ export function ContainmentPanel({ candidates, focusLabel }: Props) {
         type="button"
         onClick={runContainment}
         disabled={selectedIds.length === 0 || executionState === 'running'}
-        className="mt-4 inline-flex h-12 w-full items-center justify-center rounded-2xl font-bold text-white disabled:opacity-60"
-        style={{ backgroundColor: '#DC2626' }}
-      >
-        {executionState === 'running'
-          ? 'Executing...'
-          : executionState === 'done'
+      className="mt-4 inline-flex h-12 w-full items-center justify-center rounded-2xl font-bold text-white disabled:opacity-60"
+      style={{ backgroundColor: '#DC2626' }}
+    >
+      {executionState === 'running'
+        ? <LoadingDots label="Executing" tone="inverse" size="sm" />
+        : executionState === 'done'
             ? 'Executed'
             : 'Execute containment'}
       </button>

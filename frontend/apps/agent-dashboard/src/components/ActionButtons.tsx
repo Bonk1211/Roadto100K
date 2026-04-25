@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { AgentDecision } from 'shared';
+import { LoadingDots } from 'shared';
 
 interface Props {
   alertId: string;
@@ -38,7 +39,7 @@ export function ActionButtons({ alertId, status, onDecide }: Props) {
         className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl font-bold text-white transition-colors disabled:opacity-60"
         style={{ backgroundColor: '#DC2626' }}
       >
-        {pending === 'block' ? 'Recording block...' : 'Block / suspend now'}
+        {pending === 'block' ? <LoadingDots label="Recording block" tone="inverse" size="sm" /> : 'Block / suspend now'}
       </button>
 
       <button
@@ -52,7 +53,7 @@ export function ActionButtons({ alertId, status, onDecide }: Props) {
           boxShadow: '0 4px 0 #0055D4',
         }}
       >
-        {pending === 'warn' ? 'Sending warning...' : 'Warn and keep on watchlist'}
+        {pending === 'warn' ? <LoadingDots label="Sending warning" tone="primary" size="sm" /> : 'Warn and keep on watchlist'}
       </button>
 
       <button
@@ -62,7 +63,7 @@ export function ActionButtons({ alertId, status, onDecide }: Props) {
         className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl font-semibold transition-colors disabled:opacity-60"
         style={{ backgroundColor: '#EAF3FF', color: '#005BAC' }}
       >
-        {pending === 'clear' ? 'Clearing...' : 'Clear as false positive'}
+        {pending === 'clear' ? <LoadingDots label="Clearing" tone="primary" size="sm" /> : 'Clear as false positive'}
       </button>
     </div>
   );

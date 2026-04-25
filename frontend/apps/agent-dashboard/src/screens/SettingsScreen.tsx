@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { LoadingDots } from 'shared';
 import { getModelHealthViewModel } from '../lib/investigations/modelHealthAdapter.js';
 
 export function SettingsScreen() {
@@ -69,7 +70,7 @@ export function SettingsScreen() {
               style={{ backgroundColor: '#0055D4' }}
             >
               {status === 'running'
-                ? 'Running...'
+                ? <LoadingDots label="Running" tone="inverse" size="sm" />
                 : status === 'done'
                   ? 'Completed'
                   : 'Run retrain demo'}

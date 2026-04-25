@@ -1,4 +1,5 @@
 import type { InvestigationAlert } from '../lib/investigations/types.js';
+import { LoadingDots } from 'shared';
 import { RiskScoreBadge } from './RiskScoreBadge.js';
 
 interface Props {
@@ -29,7 +30,7 @@ export function AlertTable({ alerts, selectedId, onSelect, loading = false }: Pr
           {loading && alerts.length === 0 && (
             <tr>
               <td colSpan={6} className="px-5 py-12 text-center text-muted-text">
-                Loading queue...
+                <LoadingDots label="Loading queue" tone="muted" centered />
               </td>
             </tr>
           )}

@@ -1,6 +1,7 @@
 import * as d3 from 'd3';
 import { useEffect, useRef, useState } from 'react';
 import type { NetworkEdge, NetworkGraph as Graph, NetworkNode } from 'shared';
+import { LoadingDots } from 'shared';
 import type { InvestigationAlert } from '../../lib/investigations/types.js';
 
 type SimNode = NetworkNode & d3.SimulationNodeDatum & { x?: number; y?: number };
@@ -167,7 +168,9 @@ export function NetworkGraphModule({ graph, focusAlert }: Props) {
         {graph ? (
           <svg ref={svgRef} className="h-full w-full" preserveAspectRatio="xMidYMid meet" />
         ) : (
-          <div className="flex h-full items-center justify-center text-muted-text">Loading graph...</div>
+          <div className="flex h-full items-center justify-center text-muted-text">
+            <LoadingDots label="Loading graph" tone="muted" />
+          </div>
         )}
         <Legend />
       </div>
