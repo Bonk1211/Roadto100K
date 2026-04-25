@@ -1,8 +1,7 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import type { Payee } from 'shared';
+import type { DoneStatus } from '../lib/flow';
 import { formatRM } from '../lib/format';
-
-type DoneStatus = 'success' | 'cancelled' | 'reported' | 'overridden';
 
 interface NavState {
   payee?: Payee;
@@ -39,6 +38,18 @@ const COPY: Record<DoneStatus, {
     title: 'You proceeded against our warning',
     body: 'If anything feels wrong later, contact TnG support immediately.',
     tone: 'risk',
+  },
+  soft_warn_proceed: {
+    badge: 'Transfer sent',
+    title: 'You proceeded after a warning',
+    body: 'SafeSend recorded your choice. If anything feels off, contact TnG support immediately.',
+    tone: 'pending',
+  },
+  soft_warn_cancelled: {
+    badge: 'Transfer cancelled',
+    title: 'You stopped after a warning',
+    body: 'No money left your wallet, and SafeSend recorded the cancelled transfer for review.',
+    tone: 'safe',
   },
 };
 

@@ -1,16 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import type { Payee, ScoreResponse } from 'shared';
-import BilingualToggle, { type Lang } from '../components/BilingualToggle';
-import RiskSignalsList from '../components/RiskSignalsList';
+import { currentUser, getStoredLanguage, setStoredLanguage, type UIlang } from 'shared';
+import BilingualToggle from '../components/BilingualToggle';
 import { formatRM } from '../lib/format';
-
-interface NavState {
-  payee: Payee;
-  amount: number;
-  score: ScoreResponse;
-  note?: string;
-}
+import type { InterceptState } from '../lib/flow';
+import { submitUserChoice } from '../lib/api';
 
 const SCAM_TYPE_LABEL: Record<string, { en: string; bm: string }> = {
   macau_scam: { en: 'Macau scam pattern', bm: 'Corak penipuan Macau' },
@@ -24,25 +18,58 @@ const SCAM_TYPE_LABEL: Record<string, { en: string; bm: string }> = {
 export default function Intercept() {
   const navigate = useNavigate();
   const location = useLocation();
-  const state = location.state as NavState | null;
-  const [lang, setLang] = useState<Lang>('en');
+  const state = location.state as InterceptState | null;
+  const [lang, setLang] = useState<UIlang>(getStoredLanguage());
+  const [busyChoice, setBusyChoice] = useState<'cancel' | 'proceed' | 'report' | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setStoredLanguage(lang);
+  }, [lang]);
 
   if (!state) {
     return (
       <div className="phone-frame p-6 text-center">
         <p className="text-text-primary">No transaction in flight.</p>
-        <button
-          className="btn-primary mt-4"
-          onClick={() => navigate('/home')}
-        >
+        <button className="btn-primary mt-4" onClick={() => navigate('/home')}>
           Return home
         </button>
       </div>
     );
   }
 
-  const { payee, amount, score } = state;
-  const scamLabel = SCAM_TYPE_LABEL[score.scam_type] ?? SCAM_TYPE_LABEL.macau_scam;
+  const { payee, amount, screening } = state;
+  const explanation = screening.bedrock_explanation;
+  const scamLabel =
+    SCAM_TYPE_LABEL[explanation?.scam_type ?? 'macau_scam'] ?? SCAM_TYPE_LABEL.macau_scam;
+
+  const handleChoice = async (choice: 'cancel' | 'proceed' | 'report') => {
+    setBusyChoice(choice);
+    setError(null);
+    try {
+      await submitUserChoice({
+        txn_id: screening.txn_id,
+        user_id: currentUser.id,
+        choice,
+      });
+      navigate('/done', {
+        state: {
+          payee,
+          amount,
+          status:
+            choice === 'cancel'
+              ? 'cancelled'
+              : choice === 'report'
+                ? 'reported'
+                : 'overridden',
+        },
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Could not save your choice';
+      setError(msg);
+      setBusyChoice(null);
+    }
+  };
 
   return (
     <div className="phone-frame flex flex-col">
@@ -52,41 +79,35 @@ export default function Intercept() {
             SafeSend Alert
           </div>
           <div className="text-[20px] font-extrabold mt-2 leading-tight">
-            Hold on — this transfer looks risky
+            {lang === 'en'
+              ? 'Hold on - this transfer looks risky'
+              : 'Tunggu sebentar - pemindahan ini kelihatan berisiko'}
           </div>
           <div className="text-[12px] opacity-80 mt-1">
             {lang === 'en'
-              ? 'We paused the payment so you can double-check.'
-              : 'Kami berhentikan bayaran supaya anda boleh semak semula.'}
+              ? 'We paused the payment so you can double-check before any money leaves your wallet.'
+              : 'Kami hentikan bayaran ini supaya anda boleh semak sekali lagi sebelum wang keluar dari dompet anda.'}
           </div>
         </div>
         <BilingualToggle value={lang} onChange={setLang} />
       </header>
 
       <main className="flex-1 px-4 pt-4 pb-6 space-y-4">
-        {/* Fraud Warning Card — DESIGN section "Fraud Warning Card" */}
-        <div
-          className="rounded-xl p-4 border-2"
-          style={{
-            background: '#FEF2F2',
-            borderColor: '#FCA5A5',
-            borderRadius: 20,
-          }}
-        >
+        <div className="rounded-xl p-4 border-2 bg-[#FEF2F2] border-[#FCA5A5]">
           <div className="flex items-start gap-3">
             <div className="w-11 h-11 rounded-xl bg-risk-red text-white grid place-items-center flex-shrink-0 shadow-card">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-                <path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5l-8-3Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
-                <path d="M12 8v4M12 16h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                <path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5l-8-3Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+                <path d="M12 8v4M12 16h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
               </svg>
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-risk-red">
-                  High risk · {score.score}/100
+                  {lang === 'en' ? 'High risk' : 'Risiko tinggi'} - {screening.final_score}/100
                 </span>
                 <span className="px-2 py-0.5 rounded-pill bg-risk-red text-white text-[10px] font-bold uppercase">
-                  {scamLabel[lang]}
+                  {lang === 'en' ? scamLabel.en : scamLabel.bm}
                 </span>
               </div>
               <div className="mt-1 text-[15px] font-bold text-text-primary leading-snug">
@@ -94,94 +115,145 @@ export default function Intercept() {
                   ? `Transfer of ${formatRM(amount)} to ${payee.name}`
                   : `Pemindahan ${formatRM(amount)} kepada ${payee.name}`}
               </div>
-              <div className="mt-1 text-[12px] text-muted-text">
-                {lang === 'en'
-                  ? `Account opened only ${payee.account_age_days} days ago.`
-                  : `Akaun ini baru didaftarkan ${payee.account_age_days} hari lepas.`}
-              </div>
+              {screening.payee_info && (
+                <div className="mt-1 text-[12px] text-muted-text">
+                  {lang === 'en'
+                    ? `Payee account age: ${screening.payee_info.account_age_days} days`
+                    : `Usia akaun penerima: ${screening.payee_info.account_age_days} hari`}
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Yellow attention strip — DESIGN Enhanced Attention Variant */}
           <div className="mt-3 -mx-4 -mb-4 px-4 py-3 bg-electric-yellow/95 rounded-b-xl border-t-2 border-fraud-warning-border">
             <div className="text-[11px] font-extrabold uppercase tracking-wider text-royal-blue">
               {lang === 'en' ? 'Why we are warning you' : 'Mengapa kami beri amaran'}
             </div>
             <div className="text-[13.5px] font-semibold text-text-primary mt-1 leading-snug">
-              {lang === 'en' ? score.explanation_en : score.explanation_bm}
+              {lang === 'en'
+                ? explanation?.explanation_en
+                : explanation?.explanation_bm}
             </div>
           </div>
         </div>
 
-        {/* Bilingual side-by-side reading aid */}
         <details className="card p-4 group" open>
           <summary className="cursor-pointer list-none flex items-center justify-between">
             <span className="text-[13px] font-bold text-text-primary uppercase tracking-wider">
               {lang === 'en' ? 'Read in both languages' : 'Baca dalam dua bahasa'}
             </span>
-            <span className="text-tng-blue text-[12px] font-semibold group-open:rotate-180 transition-transform">▾</span>
+            <span className="text-tng-blue text-[12px] font-semibold group-open:rotate-180 transition-transform">▼</span>
           </summary>
           <div className="grid grid-cols-1 gap-3 mt-3 sm:grid-cols-2">
-            <div className="rounded-md bg-app-gray p-3">
-              <div className="text-[10px] font-bold text-muted-text uppercase tracking-wider mb-1">English</div>
-              <div className="text-[13px] text-text-primary leading-relaxed">{score.explanation_en}</div>
-            </div>
-            <div className="rounded-md bg-app-gray p-3">
-              <div className="text-[10px] font-bold text-muted-text uppercase tracking-wider mb-1">Bahasa Malaysia</div>
-              <div className="text-[13px] text-text-primary leading-relaxed">{score.explanation_bm}</div>
-            </div>
+            <LangCard label="English" body={explanation?.explanation_en ?? ''} />
+            <LangCard label="Bahasa Malaysia" body={explanation?.explanation_bm ?? ''} />
           </div>
         </details>
 
-        {/* Risk signals */}
         <section className="card p-4">
           <div className="text-[13px] font-bold text-text-primary uppercase tracking-wider mb-2">
             {lang === 'en' ? 'Risk signals detected' : 'Petunjuk risiko dikesan'}
           </div>
-          <RiskSignalsList signals={score.signals} />
-        </section>
-
-        {/* What you can do */}
-        <section className="rounded-xl p-4 bg-soft-blue-surface border border-sky-blue">
-          <div className="text-[13px] font-bold text-tng-blue uppercase tracking-wider">
-            {lang === 'en' ? 'Tips before you continue' : 'Petua sebelum anda teruskan'}
-          </div>
-          <ul className="mt-2 space-y-1.5 text-[13px] text-text-primary">
-            <li>· {lang === 'en'
-              ? 'Call the recipient using a number you already trust.'
-              : 'Telefon penerima menggunakan nombor yang anda percaya.'}</li>
-            <li>· {lang === 'en'
-              ? 'Government agencies never ask for e-wallet transfers.'
-              : 'Agensi kerajaan tidak pernah meminta pemindahan e-dompet.'}</li>
-            <li>· {lang === 'en'
-              ? 'If unsure, cancel — you can always send later.'
-              : 'Jika ragu, batalkan — anda boleh hantar kemudian.'}</li>
+          <ul className="space-y-2">
+            {screening.triggered_signals.map((signal) => (
+              <li
+                key={signal.signal}
+                className="flex items-start gap-2.5 bg-white border border-fraud-warning-border/50 rounded-md px-3 py-2.5"
+              >
+                <span className="mt-0.5 w-5 h-5 rounded-full bg-risk-red text-white grid place-items-center text-[11px] font-bold flex-shrink-0">
+                  !
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13px] font-semibold text-text-primary">
+                    {lang === 'en' ? signal.label_en : signal.label_bm}
+                  </div>
+                  <div className="text-[12px] text-muted-text mt-0.5">
+                    +{signal.weight}
+                  </div>
+                </div>
+              </li>
+            ))}
           </ul>
         </section>
+
+        <section className="rounded-xl p-4 bg-soft-blue-surface border border-sky-blue">
+          <div className="text-[13px] font-bold text-tng-blue uppercase tracking-wider">
+            {lang === 'en' ? 'Before you continue' : 'Sebelum anda teruskan'}
+          </div>
+          <ul className="mt-2 space-y-1.5 text-[13px] text-text-primary">
+            <li>{lang === 'en'
+              ? 'Call the recipient using a number you already trust.'
+              : 'Telefon penerima menggunakan nombor yang anda sudah percaya.'}</li>
+            <li>{lang === 'en'
+              ? 'Government agencies never ask for e-wallet transfers.'
+              : 'Agensi kerajaan tidak pernah meminta pemindahan e-dompet.'}</li>
+            <li>{lang === 'en'
+              ? 'If unsure, cancel now and verify first.'
+              : 'Jika ragu-ragu, batalkan dahulu dan sahkan terlebih dahulu.'}</li>
+          </ul>
+        </section>
+
+        {error && (
+          <div className="rounded-md bg-fraud-warning-bg border border-fraud-warning-border px-3 py-2 text-[13px] text-risk-red">
+            {error}
+          </div>
+        )}
       </main>
 
       <div className="sticky bottom-0 bg-white border-t border-border-gray px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] space-y-2">
         <button
-          onClick={() => navigate('/done', { state: { payee, amount, status: 'cancelled' } })}
+          onClick={() => void handleChoice('cancel')}
+          disabled={busyChoice !== null}
           className="btn-danger"
         >
-          {lang === 'en' ? 'Cancel transfer' : 'Batalkan pemindahan'}
+          {busyChoice === 'cancel'
+            ? lang === 'en'
+              ? 'Saving...'
+              : 'Menyimpan...'
+            : lang === 'en'
+              ? 'Cancel transfer'
+              : 'Batalkan pemindahan'}
         </button>
         <div className="flex gap-2">
           <button
-            onClick={() => navigate('/done', { state: { payee, amount, status: 'reported' } })}
+            onClick={() => void handleChoice('report')}
+            disabled={busyChoice !== null}
             className="btn-secondary"
           >
-            {lang === 'en' ? 'Report as scam' : 'Lapor sebagai penipuan'}
+            {busyChoice === 'report'
+              ? lang === 'en'
+                ? 'Saving...'
+                : 'Menyimpan...'
+              : lang === 'en'
+                ? 'Report as scam'
+                : 'Lapor sebagai penipuan'}
           </button>
           <button
-            onClick={() => navigate('/done', { state: { payee, amount, status: 'overridden' } })}
+            onClick={() => void handleChoice('proceed')}
+            disabled={busyChoice !== null}
             className="btn-ghost"
           >
-            {lang === 'en' ? 'Proceed anyway' : 'Teruskan saja'}
+            {busyChoice === 'proceed'
+              ? lang === 'en'
+                ? 'Saving...'
+                : 'Menyimpan...'
+              : lang === 'en'
+                ? 'Proceed anyway'
+                : 'Teruskan juga'}
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function LangCard({ label, body }: { label: string; body: string }) {
+  return (
+    <div className="rounded-md bg-app-gray p-3">
+      <div className="text-[10px] font-bold text-muted-text uppercase tracking-wider mb-1">
+        {label}
+      </div>
+      <div className="text-[13px] text-text-primary leading-relaxed">{body}</div>
     </div>
   );
 }

@@ -1,8 +1,8 @@
-export type Lang = 'en' | 'bm';
+import type { UIlang } from 'shared';
 
 interface Props {
-  value: Lang;
-  onChange: (lang: Lang) => void;
+  value: UIlang;
+  onChange: (lang: UIlang) => void;
 }
 
 export default function BilingualToggle({ value, onChange }: Props) {
