@@ -51,14 +51,17 @@ export function buildInvestigationAlerts(
   return alerts
     .map((alert) => {
       const override = ALERT_OVERRIDES[alert.txn.payee_id];
-      const stage = override?.stage ?? stageForScore(alert.score);
+      const stage =
+        override?.stage ??
+        stageFromAlert(alert) ??
+        stageForScore(alert.score);
       const alertType =
         override?.alertType ??
-        (alert.explanation.scam_type === 'mule_account'
-          ? 'mule_eviction'
-          : 'sender_interception');
+        alert.alert_type ??
+        (alert.explanation.scam_type === 'mule_account' ? 'mule_eviction' : 'sender_interception');
       const linkedAccountCount =
         override?.linkedAccountCount ??
+        alert.containment_accounts?.length ??
         deriveContainmentCandidates(graph, alert).filter((candidate) => candidate.degree <= 2).length;
 
       return {
@@ -68,11 +71,11 @@ export function buildInvestigationAlerts(
         stageLabel: stage.replace('_', ' ').toUpperCase(),
         stageReason: stageReason(alertType, stage),
         queueAccent: queueAccent(stage),
-        rmAtRisk: Math.round(alert.txn.amount * (alertType === 'mule_eviction' ? 2.8 : 1)),
-        accountId: alert.txn.payee_id,
-        accountLabel: alert.txn.payee_name,
+        rmAtRisk: Math.round(alert.rm_at_risk ?? alert.txn.amount),
+        accountId: alert.txn.payee_account,
+        accountLabel: alert.txn.payee_account,
         alertLabel:
-          alertType === 'mule_eviction' ? 'Mule eviction' : 'Sender interception',
+          alertTypeLabel(alertType),
         focusNodeId: alert.txn.payee_id,
         linkedAccountCount,
         investigationSummary:
@@ -99,8 +102,27 @@ function stageForScore(score: number): AlertStage {
   return 'stage_1';
 }
 
+function stageFromAlert(alert: Alert): AlertStage | null {
+  if (alert.stage === 'stage_1' || alert.stage === 'stage_2' || alert.stage === 'stage_3') {
+    return alert.stage;
+  }
+  const profileStage = alert.mule_profile?.stage;
+  const muleStage = alert.mule_stage;
+  const stage = profileStage ?? muleStage;
+  if (stage === 3) return 'stage_3';
+  if (stage === 2) return 'stage_2';
+  if (stage === 1) return 'stage_1';
+  return null;
+}
+
+function alertTypeLabel(alertType: AlertType): string {
+  if (alertType === 'mule_eviction') return 'Mule eviction';
+  if (alertType === 'bulk_containment') return 'Bulk containment';
+  return 'Sender interception';
+}
+
 function stageReason(alertType: AlertType, stage: AlertStage): string {
-  if (alertType === 'mule_eviction') {
+  if (alertType === 'mule_eviction' || alertType === 'bulk_containment') {
     if (stage === 'stage_3') return 'Auto-eviction';
     if (stage === 'stage_2') return 'Soft-block';
     return 'Watchlist';
@@ -113,7 +135,7 @@ function stageReason(alertType: AlertType, stage: AlertStage): string {
 function stageTimeline(alertType: AlertType, stage: AlertStage): string[] {
   const senderTimeline = ['Signals fired', 'Warning raised', 'Stopped or escalated'];
   const muleTimeline = ['Watchlist active', 'Agent alert', 'Eviction triggered'];
-  const timeline = alertType === 'mule_eviction' ? muleTimeline : senderTimeline;
+  const timeline = alertType === 'sender_interception' ? senderTimeline : muleTimeline;
   const index = stage === 'stage_1' ? 1 : stage === 'stage_2' ? 2 : 3;
   return timeline.map((step, current) => `${current < index ? 'Done' : current === index ? 'Active' : 'Next'} - ${step}`);
 }

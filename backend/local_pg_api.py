@@ -17,7 +17,8 @@ import psycopg2
 from dotenv import load_dotenv
 
 
-load_dotenv(".env")
+BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(BACKEND_DIR, ".env"))
 
 PORT = int(os.environ.get("PG_API_PORT", "4100"))
 
@@ -111,6 +112,7 @@ def load_alerts():
                 mc.inbound_outbound_ratio,
                 mc.merchant_spend_7d,
                 mc.status AS mule_status,
+                ca.total_rm_exposure AS containment_total_rm_exposure,
                 be.explanation_en,
                 be.explanation_bm,
                 be.scam_type,
@@ -119,6 +121,7 @@ def load_alerts():
             JOIN accounts receiver ON receiver.account_id = a.account_id
             LEFT JOIN transactions t ON t.txn_id = a.txn_id
             LEFT JOIN mule_cases mc ON mc.mule_case_id = a.mule_case_id
+            LEFT JOIN containment_actions ca ON ca.mule_case_id = a.mule_case_id
             LEFT JOIN bedrock_explanations be ON be.alert_id = a.alert_id
             ORDER BY
                 CASE a.stage WHEN 'stage_3' THEN 3 WHEN 'stage_2' THEN 2 ELSE 1 END DESC,
@@ -200,6 +203,9 @@ def load_alerts():
 
         stage_number = parse_stage(row["stage"])
         amount = row["amount"] or 0
+        rm_at_risk = row["containment_total_rm_exposure"] or sum(
+            account["rm_exposure"] for account in linked_accounts
+        ) or amount
         user_avg = 850
         txn = {
             "txn_id": txn_id,
@@ -223,9 +229,12 @@ def load_alerts():
             "txn": txn,
             "score": float(score),
             "band": risk_band(score),
+            "account_id": account_id,
             "alert_type": row["alert_type"],
-            "mule_stage": stage_number if row["alert_type"] == "mule_eviction" else None,
-            "rm_at_risk": sum(a["rm_exposure"] for a in linked_accounts) or float(amount),
+            "stage": row["stage"],
+            "priority": row["priority"],
+            "mule_stage": stage_number,
+            "rm_at_risk": float(rm_at_risk),
             "signals": signals,
             "explanation": {
                 "explanation_en": row["explanation_en"] or "No Bedrock explanation stored yet.",
@@ -247,7 +256,7 @@ def load_alerts():
                 "inbound_outbound_ratio": float(row["inbound_outbound_ratio"] or 0),
                 "merchant_spend_7d": float(row["merchant_spend_7d"] or 0),
                 "withdrawal_status": "blocked" if stage_number == 3 else "soft_blocked",
-                "escrow_amount": sum(a["rm_exposure"] for a in linked_accounts) or float(amount),
+                "escrow_amount": float(rm_at_risk),
             }
             alert["containment_accounts"] = linked_accounts
 

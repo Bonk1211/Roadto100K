@@ -12,37 +12,51 @@ interface Props {
 export function AlertTable({ alerts, selectedId, onSelect, loading = false }: Props) {
   return (
     <div
-      className="overflow-hidden rounded-[24px] bg-white shadow-card"
+      className="rounded-[24px] bg-white shadow-card"
       style={{ border: '1px solid #E5E7EB' }}
     >
-      <table className="w-full text-left text-sm">
+      <div className="overflow-x-auto">
+      <table className="w-full min-w-[1180px] table-fixed text-left text-sm">
+        <colgroup>
+          <col className="w-[150px]" />
+          <col className="w-[180px]" />
+          <col className="w-[140px]" />
+          <col className="w-[210px]" />
+          <col className="w-[230px]" />
+          <col className="w-[140px]" />
+          <col className="w-[130px]" />
+        </colgroup>
         <thead className="bg-app-gray text-small-label uppercase tracking-wide text-muted-text">
           <tr>
+            <th className="px-5 py-3 font-semibold">Alert</th>
             <th className="px-5 py-3 font-semibold">Type</th>
             <th className="px-5 py-3 font-semibold">Stage</th>
             <th className="px-5 py-3 font-semibold">Account</th>
+            <th className="px-5 py-3 font-semibold">Transfer</th>
             <th className="px-5 py-3 font-semibold">RM at risk</th>
             <th className="px-5 py-3 font-semibold">Severity</th>
-            <th className="px-5 py-3 font-semibold">Flagged</th>
           </tr>
         </thead>
         <tbody>
           {loading && alerts.length === 0 && (
             <tr>
-              <td colSpan={6} className="px-5 py-12 text-center text-muted-text">
+              <td colSpan={7} className="px-5 py-12 text-center text-muted-text">
                 <LoadingDots label="Loading queue" tone="muted" centered />
               </td>
             </tr>
           )}
           {!loading && alerts.length === 0 && (
             <tr>
-              <td colSpan={6} className="px-5 py-12 text-center text-muted-text">
+              <td colSpan={7} className="px-5 py-12 text-center text-muted-text">
                 No alerts matched.
               </td>
             </tr>
           )}
           {alerts.map((item) => {
             const selected = item.alert.id === selectedId;
+            const rmAtRisk = item.alert.rm_at_risk ?? item.alert.txn.amount;
+            const dbType = item.alert.alert_type ?? item.alertType;
+
             return (
               <tr
                 key={item.alert.id}
@@ -56,41 +70,56 @@ export function AlertTable({ alerts, selectedId, onSelect, loading = false }: Pr
                 }}
               >
                 <td className="px-5 py-4">
-                  <div className="font-semibold text-text-primary">
-                    {item.alertType === 'mule_eviction' ? 'Mule eviction' : 'Sender interception'}
-                  </div>
-                  <div className="text-caption text-muted-text">{item.alertLabel}</div>
+                  <div className="truncate font-semibold text-text-primary">{item.alert.id}</div>
+                  <div className="truncate text-caption text-muted-text">{item.alert.txn.txn_id}</div>
+                </td>
+                <td className="px-5 py-4">
+                  <div className="truncate font-semibold text-text-primary">{alertTypeLabel(dbType)}</div>
+                  <div className="truncate text-caption text-muted-text">{dbType}</div>
                 </td>
                 <td className="px-5 py-4">
                   <StagePill stage={item.stage} />
                   <div className="mt-1 text-caption text-muted-text">{item.stageReason}</div>
                 </td>
                 <td className="px-5 py-4">
-                  <div className="font-semibold text-text-primary">{item.accountLabel}</div>
-                  <div className="text-caption text-muted-text">
-                    {item.alert.txn.payee_account} · {item.linkedAccountCount} linked account{item.linkedAccountCount === 1 ? '' : 's'}
+                  <div className="truncate font-semibold text-text-primary">
+                    {item.alert.txn.payee_account}
+                  </div>
+                  <div className="truncate text-caption text-muted-text">
+                    {item.alert.txn.payee_name} - {item.linkedAccountCount} linked account
+                    {item.linkedAccountCount === 1 ? '' : 's'}
+                  </div>
+                </td>
+                <td className="px-5 py-4">
+                  <div className="truncate font-mono text-caption font-semibold text-text-primary">
+                    {item.alert.txn.user_id}
+                  </div>
+                  <div className="truncate font-mono text-caption text-muted-text">
+                    -&gt; {item.alert.txn.payee_id}
                   </div>
                 </td>
                 <td className="px-5 py-4 font-mono text-base font-bold text-text-primary">
-                  RM {item.rmAtRisk.toLocaleString('en-MY')}
+                  RM {rmAtRisk.toLocaleString('en-MY')}
                 </td>
                 <td className="px-5 py-4">
                   <div className="flex items-center gap-3">
                     <RiskScoreBadge score={item.alert.score} size="sm" />
                     <div>
-                      <div className="font-semibold text-text-primary">{bandLabel(item.alert.score)}</div>
-                      <div className="text-caption text-muted-text">{item.alert.status.replace('_', ' ')}</div>
+                      <div className="font-semibold text-text-primary">
+                        {bandLabel(item.alert.score)}
+                      </div>
+                      <div className="text-caption text-muted-text">
+                        {item.alert.status.replace('_', ' ')}
+                      </div>
                     </div>
                   </div>
-                </td>
-                <td className="px-5 py-4 text-caption text-muted-text">
-                  {relativeTime(item.alert.created_at)}
                 </td>
               </tr>
             );
           })}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
@@ -113,19 +142,14 @@ function StagePill({ stage }: { stage: InvestigationAlert['stage'] }) {
   );
 }
 
+function alertTypeLabel(alertType: string): string {
+  if (alertType === 'mule_eviction') return 'Mule eviction';
+  if (alertType === 'bulk_containment') return 'Bulk containment';
+  return 'Sender interception';
+}
+
 function bandLabel(score: number): string {
   if (score >= 80) return 'Critical';
   if (score >= 60) return 'Elevated';
   return 'Monitor';
-}
-
-function relativeTime(iso: string): string {
-  const ms = Date.now() - Date.parse(iso);
-  const sec = Math.round(ms / 1000);
-  if (sec < 60) return `${sec}s ago`;
-  const min = Math.round(sec / 60);
-  if (min < 60) return `${min}m ago`;
-  const hr = Math.round(min / 60);
-  if (hr < 24) return `${hr}h ago`;
-  return new Date(iso).toLocaleString();
 }

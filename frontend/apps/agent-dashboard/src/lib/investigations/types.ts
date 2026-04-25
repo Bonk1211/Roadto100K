@@ -1,6 +1,6 @@
 import type { Alert } from 'shared';
 
-export type AlertType = 'sender_interception' | 'mule_eviction';
+export type AlertType = 'sender_interception' | 'mule_eviction' | 'bulk_containment';
 export type AlertStage = 'stage_1' | 'stage_2' | 'stage_3';
 
 export interface InvestigationAlert {

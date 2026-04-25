@@ -15,7 +15,7 @@ export type RiskBand = 'low' | 'medium' | 'high';
 export type LanguageHint = 'BM' | 'EN' | 'auto';
 export type UIlang = 'bm' | 'en';
 export type ScreeningAction = 'proceed' | 'soft_warn' | 'hard_intercept';
-export type AlertType = 'sender_interception' | 'mule_eviction';
+export type AlertType = 'sender_interception' | 'mule_eviction' | 'bulk_containment';
 export type MuleStage = 1 | 2 | 3;
 
 export interface Payee {
@@ -125,6 +125,9 @@ export interface Alert {
   score: number;
   band: RiskBand;
   alert_type?: AlertType;
+  stage?: 'stage_1' | 'stage_2' | 'stage_3';
+  priority?: string;
+  account_id?: string;
   mule_stage?: MuleStage;
   rm_at_risk?: number;
   mule_profile?: MuleProfile;

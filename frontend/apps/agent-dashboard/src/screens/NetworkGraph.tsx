@@ -31,6 +31,7 @@ export function NetworkGraphScreen() {
   const [error, setError] = useState<string | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
 
   useEffect(() => {
     Promise.all([fetchNetworkGraph(), fetchAlerts()])
@@ -56,6 +57,15 @@ export function NetworkGraphScreen() {
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
     svg.attr('viewBox', `0 0 ${width} ${height}`);
+    const viewport = svg.append('g');
+    const zoom = d3
+      .zoom<SVGSVGElement, unknown>()
+      .scaleExtent([0.35, 4])
+      .on('zoom', (event) => {
+        viewport.attr('transform', event.transform.toString());
+      });
+    svg.call(zoom);
+    zoomRef.current = zoom;
 
     const nodes: SimNode[] = graph.nodes.map((n) => ({
       ...n,
@@ -83,7 +93,7 @@ export function NetworkGraphScreen() {
       .force('center', d3.forceCenter(width / 2, height / 2))
       .force('collide', d3.forceCollide(42));
 
-    const link = svg
+    const link = viewport
       .append('g')
       .attr('stroke-opacity', 0.72)
       .selectAll('line')
@@ -93,7 +103,7 @@ export function NetworkGraphScreen() {
       .attr('stroke-dasharray', (d) => (d.type === 'transaction' ? null : '6 4'))
       .attr('stroke-width', (d) => (d.weight ? Math.max(1.5, Math.log10(d.weight)) : 2));
 
-    const nodeGroup = svg
+    const nodeGroup = viewport
       .append('g')
       .selectAll<SVGGElement, SimNode>('g')
       .data(nodes)
@@ -175,8 +185,25 @@ export function NetworkGraphScreen() {
 
     return () => {
       sim.stop();
+      zoomRef.current = null;
     };
   }, [graph]);
+
+  function zoomBy(factor: number) {
+    if (!svgRef.current || !zoomRef.current) return;
+    d3.select(svgRef.current)
+      .transition()
+      .duration(180)
+      .call(zoomRef.current.scaleBy, factor);
+  }
+
+  function resetZoom() {
+    if (!svgRef.current || !zoomRef.current) return;
+    d3.select(svgRef.current)
+      .transition()
+      .duration(180)
+      .call(zoomRef.current.transform, d3.zoomIdentity);
+  }
 
   const totalExposure = useMemo(
     () => containment.reduce((sum, account) => sum + account.rm_exposure, 0),
@@ -255,6 +282,7 @@ export function NetworkGraphScreen() {
               Loading network graph...
             </div>
           )}
+          <ZoomControls onZoomIn={() => zoomBy(1.25)} onZoomOut={() => zoomBy(0.8)} onReset={resetZoom} />
           <Legend />
         </div>
 
@@ -393,6 +421,33 @@ function Legend() {
           <span className="text-text-primary">{it.label}</span>
         </div>
       ))}
+    </div>
+  );
+}
+
+function ZoomControls({
+  onZoomIn,
+  onZoomOut,
+  onReset,
+}: {
+  onZoomIn: () => void;
+  onZoomOut: () => void;
+  onReset: () => void;
+}) {
+  return (
+    <div
+      className="absolute bottom-3 right-3 flex overflow-hidden rounded-md text-sm font-bold shadow-card"
+      style={{ backgroundColor: 'rgba(255,255,255,0.96)', border: '1px solid #E5E7EB' }}
+    >
+      <button type="button" className="h-10 w-10 text-text-primary hover:bg-app-gray" onClick={onZoomOut} title="Zoom out">
+        -
+      </button>
+      <button type="button" className="h-10 w-14 border-x text-text-primary hover:bg-app-gray" style={{ borderColor: '#E5E7EB' }} onClick={onReset} title="Reset zoom">
+        1:1
+      </button>
+      <button type="button" className="h-10 w-10 text-text-primary hover:bg-app-gray" onClick={onZoomIn} title="Zoom in">
+        +
+      </button>
     </div>
   );
 }

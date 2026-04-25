@@ -34,6 +34,7 @@ interface BackendAlert {
   stage?: string;
   status?: string;
   priority?: string;
+  rm_at_risk?: number;
   created_at?: string;
   resolved_at?: string | null;
   decided_at?: string | null;
@@ -145,6 +146,21 @@ function adaptAlert(b: BackendAlert): Alert {
     txn,
     score,
     band: bandFor(score),
+    alert_type:
+      b.alert_type === 'sender_interception' ||
+      b.alert_type === 'mule_eviction' ||
+      b.alert_type === 'bulk_containment'
+        ? b.alert_type
+        : undefined,
+    stage:
+      b.stage === 'stage_1' || b.stage === 'stage_2' || b.stage === 'stage_3'
+        ? b.stage
+        : undefined,
+    priority: b.priority,
+    account_id: b.account_id,
+    mule_stage:
+      b.stage === 'stage_3' ? 3 : b.stage === 'stage_2' ? 2 : b.stage === 'stage_1' ? 1 : undefined,
+    rm_at_risk: b.rm_at_risk ?? b.amount,
     signals,
     explanation,
     status,
@@ -154,10 +170,26 @@ function adaptAlert(b: BackendAlert): Alert {
   };
 }
 
+function isNestedAlert(value: BackendAlert | Alert): value is Alert {
+  return typeof (value as Alert).id === 'string' && typeof (value as Alert).txn === 'object';
+}
+
+function normalizeAlert(value: BackendAlert | Alert): Alert {
+  if (!isNestedAlert(value)) return adaptAlert(value);
+
+  const score = Number(value.score ?? 0);
+  return {
+    ...value,
+    score,
+    band: value.band ?? bandFor(score),
+    rm_at_risk: value.rm_at_risk ?? value.txn.amount,
+  };
+}
+
 export async function fetchAlerts(): Promise<Alert[]> {
-  const { data } = await api.get<BackendListAlertsResponse | BackendAlert[]>('/api/alerts');
+  const { data } = await api.get<BackendListAlertsResponse | Array<BackendAlert | Alert>>('/api/alerts');
   const list = Array.isArray(data) ? data : data?.alerts ?? [];
-  return list.map(adaptAlert);
+  return list.map(normalizeAlert);
 }
 
 export async function fetchStats(): Promise<DashboardStats> {
