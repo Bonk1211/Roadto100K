@@ -20,6 +20,9 @@ Globals:
         SNS_TOPIC_ARN: !Ref UserAlertsTopic
         BEDROCK_MODEL_ID: "anthropic.claude-3-haiku-20240307-v1:0"
         BEDROCK_REGION: "ap-southeast-1"
+        VERIFY_QUEUE_URL: !Ref VerificationQueue
+        VERIFY_MOCK: !Ref VerifyMock
+        STREAM_DB_FLUSH_SEC: "0.18"
     Architectures:
       - x86_64
 
@@ -32,6 +35,11 @@ Parameters:
     Type: String
     NoEcho: true
     Description: Password for RDS postgres user
+  VerifyMock:
+    Type: String
+    Default: "0"
+    AllowedValues: ["0", "1"]
+    Description: 1 = use deterministic mock streaming agents (no Bedrock cost). 0 = real Bedrock streaming.
 
 Resources:
   # =========================================================================
@@ -74,6 +82,8 @@ Resources:
               Resource: "*"
         - SSMParameterReadPolicy:
             ParameterName: "safesend/*"
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt VerificationQueue.QueueName
       Events:
         ScreenTransaction:
           Type: HttpApi
@@ -189,6 +199,184 @@ Resources:
 
 
   # =========================================================================
+  # Autonomous fraud-verify worker (SQS-driven)
+  # =========================================================================
+  VerificationDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: safesend-verify-dlq
+      MessageRetentionPeriod: 1209600  # 14 days
+
+  VerificationQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: safesend-verify-queue
+      VisibilityTimeout: 360            # >= VerifyAlertFunction timeout
+      MessageRetentionPeriod: 86400     # 1 day
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt VerificationDLQ.Arn
+        maxReceiveCount: 3
+
+  VerifyAlertFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: safesend-verify-alert
+      CodeUri: lambdas/verify_alert/
+      Handler: handler.handler
+      Timeout: 300                       # 5 min — Bedrock streaming + 5 parallel agents
+      MemorySize: 1024
+      ReservedConcurrentExecutions: 5    # Cap RDS connection storms (raise after RDS Proxy)
+      Layers:
+        - !Ref SharedLayer
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+                - bedrock:InvokeModelWithResponseStream
+              Resource: "*"
+        - SQSPollerPolicy:
+            QueueName: !GetAtt VerificationQueue.QueueName
+      Events:
+        VerifyMessage:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt VerificationQueue.Arn
+            BatchSize: 1                  # one alert per invocation
+            FunctionResponseTypes:
+              - ReportBatchItemFailures
+
+  # =========================================================================
+  # Verification HTTP API (read + control surface for AgentOps dashboard)
+  # =========================================================================
+  VerificationsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: safesend-verifications
+      CodeUri: lambdas/verifications/
+      Handler: handler.handler
+      Timeout: 15
+      Layers:
+        - !Ref SharedLayer
+      Events:
+        Recent:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SafeSendApi
+            Path: /api/verifications/recent
+            Method: GET
+        Active:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SafeSendApi
+            Path: /api/verifications/active
+            Method: GET
+        Queue:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SafeSendApi
+            Path: /api/verifications/queue
+            Method: GET
+        Detail:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SafeSendApi
+            Path: /api/verifications/{run_id}
+            Method: GET
+        Streams:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SafeSendApi
+            Path: /api/verifications/{run_id}/streams
+            Method: GET
+
+  AgentStatsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: safesend-agent-stats
+      CodeUri: lambdas/agent_stats/
+      Handler: handler.handler
+      Timeout: 10
+      Layers:
+        - !Ref SharedLayer
+      Events:
+        AgentStats:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SafeSendApi
+            Path: /api/agent-stats
+            Method: GET
+
+  WorkerStateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: safesend-worker-state
+      CodeUri: lambdas/worker_state/
+      Handler: handler.handler
+      Timeout: 10
+      Layers:
+        - !Ref SharedLayer
+      Events:
+        Get:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SafeSendApi
+            Path: /api/worker/state
+            Method: GET
+        Pause:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SafeSendApi
+            Path: /api/worker/pause
+            Method: POST
+        Resume:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SafeSendApi
+            Path: /api/worker/resume
+            Method: POST
+
+  InjectAlertFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: safesend-inject-alert
+      CodeUri: lambdas/inject_alert/
+      Handler: handler.handler
+      Timeout: 15
+      Layers:
+        - !Ref SharedLayer
+      Policies:
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt VerificationQueue.QueueName
+      Events:
+        Inject:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SafeSendApi
+            Path: /api/verifications/inject
+            Method: POST
+
+  ReverifyAlertFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: safesend-reverify-alert
+      CodeUri: lambdas/reverify_alert/
+      Handler: handler.handler
+      Timeout: 10
+      Layers:
+        - !Ref SharedLayer
+      Policies:
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt VerificationQueue.QueueName
+      Events:
+        Reverify:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SafeSendApi
+            Path: /api/alerts/{alert_id}/reverify
+            Method: POST
+
+  # =========================================================================
   # Shared Lambda Layer
   # =========================================================================
   SharedLayer:
@@ -239,3 +427,11 @@ Outputs:
   SnsTopicArn:
     Description: SNS topic ARN for user alerts
     Value: !Ref UserAlertsTopic
+
+  VerificationQueueUrl:
+    Description: SQS URL — POST {"alert_id":"..."} to trigger fraud-verify worker
+    Value: !Ref VerificationQueue
+
+  VerificationQueueArn:
+    Description: SQS ARN for the verify queue
+    Value: !GetAtt VerificationQueue.Arn

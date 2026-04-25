@@ -1,12 +1,18 @@
 import { useState } from 'react';
+import { AgentOpsScreen } from './screens/AgentOpsScreen.js';
 import { AlertsScreen } from './screens/AlertsScreen.js';
 import { NetworkScreen } from './screens/NetworkScreen.js';
 import { SettingsScreen } from './screens/SettingsScreen.js';
 import { StatsScreen } from './screens/StatsScreen.js';
 
-type Tab = 'investigations' | 'network' | 'intelligence' | 'model';
+type Tab = 'agent-ops' | 'investigations' | 'network' | 'intelligence' | 'model';
 
 const NAV: { id: Tab; label: string; description: string }[] = [
+  {
+    id: 'agent-ops',
+    label: 'Agent Ops',
+    description: 'Autonomous fraud verification team',
+  },
   {
     id: 'investigations',
     label: 'Investigations',
@@ -30,49 +36,45 @@ const NAV: { id: Tab; label: string; description: string }[] = [
 ];
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>('investigations');
+  const [tab, setTab] = useState<Tab>('agent-ops');
   const active = NAV.find((item) => item.id === tab)!;
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-app-gray">
-      <Sidebar tab={tab} onTab={setTab} />
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-app-gray">
+      <TopNav tab={tab} onTab={setTab} />
+      <PageHeader title={active.label} subtitle={active.description} />
 
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <TopBar title={active.label} subtitle={active.description} />
-
-        <main className="flex-1 overflow-auto px-8 py-6">
-          {tab === 'investigations' && <AlertsScreen />}
-          {tab === 'network' && <NetworkScreen />}
-          {tab === 'intelligence' && <StatsScreen />}
-          {tab === 'model' && <SettingsScreen />}
-        </main>
-      </div>
+      <main className="flex-1 overflow-auto px-8 py-6">
+        {tab === 'agent-ops' && <AgentOpsScreen />}
+        {tab === 'investigations' && <AlertsScreen />}
+        {tab === 'network' && <NetworkScreen />}
+        {tab === 'intelligence' && <StatsScreen />}
+        {tab === 'model' && <SettingsScreen />}
+      </main>
     </div>
   );
 }
 
-function Sidebar({ tab, onTab }: { tab: Tab; onTab: (t: Tab) => void }) {
+function TopNav({ tab, onTab }: { tab: Tab; onTab: (t: Tab) => void }) {
   return (
-    <aside
-      className="flex h-full w-[276px] shrink-0 flex-col text-white"
-      style={{ background: 'linear-gradient(180deg, #071B33 0%, #0A2A4D 100%)' }}
+    <header
+      className="flex h-16 shrink-0 items-center gap-6 px-6 text-white"
+      style={{ background: 'linear-gradient(90deg, #071B33 0%, #0A2A4D 60%, #0A2A4D 100%)' }}
     >
-      <div className="px-6 py-7">
-        <div className="flex items-center gap-3">
-          <div
-            className="flex h-12 w-12 items-center justify-center rounded-xl font-bold"
-            style={{ backgroundColor: '#FFE600', color: '#0055D4' }}
-          >
-            SS
-          </div>
-          <div>
-            <p className="text-card-title leading-none">SafeSend</p>
-            <p className="mt-1 text-caption text-white/60">PRD v3 analyst console</p>
-          </div>
+      <div className="flex shrink-0 items-center gap-3">
+        <div
+          className="flex h-10 w-10 items-center justify-center rounded-xl font-bold"
+          style={{ backgroundColor: '#FFE600', color: '#0055D4' }}
+        >
+          SS
+        </div>
+        <div className="leading-tight">
+          <p className="text-feature-title">SafeSend</p>
+          <p className="text-small-label text-white/60">Analyst console</p>
         </div>
       </div>
 
-      <nav className="flex-1 px-3">
+      <nav className="flex flex-1 items-center gap-1 overflow-x-auto">
         {NAV.map((item) => {
           const isActive = item.id === tab;
           return (
@@ -80,48 +82,55 @@ function Sidebar({ tab, onTab }: { tab: Tab; onTab: (t: Tab) => void }) {
               key={item.id}
               type="button"
               onClick={() => onTab(item.id)}
-              className="mb-2 flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left transition-colors"
+              className="flex shrink-0 items-center gap-2 rounded-pill px-4 py-2 text-small-label font-semibold transition-colors"
               style={{
                 backgroundColor: isActive ? '#0055D4' : 'transparent',
-                color: isActive ? '#FFFFFF' : 'rgba(255,255,255,0.82)',
-                border: isActive ? '1px solid rgba(255,255,255,0.12)' : '1px solid transparent',
+                color: isActive ? '#FFFFFF' : 'rgba(255,255,255,0.78)',
+                border: isActive ? '1px solid rgba(255,255,255,0.18)' : '1px solid transparent',
               }}
             >
               <span
-                className="flex h-8 w-8 items-center justify-center rounded-pill"
+                className="flex h-6 w-6 items-center justify-center rounded-pill"
                 style={{
-                  backgroundColor: isActive ? '#FFE600' : 'rgba(255,255,255,0.08)',
+                  backgroundColor: isActive ? '#FFE600' : 'rgba(255,255,255,0.10)',
                   color: isActive ? '#0055D4' : '#FFFFFF',
                 }}
               >
                 <NavIcon id={item.id} />
               </span>
-              <div>
-                <p className="text-base font-semibold">{item.label}</p>
-                <p
-                  className="text-small-label"
-                  style={{ color: isActive ? 'rgba(255,255,255,0.88)' : 'rgba(255,255,255,0.55)' }}
-                >
-                  {item.description}
-                </p>
-              </div>
+              <span className="text-base">{item.label}</span>
             </button>
           );
         })}
       </nav>
 
-      <footer className="px-6 py-5 text-caption text-white/60">
-        <p className="font-semibold text-white">Agent Aisha</p>
-        <p>Fraud Operations · Shift PM</p>
-      </footer>
-    </aside>
+      <div className="flex shrink-0 items-center gap-3">
+        <span
+          className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-small-label font-semibold"
+          style={{ backgroundColor: '#ECFDF5', color: '#166534' }}
+        >
+          <span className="inline-block h-2 w-2 rounded-pill" style={{ backgroundColor: '#16A34A' }} />
+          Pipeline live
+        </span>
+        <div className="leading-tight text-right">
+          <p className="text-small-label font-semibold text-white">Agent Aisha</p>
+          <p className="text-[10px] text-white/55">Fraud Ops · Shift PM</p>
+        </div>
+        <div
+          className="flex h-9 w-9 items-center justify-center rounded-pill font-bold"
+          style={{ backgroundColor: '#FFE600', color: '#0055D4' }}
+        >
+          A
+        </div>
+      </div>
+    </header>
   );
 }
 
-function TopBar({ title, subtitle }: { title: string; subtitle: string }) {
+function PageHeader({ title, subtitle }: { title: string; subtitle: string }) {
   return (
-    <header
-      className="flex items-center justify-between bg-white px-8 py-5"
+    <div
+      className="flex items-end justify-between bg-white px-8 py-4"
       style={{ borderBottom: '1px solid #E5E7EB' }}
     >
       <div>
@@ -131,39 +140,37 @@ function TopBar({ title, subtitle }: { title: string; subtitle: string }) {
         <h1 className="mt-1 text-page-title text-text-primary">{title}</h1>
         <p className="text-caption text-muted-text">{subtitle}</p>
       </div>
-      <div className="flex items-center gap-4">
-        <span
-          className="inline-flex items-center gap-2 rounded-pill px-4 py-2 text-small-label font-semibold"
-          style={{ backgroundColor: '#ECFDF5', color: '#166534' }}
-        >
-          <span
-            className="inline-block h-2 w-2 rounded-pill"
-            style={{ backgroundColor: '#16A34A' }}
-          />
-          Pipeline live
-        </span>
-        <div
-          className="flex h-10 w-10 items-center justify-center rounded-pill font-bold"
-          style={{ backgroundColor: '#005BAC', color: '#FFFFFF' }}
-        >
-          A
-        </div>
-      </div>
-    </header>
+    </div>
   );
 }
 
 function NavIcon({ id }: { id: Tab }) {
   const commonProps = {
-    width: 18,
-    height: 18,
+    width: 14,
+    height: 14,
     viewBox: '0 0 24 24',
     fill: 'none',
     stroke: 'currentColor',
-    strokeWidth: 1.9,
+    strokeWidth: 2.1,
     strokeLinecap: 'round' as const,
     strokeLinejoin: 'round' as const,
   };
+
+  if (id === 'agent-ops') {
+    return (
+      <svg {...commonProps}>
+        <circle cx="12" cy="12" r="3" />
+        <circle cx="5" cy="6" r="1.5" />
+        <circle cx="19" cy="6" r="1.5" />
+        <circle cx="5" cy="18" r="1.5" />
+        <circle cx="19" cy="18" r="1.5" />
+        <path d="M6.4 7.2 9.8 10.2" />
+        <path d="M17.6 7.2 14.2 10.2" />
+        <path d="M6.4 16.8 9.8 13.8" />
+        <path d="M17.6 16.8 14.2 13.8" />
+      </svg>
+    );
+  }
 
   if (id === 'investigations') {
     return (

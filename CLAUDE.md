@@ -1,14 +1,12 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code when working with this repository.
+Guide Claude Code in this repo.
 
 ## Project
 
-SafeSend is a multi-layer scam-prevention demo for Touch 'n Go FinHack.
+SafeSend = multi-layer scam-prevention demo for Touch 'n Go FinHack.
 
-The active database is PostgreSQL RDS. Backend database work should use
-`backend/shared/db.py`, `backend/init_full_schema.py`, `backend/seed_erd_mock_data.py`,
-and `backend/local_pg_api.py`.
+Active DB: PostgreSQL RDS. Backend DB work use `backend/shared/db.py`, `backend/init_full_schema.py`, `backend/seed_erd_mock_data.py`, `backend/local_pg_api.py`.
 
 ## Commands
 
@@ -38,15 +36,15 @@ python local_pg_api.py
 
 ## Data Flow
 
-The agent dashboard should call an HTTP API, not the database directly.
+Agent dashboard call HTTP API, not DB direct.
 
-For Postgres-backed local development:
+Postgres-backed local dev:
 
 ```text
 agent-dashboard -> http://localhost:4100 -> backend/local_pg_api.py -> PostgreSQL RDS
 ```
 
-For fully offline demos:
+Fully offline demo:
 
 ```text
 agent-dashboard -> http://localhost:4000 -> frontend/services/mock-api -> in-memory mock data
@@ -54,11 +52,10 @@ agent-dashboard -> http://localhost:4000 -> frontend/services/mock-api -> in-mem
 
 ## Shared Contracts
 
-Frontend API/type contract changes start in `frontend/shared/src/types.ts`, then flow
-into frontend consumers and backend API responses.
+Frontend API/type contract changes start in `frontend/shared/src/types.ts`, flow to frontend consumers + backend API responses.
 
 ## Demo Invariants
 
-- Keep the agent dashboard capable of showing a Stage 3 mule alert.
-- Keep the network graph capable of showing linked accounts and RM exposure.
-- Keep the one-click containment flow working against either local Postgres API or mock API.
+- Agent dashboard show Stage 3 mule alert.
+- Network graph show linked accounts + RM exposure.
+- One-click containment work against local Postgres API or mock API.

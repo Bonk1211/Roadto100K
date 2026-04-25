@@ -11,7 +11,7 @@ import os
 from datetime import date, datetime
 from decimal import Decimal
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 import psycopg2
 from dotenv import load_dotenv
@@ -41,6 +41,11 @@ def json_default(value):
 def fetch_all_dicts(cursor):
     cols = [desc[0] for desc in cursor.description]
     return [dict(zip(cols, row)) for row in cursor.fetchall()]
+
+
+def _parse_query(qs):
+    parsed = parse_qs(qs or "")
+    return {k: v[0] for k, v in parsed.items() if v}
 
 
 def risk_band(score):
@@ -395,6 +400,520 @@ def execute_containment(body):
     }
 
 
+# ---------------------------------------------------------------------------
+# Autonomous verification routes (consumed by AgentOpsScreen)
+# ---------------------------------------------------------------------------
+
+def _findings_for_runs(cur, run_ids):
+    if not run_ids:
+        return {}
+    cur.execute(
+        """
+        SELECT
+            run_id, agent_name, agent_label, verdict, confidence,
+            evidence, reasoning, latency_ms, created_at
+        FROM agent_findings
+        WHERE run_id = ANY(%s)
+        ORDER BY created_at ASC, finding_id ASC
+        """,
+        (list(run_ids),),
+    )
+    grouped = {}
+    for f in fetch_all_dicts(cur):
+        grouped.setdefault(f["run_id"], []).append(
+            {
+                "agent_name": f["agent_name"],
+                "agent_label": f["agent_label"] or f["agent_name"],
+                "verdict": f["verdict"],
+                "confidence": int(f["confidence"]),
+                "evidence": f["evidence"] or [],
+                "reasoning": f["reasoning"],
+                "latency_ms": int(f["latency_ms"] or 0),
+                "created_at": f["created_at"],
+            }
+        )
+    return grouped
+
+
+def _streams_for_runs(cur, run_ids):
+    if not run_ids:
+        return {}
+    cur.execute(
+        """
+        SELECT run_id, agent_name, partial_text, status,
+               started_at, updated_at
+          FROM agent_streams
+         WHERE run_id = ANY(%s)
+        """,
+        (list(run_ids),),
+    )
+    grouped: dict = {}
+    for s in fetch_all_dicts(cur):
+        grouped.setdefault(s["run_id"], []).append(
+            {
+                "agent_name": s["agent_name"],
+                "partial_text": s["partial_text"] or "",
+                "status": s["status"],
+                "started_at": s["started_at"],
+                "updated_at": s["updated_at"],
+            }
+        )
+    return grouped
+
+
+def _serialise_run(row, findings, streams=None):
+    return {
+        "run_id": row["run_id"],
+        "alert_id": row["alert_id"],
+        "status": row["status"],
+        "mode": row.get("mode") if isinstance(row, dict) else row["mode"],
+        "started_at": row["started_at"],
+        "completed_at": row["completed_at"],
+        "final_verdict": row["final_verdict"],
+        "consensus_score": int(row["consensus_score"]) if row["consensus_score"] is not None else None,
+        "agreement_pct": int(row["agreement_pct"]) if row["agreement_pct"] is not None else None,
+        "total_latency_ms": int(row["total_latency_ms"]) if row["total_latency_ms"] is not None else None,
+        "arbiter_reasoning": row["arbiter_reasoning"],
+        "alert_type": row["alert_type"],
+        "risk_score": float(row["risk_score"]) if row["risk_score"] is not None else 0.0,
+        "amount": float(row["amount"]) if row["amount"] is not None else 0.0,
+        "scam_type": row["scam_type"],
+        "stage": row["stage"],
+        "priority": row["priority"],
+        "findings": findings,
+        "streams": streams or [],
+    }
+
+
+def load_verifications_recent(limit=50):
+    limit = max(1, min(int(limit or 50), 200))
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+                vr.run_id,
+                vr.alert_id,
+                vr.status,
+                vr.mode,
+                vr.started_at,
+                vr.completed_at,
+                vr.final_verdict,
+                vr.consensus_score,
+                vr.agreement_pct,
+                vr.total_latency_ms,
+                vr.arbiter_reasoning,
+                a.alert_type,
+                a.risk_score,
+                a.stage,
+                a.priority,
+                t.amount,
+                be.scam_type
+            FROM verification_runs vr
+            JOIN alerts a ON a.alert_id = vr.alert_id
+            LEFT JOIN transactions t ON t.txn_id = a.txn_id
+            LEFT JOIN bedrock_explanations be ON be.alert_id = a.alert_id
+            ORDER BY vr.started_at DESC
+            LIMIT %s
+            """,
+            (limit,),
+        )
+        rows = fetch_all_dicts(cur)
+        run_ids = [r["run_id"] for r in rows]
+        findings = _findings_for_runs(cur, run_ids)
+
+    return [_serialise_run(r, findings.get(r["run_id"], [])) for r in rows]
+
+
+STALE_RUN_SECONDS = 120
+
+
+def _expire_stale_runs(cur):
+    """Mark verification_runs.status='running' older than STALE_RUN_SECONDS as 'failed'.
+
+    Worker may crash mid-run; without this, dead runs linger forever in the live panel.
+    """
+    cur.execute(
+        """
+        UPDATE verification_runs
+           SET status = 'failed',
+               completed_at = COALESCE(completed_at, NOW()),
+               arbiter_reasoning = COALESCE(arbiter_reasoning,
+                   '[auto] expired — worker silent > %s s')
+         WHERE status = 'running'
+           AND started_at < NOW() - (%s || ' seconds')::INTERVAL
+         RETURNING alert_id
+        """,
+        (STALE_RUN_SECONDS, STALE_RUN_SECONDS),
+    )
+    expired_alerts = [r[0] for r in cur.fetchall()]
+    if expired_alerts:
+        cur.execute(
+            """
+            UPDATE alerts
+               SET verification_status = 'failed'
+             WHERE alert_id = ANY(%s)
+               AND verification_status IN ('running', 'queued')
+            """,
+            (expired_alerts,),
+        )
+
+
+def load_verifications_active():
+    with get_conn() as conn, conn.cursor() as cur:
+        _expire_stale_runs(cur)
+        conn.commit()
+        cur.execute(
+            """
+            SELECT
+                vr.run_id,
+                vr.alert_id,
+                vr.status,
+                vr.mode,
+                vr.started_at,
+                vr.completed_at,
+                vr.final_verdict,
+                vr.consensus_score,
+                vr.agreement_pct,
+                vr.total_latency_ms,
+                vr.arbiter_reasoning,
+                a.alert_type,
+                a.risk_score,
+                a.stage,
+                a.priority,
+                t.amount,
+                be.scam_type
+            FROM verification_runs vr
+            JOIN alerts a ON a.alert_id = vr.alert_id
+            LEFT JOIN transactions t ON t.txn_id = a.txn_id
+            LEFT JOIN bedrock_explanations be ON be.alert_id = a.alert_id
+            WHERE vr.status = 'running'
+            ORDER BY vr.started_at ASC
+            """
+        )
+        rows = fetch_all_dicts(cur)
+        run_ids = [r["run_id"] for r in rows]
+        findings = _findings_for_runs(cur, run_ids)
+        streams = _streams_for_runs(cur, run_ids)
+
+    return [
+        _serialise_run(r, findings.get(r["run_id"], []), streams.get(r["run_id"], []))
+        for r in rows
+    ]
+
+
+def load_verification(run_id):
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+                vr.run_id, vr.alert_id, vr.status, vr.mode,
+                vr.started_at, vr.completed_at, vr.final_verdict,
+                vr.consensus_score, vr.agreement_pct, vr.total_latency_ms,
+                vr.arbiter_reasoning,
+                a.alert_type, a.risk_score, a.stage, a.priority,
+                t.amount, be.scam_type
+            FROM verification_runs vr
+            JOIN alerts a ON a.alert_id = vr.alert_id
+            LEFT JOIN transactions t ON t.txn_id = a.txn_id
+            LEFT JOIN bedrock_explanations be ON be.alert_id = a.alert_id
+            WHERE vr.run_id = %s
+            LIMIT 1
+            """,
+            (run_id,),
+        )
+        rows = fetch_all_dicts(cur)
+        if not rows:
+            return None
+        findings = _findings_for_runs(cur, [run_id])
+    return _serialise_run(rows[0], findings.get(run_id, []))
+
+
+def load_run_streams(run_id: str):
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT agent_name, partial_text, status, started_at, updated_at
+              FROM agent_streams
+             WHERE run_id = %s
+            """,
+            (run_id,),
+        )
+        rows = fetch_all_dicts(cur)
+    return [
+        {
+            "agent_name": r["agent_name"],
+            "partial_text": r["partial_text"] or "",
+            "status": r["status"],
+            "started_at": r["started_at"],
+            "updated_at": r["updated_at"],
+        }
+        for r in rows
+    ]
+
+
+def load_verification_queue():
+    with get_conn() as conn, conn.cursor() as cur:
+        _expire_stale_runs(cur)
+        conn.commit()
+        cur.execute(
+            """
+            SELECT verification_status,
+                   COUNT(*) AS n
+            FROM alerts
+            GROUP BY verification_status
+            """
+        )
+        rows = fetch_all_dicts(cur)
+
+    queued = running = decided = unverified = 0
+    for row in rows:
+        n = int(row["n"])
+        status = row["verification_status"]
+        if status == "queued":
+            queued = n
+        elif status == "running":
+            running = n
+        elif status == "decided":
+            decided = n
+        elif status is None:
+            unverified = n
+    return {
+        "unverified": unverified,
+        "queued": queued,
+        "running": running,
+        "decided": decided,
+    }
+
+
+def load_agent_stats(window_minutes=60):
+    window_minutes = max(5, min(int(window_minutes or 60), 60 * 24))
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+                af.agent_name,
+                MAX(af.agent_label) AS agent_label,
+                COUNT(*)             AS runs,
+                AVG(af.latency_ms)   AS avg_latency_ms,
+                AVG(af.confidence)   AS avg_confidence,
+                SUM(CASE WHEN af.verdict = 'block' THEN 1 ELSE 0 END) AS blocks,
+                SUM(CASE WHEN af.verdict = 'warn'  THEN 1 ELSE 0 END) AS warns,
+                SUM(CASE WHEN af.verdict = 'clear' THEN 1 ELSE 0 END) AS clears,
+                SUM(CASE WHEN af.verdict = 'inconclusive' THEN 1 ELSE 0 END) AS inconclusive
+            FROM agent_findings af
+            WHERE af.created_at > NOW() - (%s || ' minutes')::interval
+            GROUP BY af.agent_name
+            ORDER BY agent_name
+            """,
+            (str(window_minutes),),
+        )
+        per_agent_rows = fetch_all_dicts(cur)
+
+        cur.execute(
+            """
+            SELECT
+                COUNT(*)                     AS total_runs,
+                AVG(total_latency_ms)        AS avg_total_ms,
+                MIN(total_latency_ms)        AS min_total_ms,
+                MAX(total_latency_ms)        AS max_total_ms,
+                SUM(CASE WHEN final_verdict = 'block' THEN 1 ELSE 0 END) AS blocks,
+                SUM(CASE WHEN final_verdict = 'warn'  THEN 1 ELSE 0 END) AS warns,
+                SUM(CASE WHEN final_verdict = 'clear' THEN 1 ELSE 0 END) AS clears
+            FROM verification_runs
+            WHERE status = 'decided'
+              AND started_at > NOW() - (%s || ' minutes')::interval
+            """,
+            (str(window_minutes),),
+        )
+        global_row = cur.fetchone() or (0, 0, 0, 0, 0, 0, 0)
+
+    per_agent = [
+        {
+            "agent_name": r["agent_name"],
+            "agent_label": r["agent_label"] or r["agent_name"],
+            "runs": int(r["runs"] or 0),
+            "avg_latency_ms": int(float(r["avg_latency_ms"] or 0)),
+            "avg_confidence": int(float(r["avg_confidence"] or 0)),
+            "blocks": int(r["blocks"] or 0),
+            "warns": int(r["warns"] or 0),
+            "clears": int(r["clears"] or 0),
+            "inconclusive": int(r["inconclusive"] or 0),
+        }
+        for r in per_agent_rows
+    ]
+
+    total_runs, avg_ms, min_ms, max_ms, blocks, warns, clears = global_row
+    return {
+        "window_minutes": window_minutes,
+        "per_agent": per_agent,
+        "totals": {
+            "runs_decided": int(total_runs or 0),
+            "avg_total_ms": int(float(avg_ms or 0)),
+            "min_total_ms": int(float(min_ms or 0)),
+            "max_total_ms": int(float(max_ms or 0)),
+            "blocks": int(blocks or 0),
+            "warns": int(warns or 0),
+            "clears": int(clears or 0),
+        },
+    }
+
+
+def reverify_alert(alert_id):
+    """Reset an alert so the worker re-verifies it on its next poll."""
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE alerts
+               SET verification_status = NULL,
+                   status = 'open',
+                   resolved_at = NULL
+             WHERE alert_id = %s
+            RETURNING alert_id
+            """,
+            (alert_id,),
+        )
+        row = cur.fetchone()
+        conn.commit()
+    if not row:
+        return {"ok": False, "error": "alert not found"}
+    return {"ok": True, "alert_id": row[0], "queued": True}
+
+
+def load_worker_state():
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT key, value, updated_at, updated_by FROM worker_settings WHERE key='paused'"
+        )
+        row = cur.fetchone()
+        if not row:
+            cur.execute(
+                "INSERT INTO worker_settings (key, value) VALUES ('paused','false') ON CONFLICT DO NOTHING"
+            )
+            conn.commit()
+            return {"paused": False, "updated_at": None, "updated_by": None}
+        _key, value, updated_at, updated_by = row
+        return {
+            "paused": str(value).lower() == "true",
+            "updated_at": updated_at,
+            "updated_by": updated_by,
+        }
+
+
+def set_worker_paused(paused: bool, by: str = "agent_console"):
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO worker_settings (key, value, updated_at, updated_by)
+            VALUES ('paused', %s, CURRENT_TIMESTAMP, %s)
+            ON CONFLICT (key) DO UPDATE
+               SET value = EXCLUDED.value,
+                   updated_at = EXCLUDED.updated_at,
+                   updated_by = EXCLUDED.updated_by
+            """,
+            ("true" if paused else "false", by),
+        )
+        conn.commit()
+    return load_worker_state()
+
+
+def inject_test_alert(body):
+    """Create a synthetic alert + transaction so the worker has something to verify."""
+    profile = (body or {}).get("profile", "high_risk")
+    now = datetime.now()
+    suffix = int(now.timestamp() * 1000)
+    txn_id = f"txn_test_{suffix}"
+    alert_id = f"alert_test_{suffix}"
+
+    if profile == "low_risk":
+        risk_score, amount, age_days, is_first, device_match = 22, 120, 720, False, True
+        alert_type = "sender_interception"
+        priority = "low"
+    elif profile == "medium_risk":
+        risk_score, amount, age_days, is_first, device_match = 58, 1800, 35, True, True
+        alert_type = "sender_interception"
+        priority = "medium"
+    else:
+        risk_score, amount, age_days, is_first, device_match = 91, 8200, 4, True, False
+        alert_type = "mule_eviction"
+        priority = "critical"
+
+    receiver_id = f"acc_synth_{suffix}"
+
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT account_id FROM accounts
+             WHERE status = 'active'
+               AND account_type IN ('personal','business','merchant','ewallet')
+             ORDER BY account_id
+             LIMIT 1
+            """
+        )
+        sender_row = cur.fetchone()
+        if not sender_row:
+            return {"ok": False, "error": "no active account available to use as sender"}
+        sender_id = sender_row[0]
+
+        cur.execute(
+            """
+            INSERT INTO accounts
+                (account_id, user_id, account_type, account_age_days,
+                 status, device_fingerprint, ip_address, card_bin,
+                 created_at, updated_at)
+            VALUES (%s, %s, 'personal', %s, 'monitoring', %s, %s, %s, %s, %s)
+            ON CONFLICT (account_id) DO NOTHING
+            """,
+            (
+                receiver_id,
+                f"u_synth_{suffix}",
+                age_days,
+                f"fp_synth_{suffix}",
+                "203.0.113.99",
+                "522222",
+                now,
+                now,
+            ),
+        )
+        cur.execute(
+            """
+            INSERT INTO transactions
+                (txn_id, sender_account_id, receiver_account_id, amount,
+                 timestamp, status, channel, is_first_transfer, device_match)
+            VALUES (%s, %s, %s, %s, %s, 'pending', 'app', %s, %s)
+            ON CONFLICT (txn_id) DO NOTHING
+            """,
+            (txn_id, sender_id, receiver_id, amount, now, is_first, device_match),
+        )
+        cur.execute(
+            """
+            INSERT INTO alerts
+                (alert_id, account_id, txn_id, alert_type, risk_score,
+                 stage, status, priority, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s, 'open', %s, %s)
+            ON CONFLICT (alert_id) DO NOTHING
+            """,
+            (
+                alert_id,
+                receiver_id,
+                txn_id,
+                alert_type,
+                risk_score,
+                "stage_2" if profile == "high_risk" else "stage_1",
+                priority,
+                now,
+            ),
+        )
+        conn.commit()
+
+    return {
+        "ok": True,
+        "alert_id": alert_id,
+        "txn_id": txn_id,
+        "risk_score": risk_score,
+        "profile": profile,
+    }
+
+
 class Handler(BaseHTTPRequestHandler):
     def end_headers(self):
         self.send_header("Access-Control-Allow-Origin", "*")
@@ -407,7 +926,9 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
-        path = urlparse(self.path).path
+        parsed = urlparse(self.path)
+        path = parsed.path
+        query = _parse_query(parsed.query)
         try:
             if path == "/health":
                 return self.respond({"ok": True, "service": "local-pg-api"})
@@ -417,19 +938,51 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(load_stats())
             if path == "/api/network-graph":
                 return self.respond(load_network_graph())
+            if path == "/api/verifications/recent":
+                return self.respond(
+                    {"runs": load_verifications_recent(query.get("limit", 50))}
+                )
+            if path == "/api/verifications/active":
+                return self.respond({"runs": load_verifications_active()})
+            if path == "/api/verifications/queue":
+                return self.respond(load_verification_queue())
+            if path.startswith("/api/verifications/") and path.endswith("/streams"):
+                run_id = path[len("/api/verifications/") : -len("/streams")]
+                return self.respond({"streams": load_run_streams(run_id)})
+            if path.startswith("/api/verifications/"):
+                run_id = path[len("/api/verifications/"):]
+                run = load_verification(run_id)
+                if not run:
+                    return self.respond({"error": "Run not found"}, status=404)
+                return self.respond(run)
+            if path == "/api/agent-stats":
+                window = int(query.get("window_minutes", 60))
+                return self.respond(load_agent_stats(window))
+            if path == "/api/worker/state":
+                return self.respond(load_worker_state())
             return self.respond({"error": "Not found"}, status=404)
         except Exception as exc:
             return self.respond({"error": str(exc)}, status=500)
 
     def do_POST(self):
-        path = urlparse(self.path).path
+        parsed = urlparse(self.path)
+        path = parsed.path
         body = self.read_json()
         try:
             if path.startswith("/api/alerts/") and path.endswith("/decision"):
                 alert_id = path.split("/")[3]
                 return self.respond(record_decision(alert_id, body))
+            if path.startswith("/api/alerts/") and path.endswith("/reverify"):
+                alert_id = path.split("/")[3]
+                return self.respond(reverify_alert(alert_id))
             if path == "/api/containment/execute":
                 return self.respond(execute_containment(body))
+            if path == "/api/verifications/inject":
+                return self.respond(inject_test_alert(body))
+            if path == "/api/worker/pause":
+                return self.respond(set_worker_paused(True, body.get("by", "agent_console")))
+            if path == "/api/worker/resume":
+                return self.respond(set_worker_paused(False, body.get("by", "agent_console")))
             return self.respond({"error": "Not found"}, status=404)
         except Exception as exc:
             return self.respond({"error": str(exc)}, status=500)
