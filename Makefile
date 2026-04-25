@@ -18,22 +18,22 @@ help:
 	@echo "  make clean       remove node_modules + dist"
 
 install:
-	npm install
+	cd frontend && npm install
 
 dev:
-	npm run dev
+	cd frontend && npm run dev
 
 api:
-	npm run dev:api
+	cd frontend && npm run dev:api
 
 user:
-	npm run dev:user
+	cd frontend && npm run dev:user
 
 plugin:
-	npm run dev:plugin
+	cd frontend && npm run dev:plugin
 
 agent:
-	npm run dev:agent
+	cd frontend && npm run dev:agent
 
 stop:
 	@pids=$$(lsof -ti:$(shell echo $(PORTS) | tr ' ' ',') 2>/dev/null); \
@@ -51,10 +51,10 @@ status:
 	done
 
 build:
-	npm run build
+	cd frontend && npm run build
 
 typecheck:
-	npm run typecheck
+	cd frontend && npm run typecheck
 
 clean:
 	find . -name node_modules -type d -prune -exec rm -rf {} +
