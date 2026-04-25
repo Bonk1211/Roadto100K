@@ -28,26 +28,27 @@ export function LiveCasePanel({ runs }: Props) {
 function EmptyState() {
   return (
     <div
-      className="flex h-full flex-col items-center justify-center p-8 text-center"
+      className="flex items-center gap-2 px-3 py-2"
       style={{
         border: '1px dashed #e0e2e6',
         backgroundColor: '#ffffff',
-        borderRadius: 16,
+        borderRadius: 12,
       }}
     >
       <div
-        className="flex h-12 w-12 items-center justify-center"
+        className="flex h-6 w-6 shrink-0 items-center justify-center"
         style={{ backgroundColor: '#eef4fc', color: '#1b61c9', borderRadius: 999 }}
       >
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="12" cy="12" r="9" />
           <path d="M12 7v5l3 2" />
         </svg>
       </div>
-      <p className="mt-3 text-card-title" style={{ color: '#181d26' }}>No live case right now</p>
-      <p className="mt-1 max-w-sm text-caption" style={{ color: 'rgba(4,14,32,0.69)' }}>
-        Worker idle. Click <span style={{ color: '#1b61c9', fontWeight: 600 }}>+ Inject alert</span> in the
-        top bar to push a synthetic case.
+      <p className="text-caption" style={{ color: '#181d26', fontWeight: 600 }}>
+        No live case
+      </p>
+      <p className="truncate text-caption" style={{ color: 'rgba(4,14,32,0.69)' }}>
+        — worker idle. Use <span style={{ color: '#1b61c9', fontWeight: 600 }}>+ Inject alert</span> to push one.
       </p>
     </div>
   );

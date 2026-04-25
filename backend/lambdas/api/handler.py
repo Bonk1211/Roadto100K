@@ -675,4 +675,12 @@ def _unwrap(resp: dict) -> JSONResponse:
 
 
 # Mangum adapter — Lambda Function URL events are API Gateway v2 shape.
-handler = Mangum(app, lifespan="off")
+_mangum = Mangum(app, lifespan="off")
+
+
+def handler(event, context):
+    # Warmup ping (EventBridge) — short-circuit before Mangum so we don't
+    # try to route a fake HTTP request.
+    if isinstance(event, dict) and event.get("warmup"):
+        return {"warm": True}
+    return _mangum(event, context)

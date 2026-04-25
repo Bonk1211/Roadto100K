@@ -15,6 +15,11 @@ from shared.verification import verify_alert
 
 
 def handler(event, context):
+    # Pre-warm ping (EventBridge rate(4 minutes)) — keep Lambda hot to dodge
+    # ~600ms cold start during demo.
+    if isinstance(event, dict) and event.get("warmup"):
+        return {"warm": True}
+
     records = event.get("Records") or []
     failures = []
     for rec in records:

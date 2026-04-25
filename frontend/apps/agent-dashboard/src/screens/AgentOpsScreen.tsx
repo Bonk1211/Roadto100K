@@ -4,6 +4,7 @@ import { CommandBar } from '../components/agentops/CommandBar.js';
 import { CompactAgentStrip } from '../components/agentops/CompactAgentStrip.js';
 import { DecisionFeed } from '../components/agentops/DecisionFeed.js';
 import { LiveCasePanel } from '../components/agentops/LiveCasePanel.js';
+import { PipelinePanel } from '../components/agentops/PipelinePanel.js';
 import {
   AGENT_ORDER,
   fetchAgentStats,
@@ -145,6 +146,7 @@ export function AgentOpsScreen() {
         className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]"
       >
         <section className="flex min-h-0 flex-col gap-3">
+          <PipelinePanel run={primaryActiveRun ?? recent[0] ?? null} />
           <LiveCasePanel runs={primaryActiveRun ? [primaryActiveRun] : []} />
           <CompactAgentStrip
             activeRun={primaryActiveRun}

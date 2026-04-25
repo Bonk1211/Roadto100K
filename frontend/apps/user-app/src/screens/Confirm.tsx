@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LoadingDots, currentUser, type ScreenTransactionResponse } from 'shared';
 import AppShell from '../components/AppShell';
@@ -13,13 +13,19 @@ import { screenTransaction, submitUserChoice } from '../lib/api';
 import { useLang } from '../lib/i18n';
 import { useTransferSession } from '../lib/transfer-session';
 
+type PrefetchState = 'idle' | 'pending' | 'ready' | 'error';
+
 export default function Confirm() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
+  const [lang, setLang] = useLang();
+  const [prefetch, setPrefetch] = useState<PrefetchState>('idle');
+  const [screening, setScreening] = useState<ScreenTransactionResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [softWarning, setSoftWarning] = useState<ScreenTransactionResponse | null>(null);
   const [choicePending, setChoicePending] = useState<'cancel' | 'proceed' | null>(null);
-  const [lang, setLang] = useLang();
+  const [navPending, setNavPending] = useState(false);
+  const fired = useRef(false);
+
   const {
     walletBalance,
     transfer,
@@ -40,47 +46,77 @@ export default function Confirm() {
 
   const { payee, amount, note, sessionId } = transfer;
 
-  const handleConfirm = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await screenTransaction({
-        user_id: currentUser.id,
-        session_id: sessionId,
-        payee_id: payee.account,
-        payee_name: payee.name,
-        amount,
-        currency: 'MYR',
-        device_id: currentUser.device_id,
-        timestamp: new Date().toISOString(),
-        user_avg_30d: currentUser.user_avg_30d,
+  // ---------- Pre-fetch screening on mount ----------
+  // Fires once, even under React StrictMode double-invoke. SafeSend score
+  // lands while the user reads the summary, so /intercept (or /done) renders
+  // instantly when they tap Confirm. Side effect: agent dashboard already
+  // shows the 5-agent verification streaming by the time user decides.
+  useEffect(() => {
+    if (fired.current) return;
+    fired.current = true;
+    setPrefetch('pending');
+
+    const ctrl = new AbortController();
+    screenTransaction({
+      user_id: currentUser.id,
+      session_id: sessionId,
+      payee_id: payee.account,
+      payee_name: payee.name,
+      amount,
+      currency: 'MYR',
+      device_id: currentUser.device_id,
+      timestamp: new Date().toISOString(),
+      user_avg_30d: currentUser.user_avg_30d,
+    })
+      .then((result) => {
+        if (ctrl.signal.aborted) return;
+        setScreening(result);
+        setTransferScreening(result);
+        setPrefetch('ready');
+      })
+      .catch((e: unknown) => {
+        if (ctrl.signal.aborted) return;
+        setError(e instanceof Error ? e.message : 'SafeSend pre-screen failed');
+        setPrefetch('error');
+        fired.current = false; // allow manual retry
       });
 
-      if (result.action === 'hard_intercept') {
-        setTransferScreening(result);
-        navigate('/intercept');
-        return;
-      }
+    return () => {
+      ctrl.abort();
+    };
+  }, [amount, payee.account, payee.name, sessionId, setTransferScreening]);
 
-      if (result.action === 'soft_warn') {
-        setSoftWarning(result);
-        return;
-      }
+  // ---------- Confirm uses cached result ----------
+  const handleConfirm = async () => {
+    if (prefetch === 'pending' || !screening) return; // button locked until ready
 
-      completeTransfer('success');
-      navigate('/done', { state: { status: 'success' } });
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Transaction screening failed';
-      setError(msg);
-    } finally {
-      setLoading(false);
+    if (screening.action === 'hard_intercept') {
+      navigate('/intercept');
+      return;
     }
+    if (screening.action === 'soft_warn') {
+      setSoftWarning(screening);
+      return;
+    }
+
+    // proceed silently — log user choice + nav
+    setNavPending(true);
+    try {
+      await submitUserChoice({
+        txn_id: screening.txn_id,
+        user_id: currentUser.id,
+        choice: 'proceed',
+      });
+    } catch {
+      // logging best-effort
+    }
+    completeTransfer('success');
+    navigate('/done', { state: { status: 'success' } });
   };
 
   const handleSoftChoice = async (choice: 'cancel' | 'proceed') => {
     if (!softWarning) return;
     setChoicePending(choice);
-    setLoading(true);
     setError(null);
     try {
       await submitUserChoice({
@@ -92,23 +128,74 @@ export default function Confirm() {
       completeTransfer(status);
       navigate('/done', { state: { status } });
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Could not save your choice';
-      setError(msg);
+      setError(e instanceof Error ? e.message : 'Could not save your choice');
     } finally {
-      setLoading(false);
       setChoicePending(null);
     }
+  };
+
+  const buttonLabel = (() => {
+    if (navPending) return null;
+    if (prefetch === 'pending') return null; // dots
+    if (prefetch === 'error') return lang === 'en' ? 'Retry SafeSend' : 'Cuba semula';
+    if (screening?.action === 'hard_intercept') {
+      return lang === 'en' ? 'Continue to SafeSend review' : 'Teruskan ke semakan SafeSend';
+    }
+    return `${lang === 'en' ? 'Confirm transfer' : 'Sahkan pemindahan'} ${formatRM(amount)}`;
+  })();
+
+  const onPrimary = () => {
+    if (prefetch === 'error') {
+      // retry
+      setPrefetch('idle');
+      setError(null);
+      fired.current = false;
+      setScreening(null);
+      // bump effect by remount? simpler: re-run inline
+      fired.current = true;
+      setPrefetch('pending');
+      screenTransaction({
+        user_id: currentUser.id,
+        session_id: sessionId,
+        payee_id: payee.account,
+        payee_name: payee.name,
+        amount,
+        currency: 'MYR',
+        device_id: currentUser.device_id,
+        timestamp: new Date().toISOString(),
+        user_avg_30d: currentUser.user_avg_30d,
+      })
+        .then((r) => {
+          setScreening(r);
+          setTransferScreening(r);
+          setPrefetch('ready');
+        })
+        .catch((e) => {
+          setError(e instanceof Error ? e.message : 'SafeSend pre-screen failed');
+          setPrefetch('error');
+        });
+      return;
+    }
+    void handleConfirm();
   };
 
   return (
     <AppShell
       footer={(
         <BottomActionBar>
-          <button onClick={handleConfirm} disabled={loading} className="btn-primary">
-            {loading && !softWarning ? (
-              <LoadingDots label="Running SafeSend screening" tone="inverse" size="sm" />
+          <button
+            onClick={onPrimary}
+            disabled={prefetch === 'pending' || navPending || !!softWarning}
+            className="btn-primary"
+          >
+            {prefetch === 'pending' || navPending ? (
+              <LoadingDots
+                label={prefetch === 'pending' ? 'Running SafeSend pre-check' : 'Recording'}
+                tone="inverse"
+                size="sm"
+              />
             ) : (
-              `Confirm transfer ${formatRM(amount)}`
+              buttonLabel
             )}
           </button>
         </BottomActionBar>
@@ -134,7 +221,7 @@ export default function Confirm() {
             </div>
             <div className="mt-4 inline-flex items-center gap-2 rounded-pill bg-white/10 px-3 py-1.5 text-[12px] font-semibold text-white/85">
               <SafeSendBadge size="sm" />
-              Live transfer screening
+              <PrefetchStatus state={prefetch} score={screening?.final_score} lang={lang} />
             </div>
           </div>
 
@@ -175,9 +262,18 @@ export default function Confirm() {
           <div>
             <div className="text-[13px] font-bold text-text-primary">SafeSend preview</div>
             <div className="mt-1 text-[12px] text-muted-text">
-              {lang === 'en'
+              {prefetch === 'pending' && (lang === 'en'
+                ? 'Pre-checking this payment with SafeSend before you tap Confirm…'
+                : 'Menyemak bayaran ini dengan SafeSend sebelum anda tekan Sahkan…')}
+              {prefetch === 'ready' && (lang === 'en'
+                ? `SafeSend pre-check complete. Score ${screening?.final_score}/100. Tap Confirm to continue.`
+                : `Semakan SafeSend selesai. Skor ${screening?.final_score}/100. Tekan Sahkan untuk teruskan.`)}
+              {prefetch === 'error' && (lang === 'en'
+                ? 'SafeSend pre-check failed. You can retry below.'
+                : 'Semakan SafeSend gagal. Anda boleh cuba semula di bawah.')}
+              {prefetch === 'idle' && (lang === 'en'
                 ? 'SafeSend checks this payment against scam patterns before money leaves your wallet.'
-                : 'SafeSend menyemak bayaran ini dengan corak penipuan sebelum wang keluar dari dompet anda.'}
+                : 'SafeSend menyemak bayaran ini dengan corak penipuan sebelum wang keluar dari dompet anda.')}
             </div>
           </div>
         </section>
@@ -195,7 +291,7 @@ export default function Confirm() {
           warning={softWarning}
           payeeName={payee.name}
           amount={amount}
-          busy={loading}
+          busy={choicePending !== null}
           onClose={() => setSoftWarning(null)}
           onCancel={() => void handleSoftChoice('cancel')}
           onProceed={() => void handleSoftChoice('proceed')}
@@ -204,6 +300,27 @@ export default function Confirm() {
       )}
     </AppShell>
   );
+}
+
+function PrefetchStatus({
+  state,
+  score,
+  lang,
+}: {
+  state: PrefetchState;
+  score?: number;
+  lang: 'bm' | 'en';
+}) {
+  if (state === 'pending') return <span>{lang === 'en' ? 'Pre-screening…' : 'Sedang menyemak…'}</span>;
+  if (state === 'ready')
+    return (
+      <span>
+        {lang === 'en' ? 'Pre-screened' : 'Selesai disemak'}
+        {typeof score === 'number' ? ` · ${score}/100` : ''}
+      </span>
+    );
+  if (state === 'error') return <span>{lang === 'en' ? 'Pre-check failed' : 'Gagal'}</span>;
+  return <span>{lang === 'en' ? 'Live transfer screening' : 'Semakan langsung'}</span>;
 }
 
 function Row({

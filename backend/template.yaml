@@ -18,8 +18,12 @@ Globals:
         RDSPASSWORD: !Ref RdsPassword
         KINESIS_STREAM: !Ref EventsStream
         SNS_TOPIC_ARN: !Ref UserAlertsTopic
-        BEDROCK_MODEL_ID: "anthropic.claude-3-haiku-20240307-v1:0"
+        # Haiku 4.5 via APAC cross-region inference profile — ~2-3× faster than
+        # Haiku 3 for short JSON outputs. Falls back automatically if a region in
+        # the profile is throttled.
+        BEDROCK_MODEL_ID: "apac.anthropic.claude-haiku-4-5-20251001-v1:0"
         BEDROCK_REGION: "ap-southeast-1"
+        BEDROCK_STREAM_CONCURRENCY: "2"
         VERIFY_QUEUE_URL: !Ref VerificationQueue
         VERIFY_MOCK: !Ref VerifyMock
         STREAM_DB_FLUSH_SEC: "0.18"
@@ -88,6 +92,12 @@ Resources:
             - "Content-Type"
             - "x-api-key"
           MaxAge: 86400
+      Events:
+        Warmup:
+          Type: Schedule
+          Properties:
+            Schedule: rate(4 minutes)
+            Input: '{"warmup": true}'
 
   # =========================================================================
   # Worker — autonomous fraud-verify (SQS-driven, kept separate)
@@ -116,7 +126,7 @@ Resources:
       Handler: handler.handler
       Timeout: 300
       MemorySize: 1024
-      ReservedConcurrentExecutions: 5
+      ReservedConcurrentExecutions: 2
       Layers:
         - !Ref SharedLayer
       Policies:
@@ -136,6 +146,11 @@ Resources:
             BatchSize: 1
             FunctionResponseTypes:
               - ReportBatchItemFailures
+        Warmup:
+          Type: Schedule
+          Properties:
+            Schedule: rate(4 minutes)
+            Input: '{"warmup": true}'
 
   # =========================================================================
   # Shared Lambda Layer

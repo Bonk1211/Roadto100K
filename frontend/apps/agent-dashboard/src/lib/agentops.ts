@@ -29,11 +29,17 @@ export interface AgentStream {
   updated_at: string;
 }
 
+export interface PipelineSignal {
+  signal: string;
+  label: string;
+  weight: number;
+}
+
 export interface VerificationRun {
   run_id: string;
   alert_id: string;
   status: RunStatus;
-  mode: 'mock' | 'bedrock' | string;
+  mode: 'mock' | 'bedrock' | 'rules' | string;
   started_at: string;
   completed_at: string | null;
   final_verdict: FinalVerdict | null;
@@ -43,10 +49,14 @@ export interface VerificationRun {
   arbiter_reasoning: string | null;
   alert_type: string | null;
   risk_score: number;
+  rule_score?: number | null;
+  ml_score?: number | null;
+  composite_score?: number | null;
   amount: number;
   scam_type: string | null;
   stage: string | null;
   priority: string | null;
+  triggered_signals?: PipelineSignal[];
   findings: AgentFinding[];
   streams?: AgentStream[];
 }
