@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { demoAmount } from 'shared';
+import AppShell from '../components/AppShell';
 import BilingualToggle from '../components/BilingualToggle';
+import TopBar from '../components/TopBar';
 import { createSessionId } from '../lib/flow';
 import { formatRM } from '../lib/format';
 import { t, useLang } from '../lib/i18n';
@@ -25,71 +27,81 @@ export default function Transfer() {
   };
 
   return (
-    <div className="phone-frame flex flex-col">
-      <header className="bg-tng-blue text-white px-4 pt-4 pb-5 flex items-center gap-3">
-        <button
-          onClick={() => navigate(-1)}
-          aria-label="Back"
-          className="w-9 h-9 rounded-full grid place-items-center hover:bg-white/10"
-        >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-            <path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
-        <div className="flex-1">
-          <div className="text-[18px] font-bold">{t('transferTitle', lang)}</div>
-          <div className="text-[12px] opacity-80">{t('step1', lang)}</div>
+    <AppShell
+      footer={(
+        <div className="sticky bottom-0 border-t border-white/70 bg-white/88 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur">
+          <button onClick={onContinue} disabled={numericAmount <= 0} className="btn-primary">
+            {t('continueToPayee', lang)}
+          </button>
         </div>
-        <BilingualToggle value={lang} onChange={setLang} />
-      </header>
+      )}
+    >
+      <TopBar
+        title={t('transferTitle', lang)}
+        subtitle={t('step1', lang)}
+        onBack={() => navigate(-1)}
+        theme="light"
+        right={<BilingualToggle value={lang} onChange={setLang} />}
+        badge={<div className="section-label">Send money</div>}
+      />
 
-      <main className="flex-1 px-4 pt-5 space-y-4">
-        <div className="card p-4">
-          <div className="text-[12px] font-semibold text-tng-blue uppercase tracking-wider mb-2">
-            {t('amountMyr', lang)}
+      <div className="space-y-4 pt-2">
+        <section className="app-panel overflow-hidden p-5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="section-label">{t('amountMyr', lang)}</div>
+              <div className="mt-1 text-[14px] text-muted-text">Choose how much you want to send</div>
+            </div>
+            <div className="rounded-pill bg-soft-blue-surface px-3 py-1 text-[12px] font-bold text-tng-blue">
+              DuitNow
+            </div>
           </div>
-          <div className="flex items-center bg-soft-blue-surface rounded-xl px-4 h-20 border border-sky-blue">
-            <span className="text-[18px] font-bold text-muted-text mr-3">RM</span>
-            <input
-              type="text"
-              inputMode="decimal"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ''))}
-              className="flex-1 bg-transparent text-[36px] font-extrabold text-text-primary focus:outline-none"
-            />
+
+          <div className="mt-4 rounded-[24px] border border-sky-blue bg-[linear-gradient(180deg,#F8FBFF_0%,#EAF3FF_100%)] px-4 py-5 shadow-sm">
+            <div className="text-[12px] font-semibold uppercase tracking-[0.16em] text-muted-text">Sending</div>
+            <div className="mt-3 flex items-end gap-3">
+              <span className="pb-2 text-[18px] font-bold text-muted-text">RM</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ''))}
+                className="min-w-0 flex-1 bg-transparent text-[42px] font-extrabold leading-none tracking-tight text-text-primary focus:outline-none"
+              />
+            </div>
           </div>
-          <div className="mt-3 flex gap-2 flex-wrap">
+
+          <div className="mt-4 flex flex-wrap gap-2">
             {[250, 800, 2500, 8000].map((quickAmount) => (
               <button
                 key={quickAmount}
                 onClick={() => setAmount(String(quickAmount))}
-                className="px-3 h-8 rounded-pill bg-white border border-border-gray text-[12px] font-semibold text-tng-blue"
+                className={[
+                  'rounded-pill border px-3 py-2 text-[12px] font-semibold shadow-sm transition-colors',
+                  Number(amount) === quickAmount
+                    ? 'border-tng-blue bg-tng-blue text-white'
+                    : 'border-border-gray bg-white/90 text-tng-blue',
+                ].join(' ')}
               >
                 {formatRM(quickAmount)}
               </button>
             ))}
           </div>
-        </div>
+        </section>
 
-        <div className="card p-4">
-          <div className="text-[12px] font-semibold text-tng-blue uppercase tracking-wider mb-2">
-            {t('noteLabel', lang)}
-          </div>
+        <section className="app-panel p-5">
+          <div className="section-label mb-2">{t('noteLabel', lang)}</div>
           <input
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder={t('notePlaceholder', lang)}
-            className="w-full bg-white border border-border-gray rounded-md px-3 h-11 text-[14px] text-text-primary placeholder:text-muted-text focus:outline-none focus:border-tng-blue"
+            className="app-input h-12"
           />
-          <div className="mt-2 text-[12px] text-muted-text">{t('noteHelper', lang)}</div>
-        </div>
-      </main>
-
-      <div className="sticky bottom-0 bg-white border-t border-border-gray px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
-        <button onClick={onContinue} disabled={numericAmount <= 0} className="btn-primary">
-          {t('continueToPayee', lang)}
-        </button>
+          <div className="mt-3 rounded-2xl bg-soft-blue-surface px-3 py-3 text-[12px] text-tng-blue">
+            {t('noteHelper', lang)}
+          </div>
+        </section>
       </div>
-    </div>
+    </AppShell>
   );
 }

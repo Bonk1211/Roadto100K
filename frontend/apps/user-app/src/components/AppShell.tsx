@@ -1,0 +1,54 @@
+import type { ReactNode } from 'react';
+
+interface AppShellProps {
+  children: ReactNode;
+  footer?: ReactNode;
+  theme?: 'light' | 'security';
+  contentClassName?: string;
+}
+
+export default function AppShell({
+  children,
+  footer,
+  theme = 'light',
+  contentClassName = '',
+}: AppShellProps) {
+  const security = theme === 'security';
+
+  return (
+    <div
+      className={[
+        'phone-frame flex min-h-screen flex-col overflow-hidden',
+        security ? 'bg-dark-security-blue text-white' : 'text-text-primary',
+      ].join(' ')}
+    >
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div
+          className={[
+            'absolute -top-20 -right-16 h-56 w-56 rounded-full blur-3xl',
+            security ? 'bg-electric-yellow/10' : 'bg-sky-blue/90',
+          ].join(' ')}
+        />
+        <div
+          className={[
+            'absolute top-40 -left-20 h-64 w-64 rounded-full blur-3xl',
+            security ? 'bg-royal-blue/30' : 'bg-white/90',
+          ].join(' ')}
+        />
+        <div
+          className={[
+            'absolute bottom-24 right-[-72px] h-56 w-56 rounded-full blur-3xl',
+            security ? 'bg-risk-red/10' : 'bg-electric-yellow/20',
+          ].join(' ')}
+        />
+      </div>
+
+      <div className="relative z-10 flex min-h-screen flex-col">
+        <main className={['flex-1 px-4 pb-6', contentClassName].join(' ').trim()}>
+          {children}
+        </main>
+        {footer}
+      </div>
+    </div>
+  );
+}

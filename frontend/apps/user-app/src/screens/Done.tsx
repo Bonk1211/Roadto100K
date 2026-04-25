@@ -1,9 +1,11 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import BilingualToggle from '../components/BilingualToggle';
 import type { Payee } from 'shared';
+import AppShell from '../components/AppShell';
+import BilingualToggle from '../components/BilingualToggle';
+import TopBar from '../components/TopBar';
 import type { DoneStatus } from '../lib/flow';
 import { formatRM } from '../lib/format';
-import { t, useLang, type StringKey } from '../lib/i18n';
+import { useLang } from '../lib/i18n';
 
 interface NavState {
   payee?: Payee;
@@ -112,23 +114,32 @@ export default function Done() {
   const payee = state.payee;
 
   return (
-    <div className="phone-frame flex flex-col">
-      <header className="bg-white px-4 pt-4 pb-3 flex items-center justify-between border-b border-border-gray">
-        <div>
-          <div className="text-[11px] font-bold uppercase tracking-wider text-muted-text">
-            SafeSend outcome
-          </div>
-          <div className="text-[18px] font-extrabold text-text-primary mt-1">
-            {lang === 'en' ? 'Transfer result' : 'Keputusan pemindahan'}
-          </div>
+    <AppShell
+      footer={(
+        <div className="sticky bottom-0 space-y-2 border-t border-white/70 bg-white/88 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur">
+          <button onClick={() => navigate('/home')} className="btn-primary">
+            {lang === 'en' ? 'Back to wallet' : 'Kembali ke dompet'}
+          </button>
+          {status !== 'success' && (
+            <button onClick={() => navigate('/transfer')} className="btn-ghost">
+              {lang === 'en' ? 'Start a new transfer' : 'Mulakan pemindahan baharu'}
+            </button>
+          )}
         </div>
-        <BilingualToggle value={lang} onChange={setLang} />
-      </header>
+      )}
+    >
+      <TopBar
+        title={lang === 'en' ? 'Transfer result' : 'Keputusan pemindahan'}
+        subtitle="SafeSend outcome"
+        theme="light"
+        right={<BilingualToggle value={lang} onChange={setLang} />}
+        badge={<div className="section-label">Outcome</div>}
+      />
 
-      <main className="flex-1 px-4 pt-8 pb-6 flex flex-col items-center text-center">
+      <div className="flex flex-1 flex-col items-center pt-6 text-center">
         <div
           className={[
-            'w-20 h-20 rounded-full grid place-items-center mb-5',
+            'mb-5 grid h-24 w-24 place-items-center rounded-full shadow-card',
             copy.tone === 'safe' ? 'bg-success-green/15 text-success-green' : '',
             copy.tone === 'risk' ? 'bg-risk-red/15 text-risk-red' : '',
             copy.tone === 'pending' ? 'bg-pending-orange/15 text-pending-orange' : '',
@@ -154,7 +165,7 @@ export default function Done() {
 
         <span
           className={[
-            'px-2.5 py-1 rounded-pill text-[11px] font-bold uppercase tracking-wider',
+            'rounded-pill px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider',
             copy.tone === 'safe' ? 'bg-success-green/15 text-success-green' : '',
             copy.tone === 'risk' ? 'bg-risk-red/15 text-risk-red' : '',
             copy.tone === 'pending' ? 'bg-pending-orange/15 text-pending-orange' : '',
@@ -163,15 +174,15 @@ export default function Done() {
           {copy.badge[lang]}
         </span>
 
-        <h1 className="text-[24px] font-extrabold text-text-primary mt-3 leading-tight">
+        <h1 className="mt-3 text-[24px] font-extrabold leading-tight text-text-primary">
           {copy.title[lang]}
         </h1>
-        <p className="text-[14px] text-muted-text mt-2 max-w-xs">{copy.body[lang]}</p>
+        <p className="mt-2 max-w-xs text-[14px] text-muted-text">{copy.body[lang]}</p>
         <p className="mt-3 text-[12px] font-semibold text-muted-text">{copy.followup[lang]}</p>
 
         {amount > 0 && payee && (
-          <div className="mt-6 w-full card p-4 text-left">
-            <div className="text-[11px] font-semibold text-muted-text uppercase tracking-wider">
+          <div className="app-panel mt-6 w-full p-4 text-left">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-text">
               {status === 'cancelled' || status === 'soft_warn_cancelled'
                 ? lang === 'en'
                   ? 'Protected transaction'
@@ -180,10 +191,10 @@ export default function Done() {
                   ? 'Transaction'
                   : 'Transaksi'}
             </div>
-            <div className="flex items-center justify-between mt-2">
+            <div className="mt-2 flex items-center justify-between">
               <div>
                 <div className="text-[14px] font-semibold text-text-primary">{payee.name}</div>
-                <div className="text-[12px] text-muted-text font-mono">
+                <div className="text-[12px] font-mono text-muted-text">
                   TnG · {payee.account}
                 </div>
               </div>
@@ -193,18 +204,7 @@ export default function Done() {
             </div>
           </div>
         )}
-      </main>
-
-      <div className="sticky bottom-0 bg-white border-t border-border-gray px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] space-y-2">
-        <button onClick={() => navigate('/home')} className="btn-primary">
-          {lang === 'en' ? 'Back to wallet' : 'Kembali ke dompet'}
-        </button>
-        {status !== 'success' && (
-          <button onClick={() => navigate('/transfer')} className="btn-ghost">
-            {lang === 'en' ? 'Start a new transfer' : 'Mulakan pemindahan baharu'}
-          </button>
-        )}
       </div>
-    </div>
+    </AppShell>
   );
 }
