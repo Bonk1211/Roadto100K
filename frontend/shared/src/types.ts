@@ -135,6 +135,7 @@ export interface Alert {
   created_at: string;
   decided_at?: string;
   decided_by?: string;
+  processed_ms?: number;
 }
 
 export interface DecisionLog {

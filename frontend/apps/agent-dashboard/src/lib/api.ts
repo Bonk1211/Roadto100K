@@ -46,6 +46,7 @@ interface BackendAlert {
   is_first_transfer?: boolean;
   device_match?: boolean;
   account_age_days?: number;
+  processed_ms?: number;
   explanation_en?: string;
   explanation_bm?: string;
   scam_type?: string;
@@ -151,6 +152,7 @@ function adaptAlert(b: BackendAlert): Alert {
     created_at: ts,
     decided_at: b.decided_at ?? b.resolved_at ?? undefined,
     decided_by: b.decided_by ?? undefined,
+    processed_ms: b.processed_ms != null ? Number(b.processed_ms) : undefined,
   };
 }
 

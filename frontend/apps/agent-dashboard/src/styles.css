@@ -16,3 +16,22 @@ body,
 * {
   box-sizing: border-box;
 }
+
+@keyframes safesend-row-pulse {
+  0% {
+    background-color: rgba(220, 38, 38, 0.18);
+    box-shadow: inset 4px 0 0 #DC2626;
+  }
+  70% {
+    background-color: rgba(220, 38, 38, 0.06);
+    box-shadow: inset 4px 0 0 #DC2626;
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: inset 4px 0 0 transparent;
+  }
+}
+
+.safesend-fresh-row {
+  animation: safesend-row-pulse 2s ease-out 4;
+}

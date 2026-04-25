@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Alert, AgentDecision, DashboardStats } from 'shared';
 import { AlertTable } from '../components/AlertTable.js';
 import { FraudQueryBar } from '../components/FraudQueryBar.js';
@@ -12,7 +12,8 @@ import {
 } from '../lib/api.js';
 import { AlertDetail } from './AlertDetail.js';
 
-const POLL_INTERVAL_MS = 5000;
+const POLL_INTERVAL_MS = 2000;
+const NEW_ALERT_HIGHLIGHT_MS = 30_000;
 
 interface Toast {
   message: string;
@@ -30,6 +31,9 @@ export function AlertsScreen() {
   const [toast, setToast] = useState<Toast | null>(null);
   const [loading, setLoading] = useState(true);
   const [queryResults, setQueryResults] = useState<FraudQueryResponse | null>(null);
+  const [freshIds, setFreshIds] = useState<Set<string>>(new Set());
+  const seenIdsRef = useRef<Set<string>>(new Set());
+  const firstLoadRef = useRef(true);
 
   useEffect(() => {
     let active = true;
@@ -42,9 +46,46 @@ export function AlertsScreen() {
           fetchNetworkGraph(),
         ]);
         if (!active) return;
-        setGraph(rawGraph);
-        setAlerts(buildInvestigationAlerts(rawAlerts, rawGraph));
-        setStats(rawStats);
+
+        const incoming = new Set(a.map((alert) => alert.id));
+        if (firstLoadRef.current) {
+          seenIdsRef.current = incoming;
+          firstLoadRef.current = false;
+        } else {
+          const newOnes = a.filter((alert) => !seenIdsRef.current.has(alert.id));
+          if (newOnes.length > 0) {
+            const ids = newOnes.map((n) => n.id);
+            setFreshIds((prev) => {
+              const next = new Set(prev);
+              ids.forEach((id) => next.add(id));
+              return next;
+            });
+            // Toast for the highest-risk new alert.
+            const top = [...newOnes].sort((x, y) => y.score - x.score)[0];
+            setToast({
+              message:
+                newOnes.length === 1
+                  ? `🚨 New alert · score ${top.score} · RM ${top.txn.amount.toLocaleString('en-MY')}`
+                  : `🚨 ${newOnes.length} new alerts · top score ${top.score}`,
+              tone: 'success',
+            });
+            window.setTimeout(() => setToast(null), 4000);
+            // Clear "fresh" highlight after a window.
+            window.setTimeout(() => {
+              setFreshIds((prev) => {
+                const next = new Set(prev);
+                ids.forEach((id) => next.delete(id));
+                return next;
+              });
+            }, NEW_ALERT_HIGHLIGHT_MS);
+            // Auto-select newest if nothing selected.
+            setSelectedId((cur) => cur ?? top.id);
+          }
+          seenIdsRef.current = incoming;
+        }
+
+        setAlerts(a);
+        setStats(s);
         setLoading(false);
       } catch (error) {
         if (!active) return;
@@ -170,6 +211,7 @@ export function AlertsScreen() {
               <AlertTable
                 alerts={filtered}
                 selectedId={selectedId}
+                freshIds={freshIds}
                 onSelect={setSelectedId}
               />
             )}
