@@ -25,14 +25,20 @@ export default function WalletCard({ balance, userName, lang }: Props) {
           </div>
           <div className="text-[14px] font-medium opacity-90 mt-0.5">{userName}</div>
         </div>
-        <button
-          aria-label="Notifications"
-          className="w-10 h-10 rounded-full bg-white/15 grid place-items-center"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-            <path d="M12 22a2.5 2.5 0 0 0 2.45-2H9.55A2.5 2.5 0 0 0 12 22Zm6-6V11a6 6 0 1 0-12 0v5l-2 2v1h16v-1l-2-2Z" fill="currentColor" />
-          </svg>
-        </button>
+        <div className="relative group">
+          <button
+            aria-label="SafeSend"
+            className="w-10 h-10 rounded-full bg-white/15 grid place-items-center transition-all duration-200 hover:bg-white/25"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5l-8-3Z" fill="#FFE600" stroke="#FFE600" strokeWidth="1" />
+              <path d="m9 12 2 2 4-4" stroke="#0055D4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <div className="pointer-events-none absolute right-0 top-[calc(100%+8px)] z-10 w-max max-w-[180px] rounded-xl bg-dark-security-blue px-3 py-2 text-[11px] font-semibold text-white shadow-elevated opacity-0 translate-y-1 transition-all duration-200 group-hover:opacity-100 group-hover:translate-y-0 group-focus-within:opacity-100 group-focus-within:translate-y-0">
+            SafeSend is protecting this wallet
+          </div>
+        </div>
       </div>
 
       <div className="mt-5">
