@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { demoPayee, mockPayees, type Payee } from 'shared';
 import AppShell from '../components/AppShell';
 import BilingualToggle from '../components/BilingualToggle';
-import TopBar from '../components/TopBar';
+import FlowHeader from '../components/FlowHeader';
 import type { TransferAmountState } from '../lib/flow';
 import { t, useLang } from '../lib/i18n';
 
@@ -50,13 +50,13 @@ export default function PayeeScreen() {
         </div>
       )}
     >
-      <TopBar
+      <FlowHeader
         title={t('transferTitle', lang)}
-        subtitle={t('step2', lang)}
         onBack={() => navigate(-1)}
         theme="light"
         right={<BilingualToggle value={lang} onChange={setLang} />}
-        badge={<div className="section-label">Choose payee</div>}
+        eyebrow="Choose payee"
+        step="Step 2 of 3"
       />
 
       <div className="space-y-4 pt-2">

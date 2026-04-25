@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { demoAmount } from 'shared';
 import AppShell from '../components/AppShell';
 import BilingualToggle from '../components/BilingualToggle';
-import TopBar from '../components/TopBar';
+import FlowHeader from '../components/FlowHeader';
 import { createSessionId } from '../lib/flow';
 import { formatRM } from '../lib/format';
 import { t, useLang } from '../lib/i18n';
@@ -36,13 +36,12 @@ export default function Transfer() {
         </div>
       )}
     >
-      <TopBar
+      <FlowHeader
         title={t('transferTitle', lang)}
-        subtitle={t('step1', lang)}
         onBack={() => navigate(-1)}
         theme="light"
         right={<BilingualToggle value={lang} onChange={setLang} />}
-        badge={<div className="section-label">Send money</div>}
+        step="Step 1 of 3"
       />
 
       <div className="space-y-4 pt-2">

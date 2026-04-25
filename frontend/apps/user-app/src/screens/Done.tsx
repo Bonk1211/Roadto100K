@@ -2,7 +2,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import type { Payee } from 'shared';
 import AppShell from '../components/AppShell';
 import BilingualToggle from '../components/BilingualToggle';
-import TopBar from '../components/TopBar';
+import FlowHeader from '../components/FlowHeader';
 import type { DoneStatus } from '../lib/flow';
 import { formatRM } from '../lib/format';
 import { useLang } from '../lib/i18n';
@@ -128,12 +128,12 @@ export default function Done() {
         </div>
       )}
     >
-      <TopBar
+      <FlowHeader
         title={lang === 'en' ? 'Transfer result' : 'Keputusan pemindahan'}
-        subtitle="SafeSend outcome"
         theme="light"
         right={<BilingualToggle value={lang} onChange={setLang} />}
-        badge={<div className="section-label">Outcome</div>}
+        eyebrow="Outcome"
+        step="Step 3 of 3"
       />
 
       <div className="flex flex-1 flex-col items-center pt-6 text-center">

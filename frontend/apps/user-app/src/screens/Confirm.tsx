@@ -3,8 +3,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { LoadingDots, currentUser, type ScreenTransactionResponse } from 'shared';
 import AppShell from '../components/AppShell';
 import BilingualToggle from '../components/BilingualToggle';
+import FlowHeader from '../components/FlowHeader';
 import SafeSendBadge from '../components/SafeSendBadge';
-import TopBar from '../components/TopBar';
 import type { TransferConfirmState } from '../lib/flow';
 import { formatRM, maskAccount } from '../lib/format';
 import { screenTransaction, submitUserChoice } from '../lib/api';
@@ -115,15 +115,13 @@ export default function Confirm() {
         </div>
       )}
     >
-      <TopBar
+      <FlowHeader
         title={lang === 'en' ? 'Confirm transfer' : 'Sahkan pemindahan'}
-        subtitle={lang === 'en'
-          ? 'Step 3 of 3 - SafeSend check before sending'
-          : 'Langkah 3 / 3 - semakan SafeSend sebelum hantar'}
         onBack={() => navigate(-1)}
         theme="light"
         right={<BilingualToggle value={lang} onChange={setLang} />}
-        badge={<div className="section-label">Review & protect</div>}
+        eyebrow="Review & protect"
+        step="Step 3 of 3"
       />
 
       <div className="space-y-4 pt-2">
