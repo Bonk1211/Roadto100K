@@ -127,7 +127,7 @@ export default function Intercept() {
         step="Protection active"
       />
 
-      <div className="space-y-4 pt-4">
+      <div className="space-y-4 px-3 pt-4">
         <div className="rounded-xl border-2 border-[#FCA5A5] bg-[#FEF2F2] p-4">
           <div className="flex items-start gap-3">
             <div className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-xl bg-risk-red text-white shadow-card">

@@ -62,7 +62,7 @@ export default function PayeeScreen() {
         step="Step 2 of 3"
       />
 
-      <div className="-mt-5 space-y-4 rounded-t-[32px] bg-app-gray pt-4 app-screen-enter motion-stagger">
+      <div className="-mt-5 space-y-4 rounded-t-[32px] bg-app-gray px-3 pt-4 app-screen-enter motion-stagger">
         <BalanceSnapshotCard
           walletBalance={walletBalance}
           amount={transfer.amount}

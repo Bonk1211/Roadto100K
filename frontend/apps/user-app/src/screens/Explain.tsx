@@ -105,7 +105,7 @@ export default function Explain() {
         step="Investigation detail"
       />
 
-      <div className="space-y-4 pt-4 app-screen-enter motion-stagger">
+      <div className="space-y-4 px-3 pt-4 app-screen-enter motion-stagger">
         <section className="app-panel overflow-hidden">
           <div className="bg-[linear-gradient(135deg,#005BAC_0%,#004B91_100%)] px-5 py-5 text-white">
             <div className="text-[12px] font-semibold uppercase tracking-[0.16em] text-white/72">
