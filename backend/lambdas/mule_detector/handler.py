@@ -1,79 +1,93 @@
 """
-Lambda: mule-detector
+Lambda: mule-detector (F2)
 
-Fires on every inbound transfer. Evaluates 5 mule signals,
-assigns Stage 1/2/3, then POSTs result to EC2 /mule-alert.
+POST /api/mule-detect
 
-Called by screen_transaction after scoring the sender side.
+Two modes:
+  1. Direct features supplied in body (test/dev path):
+       {"account_id": "...", "unique_inbound_senders_6h": 4, ...}
+  2. account_id only — aggregates features from PostgreSQL transactions table:
+       {"account_id": "..."}
+
+Always:
+  - Scores 5 mule signals → Stage 0/1/2/3
+  - Stage >=1 → upsert mule_cases row (silent watchlist)
+  - Stage >=2 → write alerts row (alert_type=mule_eviction) + Bedrock Type 2 explanation
+  - Stage 3 → suspends the account immediately + holds inbound transfers in escrow
 """
 
 import json
 import os
-import urllib.request
+import sys
 
-EC2_URL = os.environ.get("EC2_URL", "http://13.212.182.108")
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-SIGNALS = [
-    ("unique_inbound_senders_6h", lambda v: v >= 3,  30),
-    ("avg_inbound_gap_minutes",   lambda v: v < 20,  25),
-    ("inbound_outbound_ratio",    lambda v: v > 80,  25),
-    ("account_age_days",          lambda v: v < 30,  15),
-    ("merchant_spend_7d",         lambda v: v == 0,  20),
-]
-
-
-def score_mule(features: dict) -> dict:
-    fired, score = [], 0
-    for field, condition, weight in SIGNALS:
-        val = float(features.get(field, 0))
-        if condition(val):
-            score += weight
-            fired.append({"signal": field, "value": val, "weight": weight})
-    score = min(score, 100)
-
-    if score >= 80:   stage, status, withdrawal = 3, "auto_eviction", "blocked"
-    elif score >= 60: stage, status, withdrawal = 2, "agent_alert",   "soft_blocked"
-    elif score >= 40: stage, status, withdrawal = 1, "watchlist",     "active"
-    else:             stage, status, withdrawal = 0, "clear",         "active"
-
-    return {
-        "account_id": features.get("account_id", "unknown"),
-        "mule_score": score,
-        "stage": stage,
-        "status": status,
-        "withdrawal_status": withdrawal,
-        "signals_fired": fired,
-    }
+from shared.mule import (
+    aggregate_receiver_features,
+    score_features,
+    upsert_mule_case,
+    insert_mule_alert,
+    evaluate_receiver,
+)
+from shared.models import generate_request_id, now_iso
 
 
 def handler(event, context):
     try:
-        body = json.loads(event.get("body", "{}")) if isinstance(event.get("body"), str) else event
-        result = score_mule(body)
+        body = event.get("body") or "{}"
+        data = json.loads(body) if isinstance(body, str) else body
+    except json.JSONDecodeError:
+        return _resp(400, {"error": "invalid JSON body"})
 
-        # Only notify EC2 if a mule stage was detected
-        if result["stage"] >= 1:
-            try:
-                data = json.dumps(result).encode()
-                req = urllib.request.Request(
-                    f"{EC2_URL}/mule-alert",
-                    data=data,
-                    headers={"Content-Type": "application/json"},
-                    method="POST",
-                )
-                urllib.request.urlopen(req, timeout=5)
-                print(f"[mule-detector] Notified EC2: account={result['account_id']} stage={result['stage']}")
-            except Exception as e:
-                print(f"[mule-detector] EC2 notify failed (non-blocking): {e}")
+    account_id = data.get("account_id")
+    if not account_id:
+        return _resp(400, {"error": "account_id required"})
 
-        return {
-            "statusCode": 200,
-            "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
-            "body": json.dumps(result),
-        }
-    except Exception as e:
-        print(f"[mule-detector] Error: {e}")
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"error": str(e)}),
-        }
+    # If caller passed feature fields directly, use them. Otherwise aggregate from DB.
+    feature_keys = (
+        "account_age_days", "unique_inbound_senders_6h",
+        "avg_inbound_gap_minutes", "inbound_outbound_ratio", "merchant_spend_7d",
+    )
+    has_features = any(k in data for k in feature_keys)
+
+    try:
+        if has_features:
+            features = {"account_id": account_id, **{k: data.get(k, 0) for k in feature_keys}}
+            scoring = score_features(features)
+            mule_case_id = None
+            alert_id = None
+            if scoring["stage"] >= 1:
+                mule_case_id = upsert_mule_case(features, scoring)
+                if scoring["stage"] >= 2 and mule_case_id:
+                    alert_id = insert_mule_alert(account_id, mule_case_id, scoring, features)
+            result = {
+                **scoring,
+                "account_id": account_id,
+                "features": features,
+                "mule_case_id": mule_case_id,
+                "alert_id": alert_id,
+            }
+        else:
+            result = evaluate_receiver(account_id)
+    except Exception as e:  # noqa: BLE001
+        print(f"[mule-detector] error: {e}")
+        return _resp(500, {"error": str(e)})
+
+    return _resp(200, {
+        "request_id": generate_request_id(),
+        "timestamp": now_iso(),
+        **result,
+    })
+
+
+def _resp(status: int, body: dict) -> dict:
+    return {
+        "statusCode": status,
+        "headers": {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Content-Type,x-api-key",
+            "Access-Control-Allow-Methods": "POST,OPTIONS",
+        },
+        "body": json.dumps(body, default=str),
+    }

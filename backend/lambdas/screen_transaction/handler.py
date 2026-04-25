@@ -30,13 +30,14 @@ from shared.kinesis import put_transaction_event
 from shared.bedrock import invoke_bedrock
 from shared.eas_client import call_eas
 from shared.verification import publish_verify_message
+from shared.mule import evaluate_receiver, get_watchlist_stage
 
 
 # ---------------------------------------------------------------------------
 # Risk signal definitions (PRD Section 5 — 7 signals)
 # ---------------------------------------------------------------------------
 def evaluate_signals(txn: dict) -> list[dict]:
-    """Evaluate all 7 risk signals and return list with triggered status."""
+    """Evaluate all 8 risk signals and return list with triggered status."""
     amount = txn.get("amount", 0)
     user_avg = txn.get("user_avg_30d", 1)
     amount_ratio = amount / user_avg if user_avg > 0 else amount
@@ -46,6 +47,7 @@ def evaluate_signals(txn: dict) -> list[dict]:
     device_match = txn.get("device_match", True)
     prior_txns = txn.get("prior_txns_to_payee", 0)
     payee_flagged = txn.get("payee_flagged", False)
+    payee_watchlist_stage = int(txn.get("payee_watchlist_stage", 0) or 0)
 
     signals = [
         {
@@ -96,6 +98,19 @@ def evaluate_signals(txn: dict) -> list[dict]:
             "label_bm": "Pemindahan nombor bulat yang besar",
             "weight": 5,
             "triggered": amount > 5000 and amount % 1000 == 0,
+        },
+        {
+            "signal": "payee_on_mule_watchlist",
+            "label_en": (
+                f"Payee already on mule watchlist (Stage {payee_watchlist_stage})"
+                if payee_watchlist_stage else "Payee on mule watchlist"
+            ),
+            "label_bm": (
+                f"Penerima sudah dalam senarai mule (Tahap {payee_watchlist_stage})"
+                if payee_watchlist_stage else "Penerima dalam senarai mule"
+            ),
+            "weight": 30,
+            "triggered": payee_watchlist_stage >= 1,
         },
     ]
     return signals
@@ -162,6 +177,15 @@ def handler(event, context):
 
     request_id = generate_request_id()
     txn_id = generate_txn_id()
+
+    # --- Step 0: Stage-1 watchlist inheritance (PRD §5 F2) ---
+    # Look up payee mule_cases stage. If 1+, body inherits the watchlist signal.
+    try:
+        payee_stage = get_watchlist_stage(body.get("payee_id", ""))
+    except Exception as e:  # noqa: BLE001
+        print(f"[screen-transaction] watchlist lookup failed: {e}")
+        payee_stage = 0
+    body["payee_watchlist_stage"] = payee_stage
 
     # --- Step 1: Evaluate risk signals ---
     signals = evaluate_signals(body)
@@ -238,6 +262,20 @@ def handler(event, context):
         except Exception as e:  # noqa: BLE001
             print(f"[screen-transaction] verify enqueue failed for {alert_id}: {e}")
 
+    # --- Step 5b: F2 receiver-side mule evaluation (always runs) ---
+    # Watches the payee account regardless of sender risk score, so mule
+    # patterns surface even when individual senders look clean.
+    mule_result = None
+    try:
+        mule_result = evaluate_receiver(body["payee_id"])
+        if mule_result.get("alert_id"):
+            try:
+                publish_verify_message(mule_result["alert_id"])
+            except Exception as e:  # noqa: BLE001
+                print(f"[screen-transaction] mule verify enqueue failed: {e}")
+    except Exception as e:  # noqa: BLE001
+        print(f"[screen-transaction] mule eval failed (non-blocking): {e}")
+
     # --- Step 6: Publish to Kinesis ---
     processed_ms = int(time.time() * 1000) - start_ms
     put_transaction_event(txn_id, action, final_score, {
@@ -273,6 +311,16 @@ def handler(event, context):
             "is_new_payee": body.get("is_new_payee", False),
             "prior_txns_to_payee": body.get("prior_txns_to_payee", 0),
             "flagged_in_network": body.get("payee_flagged", False),
+            "watchlist_stage": payee_stage,
+        }
+
+    if mule_result and mule_result.get("stage", 0) >= 1:
+        response_body["mule_evaluation"] = {
+            "account_id": mule_result.get("account_id"),
+            "stage": mule_result.get("stage"),
+            "mule_score": mule_result.get("mule_score"),
+            "status": mule_result.get("status"),
+            "alert_id": mule_result.get("alert_id"),
         }
 
     return {

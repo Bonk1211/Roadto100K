@@ -2,7 +2,8 @@ import axios from 'axios';
 import type {
   Alert,
   AgentDecision,
-  ContainmentExecutionResponse,
+  ContainmentExecuteApiResponse,
+  ContainmentPreviewResponse,
   DashboardStats,
   NetworkEdge,
   NetworkGraph,
@@ -387,15 +388,29 @@ export async function fraudQuery(query: string): Promise<FraudQueryResponse> {
   return data;
 }
 
+export async function fetchContainmentPreview(
+  accountId: string,
+): Promise<ContainmentPreviewResponse> {
+  const { data } = await api.get<ContainmentPreviewResponse>(
+    `/api/containment/${encodeURIComponent(accountId)}`,
+    { timeout: 15000 },
+  );
+  return data;
+}
+
 export async function executeContainment(
   muleAccountId: string,
   accountIds: string[],
   agentId = 'agent_console',
-): Promise<ContainmentExecutionResponse> {
-  const { data } = await api.post<ContainmentExecutionResponse>('/api/containment/execute', {
-    mule_account_id: muleAccountId,
-    account_ids: accountIds,
-    agent_id: agentId,
-  });
+): Promise<ContainmentExecuteApiResponse> {
+  const { data } = await api.post<ContainmentExecuteApiResponse>(
+    '/api/containment/execute',
+    {
+      mule_account_id: muleAccountId,
+      account_ids: accountIds,
+      agent_id: agentId,
+    },
+    { timeout: 30000 },
+  );
   return data;
 }

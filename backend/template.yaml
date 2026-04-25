@@ -23,6 +23,11 @@ Globals:
         VERIFY_QUEUE_URL: !Ref VerificationQueue
         VERIFY_MOCK: !Ref VerifyMock
         STREAM_DB_FLUSH_SEC: "0.18"
+        # Alibaba OSS compliance mirror — populated from SSM at deploy
+        OSS_ENDPOINT: ""
+        OSS_BUCKET: ""
+        OSS_ACCESS_KEY_ID: ""
+        OSS_ACCESS_KEY_SECRET: ""
     Architectures:
       - x86_64
 
@@ -196,6 +201,91 @@ Resources:
             ApiId: !Ref SafeSendApi
             Path: /api/network-graph
             Method: GET
+
+  # F2: Mule Detector — score 5 mule signals + write mule_cases / alerts
+  MuleDetectorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: safesend-mule-detector
+      CodeUri: lambdas/mule_detector/
+      Handler: handler.handler
+      Timeout: 15
+      Layers:
+        - !Ref SharedLayer
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+              Resource: "*"
+        - SSMParameterReadPolicy:
+            ParameterName: "safesend/*"
+      Events:
+        MuleDetect:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SafeSendApi
+            Path: /api/mule-detect
+            Method: POST
+
+  # F3: Bulk Containment — graph traversal preview + one-click execute
+  BulkContainmentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: safesend-bulk-containment
+      CodeUri: lambdas/bulk_containment/
+      Handler: handler.handler
+      Timeout: 30
+      MemorySize: 1024
+      Layers:
+        - !Ref SharedLayer
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+              Resource: "*"
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt UserAlertsTopic.TopicName
+        - KinesisCrudPolicy:
+            StreamName: !Ref EventsStream
+        - SSMParameterReadPolicy:
+            ParameterName: "safesend/*"
+      Events:
+        Preview:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SafeSendApi
+            Path: /api/containment/{account_id}
+            Method: GET
+        Execute:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SafeSendApi
+            Path: /api/containment/execute
+            Method: POST
+
+  # F1 user-side: capture cancel/proceed/report from intercept screen
+  UserChoiceFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: safesend-user-choice
+      CodeUri: lambdas/user_choice/
+      Handler: handler.handler
+      Layers:
+        - !Ref SharedLayer
+      Policies:
+        - KinesisCrudPolicy:
+            StreamName: !Ref EventsStream
+        - SSMParameterReadPolicy:
+            ParameterName: "safesend/*"
+      Events:
+        UserChoice:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SafeSendApi
+            Path: /api/user-choice
+            Method: POST
 
 
   # =========================================================================

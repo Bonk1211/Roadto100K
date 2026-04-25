@@ -278,3 +278,56 @@ export interface ContainmentExecutionResponse {
   incident_summary: string;
   executed_at: string;
 }
+
+export interface ContainmentLinkedAccount {
+  account_id: string;
+  account_age_days?: number | null;
+  status?: string | null;
+  degree: 1 | 2;
+  connection_type: string;
+  risk_score: number;
+  rm_exposure: number;
+}
+
+export interface ContainmentFocalAccount {
+  account_id: string;
+  account_age_days?: number | null;
+  status?: string | null;
+  risk_score: number;
+  rm_exposure: number;
+  scam_type?: string | null;
+}
+
+export interface ContainmentPreviewResponse {
+  request_id: string;
+  focal_account: ContainmentFocalAccount;
+  linked_accounts: ContainmentLinkedAccount[];
+  total_linked: number;
+  first_degree_count: number;
+  second_degree_count: number;
+  total_rm_exposure: number;
+  elapsed_ms: number;
+  timestamp: string;
+}
+
+export interface ContainmentExecuteApiResponse {
+  request_id: string;
+  containment_id: string;
+  alert_id: string;
+  mule_account_id: string;
+  contained_accounts: string[];
+  contained_count: number;
+  total_rm_exposure: number;
+  incident_report: {
+    incident_title: string;
+    pattern_description: string;
+    accounts_involved: string[];
+    total_rm_exposure: number;
+    actions_taken: string[];
+    recommended_followup: string;
+    report_timestamp: string;
+  };
+  actions_taken: string[];
+  elapsed_ms: number;
+  timestamp: string;
+}

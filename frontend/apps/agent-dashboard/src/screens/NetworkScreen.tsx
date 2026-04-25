@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { NetworkGraph } from 'shared';
+import { ContainmentPanel } from '../components/ContainmentPanel.js';
 import { fetchNetworkGraph } from '../lib/api.js';
 import { NetworkGraphModule } from '../modules/investigations/NetworkGraphModule.js';
 
@@ -25,8 +26,9 @@ export function NetworkScreen() {
   }, []);
 
   return (
-    <div className="flex h-full min-h-[760px] flex-col">
-      <div className="min-h-0 flex-1">
+    <div className="flex h-full min-h-[760px] flex-col gap-4">
+      <ContainmentPanel />
+      <div className="min-h-[420px] flex-1">
         <NetworkGraphModule graph={graph} focusAlert={null} />
       </div>
     </div>
