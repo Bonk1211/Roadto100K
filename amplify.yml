@@ -1,0 +1,39 @@
+version: 1
+applications:
+  # ----- agent-dashboard -----
+  # Connect an Amplify app with appRoot = frontend/apps/agent-dashboard
+  - appRoot: frontend/apps/agent-dashboard
+    frontend:
+      phases:
+        preBuild:
+          commands:
+            - cd ../../ && npm ci
+        build:
+          commands:
+            - cd ../../ && npm run build -w apps/agent-dashboard
+      artifacts:
+        baseDirectory: dist
+        files:
+          - '**/*'
+      cache:
+        paths:
+          - frontend/node_modules/**/*
+
+  # ----- user-app -----
+  # Connect an Amplify app with appRoot = frontend/apps/user-app
+  - appRoot: frontend/apps/user-app
+    frontend:
+      phases:
+        preBuild:
+          commands:
+            - cd ../../ && npm ci
+        build:
+          commands:
+            - cd ../../ && npm run build -w apps/user-app
+      artifacts:
+        baseDirectory: dist
+        files:
+          - '**/*'
+      cache:
+        paths:
+          - frontend/node_modules/**/*
