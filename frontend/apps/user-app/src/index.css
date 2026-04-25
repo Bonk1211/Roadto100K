@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body, #root {
+    height: 100%;
+  }
+  body {
+    font-family: 'Inter', 'SF Pro Display', 'Segoe UI', sans-serif;
+    background-color: #F5F7FA;
+    color: #111827;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+@layer components {
+  .phone-frame {
+    @apply mx-auto w-full max-w-md min-h-screen bg-app-gray relative;
+  }
+  .btn-primary {
+    @apply h-[52px] w-full rounded-lg bg-tng-blue text-white font-bold text-[16px]
+           transition-colors active:bg-primary-pressed hover:bg-primary-hover
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-danger {
+    @apply h-[52px] w-full rounded-lg bg-risk-red text-white font-bold text-[16px]
+           transition-colors active:bg-red-700 hover:bg-red-700;
+  }
+  .btn-secondary {
+    @apply h-[52px] w-full rounded-lg bg-soft-blue-surface text-tng-blue font-bold text-[16px]
+           transition-colors hover:bg-sky-blue;
+  }
+  .btn-ghost {
+    @apply h-[52px] w-full rounded-lg bg-transparent text-tng-blue font-bold text-[16px]
+           border border-border-gray hover:bg-app-gray;
+  }
+  .card {
+    @apply bg-white rounded-lg shadow-card border border-border-gray;
+  }
+}

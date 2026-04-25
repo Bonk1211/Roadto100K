@@ -1,0 +1,268 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  SafeSend — Multi-layer scam prevention system for Touch 'n Go FinHack.
+  AWS SAM template for Lambda functions, API Gateway, DynamoDB, Kinesis, SNS.
+
+Globals:
+  Function:
+    Runtime: python3.12
+    MemorySize: 512
+    Timeout: 10
+    Environment:
+      Variables:
+        DYNAMODB_TABLE: !Ref AlertsTable
+        KINESIS_STREAM: !Ref EventsStream
+        SNS_TOPIC_ARN: !Ref UserAlertsTopic
+        BEDROCK_MODEL_ID: "anthropic.claude-3-haiku-20240307-v1:0"
+        BEDROCK_REGION: "us-east-1"
+    Architectures:
+      - arm64
+
+Parameters:
+  Stage:
+    Type: String
+    Default: prod
+    AllowedValues: [prod, dev]
+
+Resources:
+  # =========================================================================
+  # API Gateway (HTTP API)
+  # =========================================================================
+  SafeSendApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: !Ref Stage
+      CorsConfiguration:
+        AllowOrigins:
+          - "*"
+        AllowHeaders:
+          - Content-Type
+          - x-api-key
+        AllowMethods:
+          - GET
+          - POST
+          - OPTIONS
+      ThrottlingBurstLimit: 100
+      ThrottlingRateLimit: 100
+
+  # =========================================================================
+  # Lambda Functions
+  # =========================================================================
+  ScreenTransactionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: safesend-screen-transaction
+      CodeUri: lambdas/screen_transaction/
+      Handler: handler.handler
+      ReservedConcurrentExecutions: 10
+      Layers:
+        - !Ref SharedLayer
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AlertsTable
+        - KinesisCrudPolicy:
+            StreamName: !Ref EventsStream
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+              Resource: "*"
+        - SSMParameterReadPolicy:
+            ParameterName: "safesend/*"
+      Events:
+        ScreenTransaction:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SafeSendApi
+            Path: /api/screen-transaction
+            Method: POST
+
+  AnalyseMessageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: safesend-analyse-message
+      CodeUri: lambdas/analyse_message/
+      Handler: handler.handler
+      Layers:
+        - !Ref SharedLayer
+      Events:
+        AnalyseMessage:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SafeSendApi
+            Path: /api/analyse-message
+            Method: POST
+
+  AgentActionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: safesend-agent-action
+      CodeUri: lambdas/agent_action/
+      Handler: handler.handler
+      Layers:
+        - !Ref SharedLayer
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AlertsTable
+        - KinesisCrudPolicy:
+            StreamName: !Ref EventsStream
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt UserAlertsTopic.TopicName
+        - SSMParameterReadPolicy:
+            ParameterName: "safesend/*"
+      Events:
+        AgentAction:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SafeSendApi
+            Path: /api/alerts/{txn_id}/action
+            Method: POST
+
+  GetAlertsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: safesend-get-alerts
+      CodeUri: lambdas/get_alerts/
+      Handler: handler.handler
+      Layers:
+        - !Ref SharedLayer
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref AlertsTable
+      Events:
+        ListAlerts:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SafeSendApi
+            Path: /api/alerts
+            Method: GET
+        GetAlert:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SafeSendApi
+            Path: /api/alerts/{txn_id}
+            Method: GET
+
+  GetStatsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: safesend-get-stats
+      CodeUri: lambdas/get_stats/
+      Handler: handler.handler
+      Layers:
+        - !Ref SharedLayer
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref AlertsTable
+      Events:
+        GetStats:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SafeSendApi
+            Path: /api/stats
+            Method: GET
+
+  GetNetworkGraphFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: safesend-get-network-graph
+      CodeUri: lambdas/get_network_graph/
+      Handler: handler.handler
+      Layers:
+        - !Ref SharedLayer
+      Policies:
+        - SSMParameterReadPolicy:
+            ParameterName: "safesend/*"
+      Events:
+        GetNetworkGraph:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SafeSendApi
+            Path: /api/network-graph
+            Method: GET
+
+  # =========================================================================
+  # Shared Lambda Layer
+  # =========================================================================
+  SharedLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: safesend-shared
+      ContentUri: shared/
+      CompatibleRuntimes:
+        - python3.12
+    Metadata:
+      BuildMethod: python3.12
+
+  # =========================================================================
+  # DynamoDB Table
+  # =========================================================================
+  AlertsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: SafeSendAlerts
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: txn_id
+          AttributeType: S
+        - AttributeName: status
+          AttributeType: S
+        - AttributeName: risk_score
+          AttributeType: N
+      KeySchema:
+        - AttributeName: txn_id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: status-risk_score-index
+          KeySchema:
+            - AttributeName: status
+              KeyType: HASH
+            - AttributeName: risk_score
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: expires_at
+        Enabled: true
+
+  # =========================================================================
+  # Kinesis Data Stream
+  # =========================================================================
+  EventsStream:
+    Type: AWS::Kinesis::Stream
+    Properties:
+      Name: safesend-events
+      ShardCount: 1
+      RetentionPeriodHours: 24
+      StreamModeDetails:
+        StreamMode: PROVISIONED
+
+  # =========================================================================
+  # SNS Topic
+  # =========================================================================
+  UserAlertsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: safesend-user-alerts
+      DisplayName: SafeSend
+
+# =========================================================================
+# Outputs
+# =========================================================================
+Outputs:
+  ApiUrl:
+    Description: API Gateway endpoint URL
+    Value: !Sub "https://${SafeSendApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}"
+
+  AlertsTableName:
+    Description: DynamoDB table name
+    Value: !Ref AlertsTable
+
+  EventsStreamName:
+    Description: Kinesis stream name
+    Value: !Ref EventsStream
+
+  SnsTopicArn:
+    Description: SNS topic ARN for user alerts
+    Value: !Ref UserAlertsTopic
