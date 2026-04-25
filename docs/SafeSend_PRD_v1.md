@@ -174,11 +174,11 @@ Lambda now calls updated model for next-day scoring
 
 | Service | Role |
 |---|---|
-| **Amazon Kinesis Data Streams** | Ingests every payment event in real time |
+| **Amazon Kinesis Data polling** | Ingests every payment event in real time |
 | **AWS Lambda** | Rule engine pre-screen; calls PAI EAS for ML score; calls Bedrock for explanation; logs decisions |
 | **Amazon Bedrock (Claude / Titan)** | Generates bilingual scam explanation and classifies scam type |
 | **Amazon API Gateway** | Exposes Lambda functions as REST endpoints to the React frontend |
-| **Amazon DynamoDB** | Stores real-time alert state for the agent dashboard |
+| **Amazon PostgreSQL** | Stores real-time alert state for the agent dashboard |
 | **AWS SNS** | Triggers SMS warnings to users when transactions are blocked |
 
 ---
@@ -220,7 +220,7 @@ Lambda now calls updated model for next-day scoring
 [AWS Lambda — Rule Engine]
         ├→ [Alibaba EAS] → ML fraud score (0–100)
         ├→ [Amazon Bedrock] → bilingual scam explanation + scam type
-        ├→ [DynamoDB] → store alert state
+        ├→ [PostgreSQL] → store alert state
         └→ [Kinesis] → log event
 
 [Agent Dashboard (React)]
@@ -242,7 +242,7 @@ Lambda now calls updated model for next-day scoring
 | Person | Role | Primary Ownership |
 |---|---|---|
 | **Person A** | Full Stack Lead | React app (user-facing TnG flow + SafeSend interception screen); API Gateway wiring |
-| **Person B** | Backend / Cloud | AWS Lambda functions; Kinesis setup; Bedrock integration; DynamoDB |
+| **Person B** | Backend / Cloud | AWS Lambda functions; Kinesis setup; Bedrock integration; PostgreSQL |
 | **Person C** | ML / Alibaba Cloud | Mock dataset generation; PAI model training; EAS deployment; OSS setup |
 | **Person D** | Frontend / Demo | Agent dashboard (React + Tailwind); D3.js network graph; pitch deck; demo rehearsal |
 
@@ -253,21 +253,21 @@ Lambda now calls updated model for next-day scoring
 #### Hours 0–2 | Setup & Scaffold
 - **All:** Git repo initialised, folder structure agreed, mock data schema confirmed
 - **A:** Vite + React project scaffolded; routing set up (transfer flow / dashboard / plugin demo)
-- **B:** AWS account configured; Kinesis stream created; Lambda skeleton deployed
+- **B:** AWS account configured; Kinesis polling created; Lambda skeleton deployed
 - **C:** Alibaba OSS bucket created; mock dataset CSV generated (500 rows); PAI workspace set up
 - **D:** Figma wireframes for 3 screens (transfer flow, SafeSend warning, dashboard); pitch deck outline
 
 #### Hours 2–6 | Core ML & Backend
-- **B:** Lambda rule engine logic complete (7 risk signals); API Gateway endpoint live; DynamoDB table for alerts
+- **B:** Lambda rule engine logic complete (7 risk signals); API Gateway endpoint live; PostgreSQL table for alerts
 - **C:** PAI training job runs on mock CSV; Isolation Forest model trained; EAS endpoint deployed and returning scores
 - **A:** TnG transfer flow screens (enter amount → payee → confirm) functional in React
 - **D:** Agent dashboard layout complete (stats bar, alert table, detail panel)
 
 #### Hours 6–12 | AI Integration
-- **B:** Bedrock integration complete — Lambda calls Bedrock with structured prompt, receives JSON (explanation + scam type + confidence); end-to-end Lambda pipeline tested (rule engine → EAS → Bedrock → DynamoDB)
+- **B:** Bedrock integration complete — Lambda calls Bedrock with structured prompt, receives JSON (explanation + scam type + confidence); end-to-end Lambda pipeline tested (rule engine → EAS → Bedrock → PostgreSQL)
 - **A:** SafeSend interception screen built; connects to Lambda via API Gateway; bilingual warning text displays correctly
 - **C:** OSS feedback logging working; DataWorks nightly job configured (can demo manually)
-- **D:** Agent dashboard wired to DynamoDB (live alert feed); Block / Warn / Clear buttons call Lambda; stats bar updates
+- **D:** Agent dashboard wired to PostgreSQL (live alert feed); Block / Warn / Clear buttons call Lambda; stats bar updates
 
 #### Hours 12–18 | Network Graph + Plugin
 - **C + D:** D3.js scam network graph built; 2–3 mock scam clusters visualised; clickable nodes expand account info

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { currentUser, getStoredLanguage, type ScreenTransactionResponse } from 'shared';
+import { LoadingDots, currentUser, getStoredLanguage, type ScreenTransactionResponse } from 'shared';
 import SafeSendBadge from '../components/SafeSendBadge';
 import type { TransferConfirmState } from '../lib/flow';
 import { formatRM, maskAccount } from '../lib/format';
@@ -13,6 +13,7 @@ export default function Confirm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [softWarning, setSoftWarning] = useState<ScreenTransactionResponse | null>(null);
+  const [choicePending, setChoicePending] = useState<'cancel' | 'proceed' | null>(null);
   const lang = getStoredLanguage();
 
   const formattedTimestamp = useMemo(
@@ -71,6 +72,7 @@ export default function Confirm() {
 
   const handleSoftChoice = async (choice: 'cancel' | 'proceed') => {
     if (!softWarning) return;
+    setChoicePending(choice);
     setLoading(true);
     setError(null);
     try {
@@ -91,6 +93,7 @@ export default function Confirm() {
       setError(msg);
     } finally {
       setLoading(false);
+      setChoicePending(null);
     }
   };
 
@@ -167,7 +170,11 @@ export default function Confirm() {
 
       <div className="sticky bottom-0 bg-white border-t border-border-gray px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <button onClick={handleConfirm} disabled={loading} className="btn-primary">
-          {loading ? 'Checking with SafeSend...' : `Confirm transfer ${formatRM(amount)}`}
+          {loading && !softWarning ? (
+            <LoadingDots label="Running SafeSend screening" tone="inverse" size="sm" />
+          ) : (
+            `Confirm transfer ${formatRM(amount)}`
+          )}
         </button>
       </div>
 
@@ -181,6 +188,7 @@ export default function Confirm() {
           onClose={() => setSoftWarning(null)}
           onCancel={() => void handleSoftChoice('cancel')}
           onProceed={() => void handleSoftChoice('proceed')}
+          pendingChoice={choicePending}
         />
       )}
     </div>
@@ -210,6 +218,7 @@ function SoftWarningModal({
   payeeName,
   amount,
   busy,
+  pendingChoice,
   onClose,
   onCancel,
   onProceed,
@@ -219,6 +228,7 @@ function SoftWarningModal({
   payeeName: string;
   amount: number;
   busy: boolean;
+  pendingChoice: 'cancel' | 'proceed' | null;
   onClose: () => void;
   onCancel: () => void;
   onProceed: () => void;
@@ -262,15 +272,29 @@ function SoftWarningModal({
 
           <div className="grid grid-cols-1 gap-2">
             <button onClick={onCancel} disabled={busy} className="btn-secondary">
-              {lang === 'en' ? 'Cancel transfer' : 'Batalkan pemindahan'}
+              {pendingChoice === 'cancel' ? (
+                <LoadingDots
+                  label={lang === 'en' ? 'Saving choice' : 'Menyimpan pilihan'}
+                  tone="primary"
+                  size="sm"
+                />
+              ) : lang === 'en' ? (
+                'Cancel transfer'
+              ) : (
+                'Batalkan pemindahan'
+              )}
             </button>
             <button onClick={onProceed} disabled={busy} className="btn-primary">
-              {busy
-                ? lang === 'en'
-                  ? 'Saving choice...'
-                  : 'Menyimpan pilihan...'
+              {pendingChoice === 'proceed'
+                ? (
+                  <LoadingDots
+                    label={lang === 'en' ? 'Saving choice' : 'Menyimpan pilihan'}
+                    tone="inverse"
+                    size="sm"
+                  />
+                )
                 : lang === 'en'
-                  ? 'Proceed anyway'
+                  ? 'Proceed with caution'
                   : 'Teruskan juga'}
             </button>
             <button onClick={onClose} disabled={busy} className="btn-ghost">

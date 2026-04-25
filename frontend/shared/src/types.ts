@@ -15,6 +15,8 @@ export type RiskBand = 'low' | 'medium' | 'high';
 export type LanguageHint = 'BM' | 'EN' | 'auto';
 export type UIlang = 'bm' | 'en';
 export type ScreeningAction = 'proceed' | 'soft_warn' | 'hard_intercept';
+export type AlertType = 'sender_interception' | 'mule_eviction';
+export type MuleStage = 1 | 2 | 3;
 
 export interface Payee {
   id: string;
@@ -72,6 +74,32 @@ export interface BedrockExplanation {
   confidence: ConfidenceLevel;
 }
 
+export interface MuleProfile {
+  account_id: string;
+  stage: MuleStage;
+  unique_inbound_senders_6h: number;
+  avg_inbound_gap_minutes: number;
+  inbound_outbound_ratio: number;
+  merchant_spend_7d: number;
+  withdrawal_status: 'active' | 'soft_blocked' | 'blocked';
+  escrow_amount: number;
+}
+
+export interface ContainmentAccount {
+  account_id: string;
+  display_name: string;
+  risk_score: number;
+  connection_type:
+    | 'direct_transaction'
+    | 'shared_device'
+    | 'shared_ip'
+    | 'overlapping_timing'
+    | 'same_card_bin';
+  degree: 1 | 2;
+  rm_exposure: number;
+  selected?: boolean;
+}
+
 /**
  * Wire shape returned by `POST /api/score-transaction`.
  * Bedrock fields are flat (explanation_en/_bm/scam_type/confidence) to match
@@ -96,6 +124,11 @@ export interface Alert {
   txn: Transaction;
   score: number;
   band: RiskBand;
+  alert_type?: AlertType;
+  mule_stage?: MuleStage;
+  rm_at_risk?: number;
+  mule_profile?: MuleProfile;
+  containment_accounts?: ContainmentAccount[];
   signals: RiskSignal[];
   explanation: BedrockExplanation;
   status: 'open' | 'blocked' | 'warned' | 'cleared';
@@ -204,7 +237,13 @@ export interface NetworkNode {
 export interface NetworkEdge {
   source: string;
   target: string;
-  type: 'transaction' | 'shared_device' | 'shared_attribute';
+  type:
+    | 'transaction'
+    | 'shared_device'
+    | 'shared_attribute'
+    | 'shared_ip'
+    | 'overlapping_timing'
+    | 'same_card_bin';
   weight?: number;
 }
 
@@ -219,4 +258,20 @@ export interface DashboardStats {
   blocked_today: number;
   avg_response_ms: number;
   trend?: { label: string; value: number }[];
+}
+
+export interface ContainmentExecutionRequest {
+  mule_account_id: string;
+  account_ids: string[];
+  agent_id: string;
+}
+
+export interface ContainmentExecutionResponse {
+  ok: true;
+  incident_id: string;
+  contained_accounts: ContainmentAccount[];
+  total_rm_exposure: number;
+  sns_sent: number;
+  incident_summary: string;
+  executed_at: string;
 }

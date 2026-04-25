@@ -1,18 +1,20 @@
-# SafeSend Backend — AWS Lambda Functions (Python 3.12)
+# SafeSend Backend - AWS Lambda Functions (Python 3.12)
 
 ## Architecture
 
-All backend logic runs as **AWS Lambda functions** behind **Amazon API Gateway (HTTP API)**.
+Backend logic runs as AWS Lambda functions behind Amazon API Gateway. Alert state
+and fraud investigation data are stored in PostgreSQL RDS using the ERD schema in
+`docs/ERD.md`.
 
-```
-API Gateway (HTTP API) → /api/*
-├── POST /api/screen-transaction  → screen_transaction/
-├── POST /api/analyse-message     → analyse_message/
-├── POST /api/alerts/{txn_id}/action → agent_action/
-├── GET  /api/alerts              → get_alerts/
-├── GET  /api/stats               → get_stats/
-├── GET  /api/network-graph       → get_network_graph/
-└── POST /api/user-choice         → screen_transaction/ (secondary handler)
+```text
+API Gateway (HTTP API) -> /api/*
+|-- POST /api/screen-transaction       -> screen_transaction/
+|-- POST /api/analyse-message          -> analyse_message/
+|-- POST /api/alerts/{txn_id}/action   -> agent_action/
+|-- GET  /api/alerts                   -> get_alerts/
+|-- GET  /api/stats                    -> get_stats/
+|-- GET  /api/network-graph            -> get_network_graph/
+`-- POST /api/user-choice              -> screen_transaction/
 ```
 
 ## Services Used
@@ -27,7 +29,7 @@ API Gateway (HTTP API) → /api/*
 
 ## Folder Structure
 
-```
+```text
 backend/
 ├── lambdas/
 │   ├── screen_transaction/    # Rule engine + EAS + Bedrock orchestrator
@@ -53,24 +55,22 @@ backend/
 ## Local Development
 
 ```bash
-# Install dependencies
 pip install -r requirements.txt
-
-# Run with SAM local (requires Docker)
-sam local start-api --port 4000
-
-# Or use the mock-api in /frontend/services/mock-api for offline dev
+python test_pg_connection.py
+python local_pg_api.py
 ```
+
+The local Postgres API runs on `http://localhost:4100`.
 
 ## Deployment
 
 ```bash
 sam build
-sam deploy --guided   # first time
-sam deploy            # subsequent
+sam deploy --guided
+sam deploy
 ```
 
-## Environment Variables (Lambda)
+Pass `DatabaseUrl` during deployment or configure it in the Lambda environment.
 
 | Variable | Source | Description |
 |----------|--------|-------------|

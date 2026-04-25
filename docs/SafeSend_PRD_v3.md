@@ -18,7 +18,7 @@ Today, by the time a fraud pattern is confirmed and acted upon inside a typical 
 *"The industry detects fraud at Stage 4. SafeSend acts at Stage 1 — before the mule account processes a single ringgit of volume."*
 
 **Platform:** React web application (agent-facing dashboard) + TnG transfer flow simulation (demo)
-**Cloud:** AWS (hot path — Lambda, Kinesis, Bedrock, SageMaker, DynamoDB, SNS, API Gateway) + Alibaba Cloud (cold storage + compliance audit trail — OSS)
+**Cloud:** AWS (hot path — Lambda, Kinesis, Bedrock, SageMaker, PostgreSQL, SNS, API Gateway) + Alibaba Cloud (cold storage + compliance audit trail — OSS)
 
 ---
 
@@ -42,7 +42,7 @@ SafeSend addresses all three by acting at Stage 1–2, while the money is still 
 | Judging Criterion | How SafeSend Addresses It |
 |---|---|
 | **AI & Intelligent Systems** | Amazon Bedrock for explainability and natural language queries; AWS SageMaker Isolation Forest for ML scoring; two distinct AI layers with clearly separated roles |
-| **Multi-Cloud (AWS + Alibaba)** | AWS owns the real-time hot path (Lambda, Kinesis, Bedrock, SageMaker, DynamoDB); Alibaba OSS owns the compliance audit trail and cold storage — a genuine architectural reason for both, not checkbox ticking |
+| **Multi-Cloud (AWS + Alibaba)** | AWS owns the real-time hot path (Lambda, Kinesis, Bedrock, SageMaker, PostgreSQL); Alibaba OSS owns the compliance audit trail and cold storage — a genuine architectural reason for both, not checkbox ticking |
 | **Technical Implementation** | Event-driven pipeline; sub-500ms scoring; feedback loop with nightly SageMaker retraining; graph traversal for network containment |
 | **Impact & Feasibility** | RM 1.2B annual problem; 24M TnG users; fully demo-able in 24 hours with mock data |
 | **Presentation** | Mule eviction demo moment is visceral and specific; natural language query is visually impressive; pitch narrative is a TnG business story, not a regulatory story |
@@ -84,7 +84,7 @@ Every transfer a TnG user initiates is evaluated before funds move. A rule engin
 
 **Three-Way Branch:**
 
-- **Score 0–39** → Auto-approved silently. Logged to S3 and DynamoDB.
+- **Score 0–39** → Auto-approved silently. Logged to S3 and PostgreSQL.
 - **Score 40–69** → Soft warning overlay on confirmation screen. User can dismiss and proceed. Logged.
 - **Score 70–100** → Hard SafeSend interception screen. Bedrock generates bilingual explanation specific to this transaction. User must actively choose: Cancel / Proceed Anyway / Report Scam. All choices logged to Kinesis → S3.
 
@@ -115,7 +115,7 @@ Every mule account inside TnG's payee network that processes scam volume creates
 
 **Three-Stage Escalation:**
 
-- **Stage 1 (score 40–59)** → Silent watchlist. Account flagged in DynamoDB. All future transactions involving this account automatically inherit +30 points on their F1 risk score. No visible action to account holder yet.
+- **Stage 1 (score 40–59)** → Silent watchlist. Account flagged in PostgreSQL. All future transactions involving this account automatically inherit +30 points on their F1 risk score. No visible action to account holder yet.
 - **Stage 2 (score 60–79)** → Agent alert raised on dashboard. Withdrawal capability soft-blocked pending review. Bedrock generates a mule suspicion summary for the agent. Account holder not notified yet.
 - **Stage 3 (score 80–100)** → Auto-eviction. Withdrawal blocked. Account suspended. All pending inbound transfers held in escrow inside TnG's system. Bedrock generates incident report. F3 Bulk Containment triggered automatically to scan for linked accounts.
 
@@ -126,7 +126,7 @@ Every mule account inside TnG's payee network that processes scam volume creates
 When a mule account reaches Stage 3 eviction, SafeSend immediately traverses the transaction graph to find every linked account — by shared device fingerprint, shared IP, overlapping transaction timing, or same card BIN — and presents the agent with a one-click bulk action to contain all of them simultaneously.
 
 **Graph traversal (Lambda):**
-Stage 3 eviction triggers a Lambda graph traversal. It queries DynamoDB for all accounts sharing any attribute with the confirmed mule. Returns a ranked list: 1st-degree (direct transaction link), 2nd-degree (shared device/IP, no direct transaction). Each linked account shows its own risk score and connection type.
+Stage 3 eviction triggers a Lambda graph traversal. It queries PostgreSQL for all accounts sharing any attribute with the confirmed mule. Returns a ranked list: 1st-degree (direct transaction link), 2nd-degree (shared device/IP, no direct transaction). Each linked account shows its own risk score and connection type.
 
 **Containment panel on dashboard:**
 Confirmed mule at centre of network graph. 1st-degree accounts listed with risk score and connection reason. 2nd-degree accounts listed as monitor candidates. Total RM exposure across all accounts calculated in real time.
@@ -182,7 +182,7 @@ The internal React web app where TnG fraud analysts work. Unifies sender-side in
 **Four Dashboard Panels:**
 
 **Stats Bar (top):**
-Open alerts, total RM at risk today, transactions auto-approved, transactions blocked, average agent response time. Real-time updates via DynamoDB streams.
+Open alerts, total RM at risk today, transactions auto-approved, transactions blocked, average agent response time. Real-time updates via PostgreSQL polling.
 
 **Alert Queue (left panel):**
 All active alerts sorted by risk score descending. Each row: account ID, alert type (Sender Interception / Mule Eviction), risk score, RM at risk, time since flagged, current stage. Colour-coded: red (Stage 3 / score >70), amber (Stage 2 / score 40–69), yellow (Stage 1 monitoring). Clicking a row opens the detail panel.
@@ -205,7 +205,7 @@ D3.js force-directed graph. Flagged account at centre, linked accounts as nodes 
 Gives fraud analysts an investigative tool beyond the alert queue. Instead of waiting for the system to surface alerts, analysts ask questions in plain English or BM and get instant results across the live transaction database. Turns passive alert-watching into active fraud hunting.
 
 **How it works:**
-A query input box at the top of the agent dashboard. Query is sent to Lambda, which uses Bedrock to translate natural language into a DynamoDB filter expression. Results return as a filtered account list in the alert queue panel for immediate action.
+A query input box at the top of the agent dashboard. Query is sent to Lambda, which uses Bedrock to translate natural language into a PostgreSQL SQL WHERE clause. Results return as a filtered account list in the alert queue panel for immediate action.
 
 **Example queries:**
 
@@ -218,7 +218,7 @@ A query input box at the top of the agent dashboard. Query is sent to Lambda, wh
 | "Accounts with deposit but no merchant spend in 48 hours" | No-spend pattern — pre-withdrawal screen |
 
 **Why this is worth building in 24 hours:**
-One new Lambda function + one Bedrock prompt template + one text input on the dashboard. All data is already in DynamoDB from F1/F2 logging. Build time: 3–4 hours for Person B. Demo impact: disproportionately large — judges immediately understand and remember it.
+One new Lambda function + one Bedrock prompt template + one text input on the dashboard. All data is already in PostgreSQL from F1/F2 logging. Build time: 3–4 hours for Person B. Demo impact: disproportionately large — judges immediately understand and remember it.
 
 ---
 
@@ -255,7 +255,7 @@ User initiates transfer in TnG web app
 
 Score 0–39  → Silent auto-approve
              → Transaction proceeds
-             → Logged to S3 + DynamoDB
+             → Logged to S3 + PostgreSQL
 
 Score 40–69 → Soft warning overlay appears
              → User dismisses → transaction proceeds (logged)
@@ -277,13 +277,13 @@ Score 70–100 → Hard SafeSend interception screen
 ```
 Any account receives an inbound transfer
 → Mule detection Lambda fires (parallel to F1, does not block transfer)
-→ Queries DynamoDB for account's inbound pattern (last 6 hours)
+→ Queries PostgreSQL for account's inbound pattern (last 6 hours)
 → Evaluates 5 mule signals → mule risk score (0–100)
 
 Score 0–39  → No action. Transfer proceeds normally.
 
 Score 40–59 → STAGE 1: Silent watchlist
-             → Account flagged in DynamoDB
+             → Account flagged in PostgreSQL
              → All future F1 checks on this account inherit +30 points
              → No notification to account holder
 
@@ -310,7 +310,7 @@ Score 80–100 → STAGE 3: Auto-eviction
 ```
 F2 Stage 3 auto-eviction triggers
 → Lambda graph traversal fires
-→ Queries DynamoDB for accounts sharing:
+→ Queries PostgreSQL for accounts sharing:
     - Device fingerprint
     - IP address range
     - Transaction timing cluster (±10 min)
@@ -343,7 +343,7 @@ Agent clicks "Execute Containment":
 ```
 Agent types query in dashboard search bar
 → Lambda receives query string
-→ Bedrock translates natural language → DynamoDB filter expression
+→ Bedrock translates natural language → PostgreSQL SQL WHERE clause
 → Lambda executes filter against live transaction data
 → Results returned as filtered account list in alert queue panel
 → Agent can act on any result directly (Block / Warn / Clear)
@@ -384,10 +384,10 @@ Nightly at 2am — EventBridge triggers SageMaker training job:
 |---|---|
 | **Amazon API Gateway** | Exposes Lambda functions as REST endpoints to the React frontend |
 | **AWS Lambda** | Rule engine (F1); mule detection (F2); graph traversal (F3); Bedrock orchestration (F4); NL query translation (F6); label writer (F7) |
-| **Amazon Kinesis Data Streams** | Ingests all payment events and alert events in real time |
+| **Amazon Kinesis Data polling** | Ingests all payment events and alert events in real time |
 | **Amazon Bedrock (Claude)** | Type 1 user warnings, Type 2 agent explanations, Type 3 incident reports, NL query translation |
 | **AWS SageMaker** | Isolation Forest training + endpoint serving for ML fraud score |
-| **Amazon DynamoDB** | Real-time alert state, account mule watchlist, transaction pattern store |
+| **Amazon PostgreSQL** | Real-time alert state, account mule watchlist, transaction pattern store |
 | **Amazon S3** | Label store for retraining; audit trail for all decisions |
 | **Amazon SNS** | User notifications (account warnings, suspension notices) |
 | **Amazon EventBridge** | Nightly cron trigger for SageMaker retraining job |
@@ -424,20 +424,20 @@ Nightly at 2am — EventBridge triggers SageMaker training job:
 [Lambda — F1 Rule Engine]
     ├──→ [SageMaker Endpoint] → ML fraud score
     ├──→ [Bedrock] → bilingual explanation (if score > 70)
-    ├──→ [DynamoDB] → alert state written
+    ├──→ [PostgreSQL] → alert state written
     └──→ [Kinesis] → event logged
 
 [Lambda — F2 Mule Detection] (fires on every inbound transfer)
-    ├──→ [DynamoDB] → inbound pattern queried + watchlist updated
+    ├──→ [PostgreSQL] → inbound pattern queried + watchlist updated
     ├──→ [Bedrock] → mule suspicion / incident report
     └──→ [Lambda — F3 Graph Traversal] (if Stage 3)
-              └──→ [DynamoDB] → linked accounts pulled
+              └──→ [PostgreSQL] → linked accounts pulled
                     └──→ [SNS] → bulk notifications
 
 [Agent Dashboard (React)]
-    ├── Alert queue ← DynamoDB stream
+    ├── Alert queue ← PostgreSQL polling
     ├── Network graph ← Lambda F3 results
-    ├── NL Query box → [Lambda F6] → [Bedrock] → DynamoDB filter
+    ├── NL Query box → [Lambda F6] → [Bedrock] → PostgreSQL filter
     └── Actions → [Lambda] → Block/Warn/Clear
                     ├──→ [SNS] → user notification
                     ├──→ [S3] → label written
@@ -460,7 +460,7 @@ Nightly at 2am — EventBridge triggers SageMaker training job:
 | Person | Role | Primary Ownership |
 |---|---|---|
 | **Person A** | Full Stack Lead | React TnG transfer demo + SafeSend interception screen + API Gateway wiring |
-| **Person B** | Backend / Cloud | All Lambda functions + Kinesis + DynamoDB + Bedrock integration + NL query (F6) |
+| **Person B** | Backend / Cloud | All Lambda functions + Kinesis + PostgreSQL + Bedrock integration + NL query (F6) |
 | **Person C** | ML / Data | Mock dataset generation + SageMaker training + endpoint deployment + S3 setup + EventBridge + Alibaba OSS |
 | **Person D** | Frontend / Demo | Agent dashboard (React + Tailwind) + D3.js network graph + pitch deck + demo script + rehearsal |
 
@@ -471,7 +471,7 @@ Nightly at 2am — EventBridge triggers SageMaker training job:
 #### Hours 0–2 | Setup & Alignment
 - **All:** Git repo initialised, environment variables agreed, mock data schema confirmed, API contracts defined between frontend and Lambda
 - **A:** Vite + React project scaffolded, routing set up (transfer flow / dashboard), Tailwind configured
-- **B:** AWS Lambda skeleton functions deployed, API Gateway endpoints created, DynamoDB tables created (alerts, watchlist, transactions)
+- **B:** AWS Lambda skeleton functions deployed, API Gateway endpoints created, PostgreSQL tables created (alerts, watchlist, transactions)
 - **C:** S3 buckets created, Alibaba OSS bucket created, mock dataset CSV generation started (500 rows)
 - **D:** Wireframes for 4 screens (transfer flow, SafeSend warning, agent dashboard, containment panel), pitch deck outline started
 
@@ -482,15 +482,15 @@ Nightly at 2am — EventBridge triggers SageMaker training job:
 - **D:** Agent dashboard layout complete — stats bar, alert queue table, detail panel placeholder, network graph placeholder
 
 #### Hours 6–12 | AI Integration
-- **B:** Bedrock integration complete — all 3 prompt types working, returning structured JSON, parsed correctly; end-to-end F1 pipeline tested (rule engine → SageMaker → Bedrock → DynamoDB → API response)
+- **B:** Bedrock integration complete — all 3 prompt types working, returning structured JSON, parsed correctly; end-to-end F1 pipeline tested (rule engine → SageMaker → Bedrock → PostgreSQL → API response)
 - **A:** SafeSend interception screen built — bilingual warning text renders from Bedrock response, Cancel / Proceed / Report buttons functional, all choices logged to Kinesis
 - **C:** S3 label writer Lambda working, Alibaba OSS mirror working, EventBridge cron configured for SageMaker retrain (demo-triggerable manually)
-- **D:** Alert queue wired to DynamoDB stream (live updates), detail panel renders Bedrock explanation, Block / Warn / Clear buttons call Lambda and update stats bar
+- **D:** Alert queue wired to PostgreSQL polling (live updates), detail panel renders Bedrock explanation, Block / Warn / Clear buttons call Lambda and update stats bar
 
 #### Hours 12–18 | F2 Mule + F3 Containment + F6 NL Query
-- **B:** F3 graph traversal Lambda complete, linked accounts returned correctly from DynamoDB, one-click bulk containment action wired (SNS notifications + parallel account suspension + Bedrock incident report)
+- **B:** F3 graph traversal Lambda complete, linked accounts returned correctly from PostgreSQL, one-click bulk containment action wired (SNS notifications + parallel account suspension + Bedrock incident report)
 - **C + D:** D3.js network graph built — nodes coloured by risk level, clickable, loads account detail on click; containment panel overlay built showing linked account list + Execute button + RM exposure total
-- **B:** F6 NL query Lambda complete — Bedrock translates query to DynamoDB filter, results returned to dashboard; 5 example queries tested and working
+- **B:** F6 NL query Lambda complete — Bedrock translates query to PostgreSQL filter, results returned to dashboard; 5 example queries tested and working
 - **A:** Full end-to-end flow tested: transfer → interception → agent alert → mule escalation → Stage 3 → containment panel → one-click execute
 - **All:** Integration testing, broken API calls fixed
 
@@ -648,7 +648,7 @@ Generate: 450 normal (label=0) + 30 sender-fraud (label=1) + 20 mule (label=2) =
 | SageMaker endpoint slow / cold during demo | Pre-warm endpoint 30 min before demo; have deterministic mock score (weighted signal sum) in Lambda as instant fallback |
 | Bedrock latency > 3s during pitch | Pre-generate 3 canned Bedrock responses for the 3 demo scenarios; use real API during judging Q&A |
 | SageMaker training takes longer than expected | Run training in Hours 2–6; if it fails, use local scikit-learn Isolation Forest serialised as joblib, invoke from Lambda directly |
-| DynamoDB stream lag on dashboard live updates | Pre-seed dashboard with mock alert data for demo; real stream as backup |
+| PostgreSQL polling lag on dashboard live updates | Pre-seed dashboard with mock alert data for demo; real polling as backup |
 | D3.js network graph too complex to build in time | Fallback: static SVG of network with 3 nodes — still tells the containment story visually |
 | Team runs out of time | Cut F6 NL Query last — core demo (F1 + F2 + F3 + F5) is sufficient to win. F6 is polish. |
 

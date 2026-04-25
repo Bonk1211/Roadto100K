@@ -37,7 +37,7 @@ npm run dev          # Starts all 4 services concurrently
 
 ## Switching to Real Backend
 
-Set `VITE_API_BASE_URL` in your `.env`:
+Set these in `frontend/.env`:
 
 ```bash
 # Local mock:
@@ -45,6 +45,9 @@ VITE_API_BASE_URL="http://localhost:4000"
 
 # AWS API Gateway (production):
 VITE_API_BASE_URL="https://{api-id}.execute-api.ap-southeast-1.amazonaws.com/prod"
+
+# Optional when API Gateway is protected by an API key:
+VITE_API_KEY="your-api-key"
 ```
 
 ## Tech Stack

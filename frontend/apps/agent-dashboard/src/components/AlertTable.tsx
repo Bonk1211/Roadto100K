@@ -1,74 +1,90 @@
-import type { Alert } from 'shared';
+import type { InvestigationAlert } from '../lib/investigations/types.js';
+import { LoadingDots } from 'shared';
 import { RiskScoreBadge } from './RiskScoreBadge.js';
-import { ScamTypeChip } from './ScamTypeChip.js';
 
 interface Props {
-  alerts: Alert[];
+  alerts: InvestigationAlert[];
   selectedId: string | null;
   onSelect: (alertId: string) => void;
+  loading?: boolean;
 }
 
-export function AlertTable({ alerts, selectedId, onSelect }: Props) {
+export function AlertTable({ alerts, selectedId, onSelect, loading = false }: Props) {
   return (
     <div
-      className="overflow-hidden rounded-lg bg-white shadow-card"
+      className="overflow-hidden rounded-[24px] bg-white shadow-card"
       style={{ border: '1px solid #E5E7EB' }}
     >
       <table className="w-full text-left text-sm">
         <thead className="bg-app-gray text-small-label uppercase tracking-wide text-muted-text">
           <tr>
-            <th className="px-5 py-3 font-semibold">Score</th>
-            <th className="px-5 py-3 font-semibold">User → Payee</th>
-            <th className="px-5 py-3 font-semibold">Amount</th>
-            <th className="px-5 py-3 font-semibold">Scam type</th>
-            <th className="px-5 py-3 font-semibold">Status</th>
-            <th className="px-5 py-3 font-semibold">When</th>
+            <th className="px-5 py-3 font-semibold">Type</th>
+            <th className="px-5 py-3 font-semibold">Stage</th>
+            <th className="px-5 py-3 font-semibold">Account</th>
+            <th className="px-5 py-3 font-semibold">RM at risk</th>
+            <th className="px-5 py-3 font-semibold">Severity</th>
+            <th className="px-5 py-3 font-semibold">Flagged</th>
           </tr>
         </thead>
         <tbody>
-          {alerts.length === 0 && (
+          {loading && alerts.length === 0 && (
             <tr>
               <td colSpan={6} className="px-5 py-12 text-center text-muted-text">
-                No alerts yet — waiting for SafeSend to flag something.
+                <LoadingDots label="Loading queue" tone="muted" centered />
               </td>
             </tr>
           )}
-          {alerts.map((alert) => {
-            const selected = alert.id === selectedId;
+          {!loading && alerts.length === 0 && (
+            <tr>
+              <td colSpan={6} className="px-5 py-12 text-center text-muted-text">
+                No alerts matched.
+              </td>
+            </tr>
+          )}
+          {alerts.map((item) => {
+            const selected = item.alert.id === selectedId;
             return (
               <tr
-                key={alert.id}
-                onClick={() => onSelect(alert.id)}
+                key={item.alert.id}
+                onClick={() => onSelect(item.alert.id)}
                 className={`cursor-pointer border-t transition-colors ${
                   selected ? 'bg-soft-blue-surface' : 'hover:bg-app-gray'
                 }`}
-                style={{ borderColor: '#E5E7EB' }}
+                style={{
+                  borderColor: '#E5E7EB',
+                  boxShadow: selected ? `inset 4px 0 0 ${item.queueAccent}` : undefined,
+                }}
               >
                 <td className="px-5 py-4">
-                  <RiskScoreBadge score={alert.score} size="sm" />
+                  <div className="font-semibold text-text-primary">
+                    {item.alertType === 'mule_eviction' ? 'Mule eviction' : 'Sender interception'}
+                  </div>
+                  <div className="text-caption text-muted-text">{item.alertLabel}</div>
                 </td>
                 <td className="px-5 py-4">
-                  <div className="font-semibold text-text-primary">
-                    {alert.txn.user_id}{' '}
-                    <span className="text-muted-text">→</span>{' '}
-                    {alert.txn.payee_name}
-                  </div>
+                  <StagePill stage={item.stage} />
+                  <div className="mt-1 text-caption text-muted-text">{item.stageReason}</div>
+                </td>
+                <td className="px-5 py-4">
+                  <div className="font-semibold text-text-primary">{item.accountLabel}</div>
                   <div className="text-caption text-muted-text">
-                    {alert.txn.payee_account} ·{' '}
-                    {alert.txn.is_new_payee ? 'new payee' : 'recurring payee'}
+                    {item.alert.txn.payee_account} · {item.linkedAccountCount} linked account{item.linkedAccountCount === 1 ? '' : 's'}
                   </div>
                 </td>
                 <td className="px-5 py-4 font-mono text-base font-bold text-text-primary">
-                  RM {alert.txn.amount.toLocaleString('en-MY')}
+                  RM {item.rmAtRisk.toLocaleString('en-MY')}
                 </td>
                 <td className="px-5 py-4">
-                  <ScamTypeChip scamType={alert.explanation.scam_type} />
-                </td>
-                <td className="px-5 py-4">
-                  <StatusPill status={alert.status} />
+                  <div className="flex items-center gap-3">
+                    <RiskScoreBadge score={item.alert.score} size="sm" />
+                    <div>
+                      <div className="font-semibold text-text-primary">{bandLabel(item.alert.score)}</div>
+                      <div className="text-caption text-muted-text">{item.alert.status.replace('_', ' ')}</div>
+                    </div>
+                  </div>
                 </td>
                 <td className="px-5 py-4 text-caption text-muted-text">
-                  {relativeTime(alert.created_at)}
+                  {relativeTime(item.alert.created_at)}
                 </td>
               </tr>
             );
@@ -79,22 +95,28 @@ export function AlertTable({ alerts, selectedId, onSelect }: Props) {
   );
 }
 
-function StatusPill({ status }: { status: Alert['status'] }) {
-  const map: Record<Alert['status'], { bg: string; fg: string; label: string }> = {
-    open: { bg: '#FEF3C7', fg: '#92400E', label: 'Open' },
-    blocked: { bg: '#FEF2F2', fg: '#DC2626', label: 'Blocked' },
-    warned: { bg: '#FFE600', fg: '#0055D4', label: 'Warned' },
-    cleared: { bg: '#ECFDF5', fg: '#166534', label: 'Cleared' },
-  };
-  const c = map[status];
+function StagePill({ stage }: { stage: InvestigationAlert['stage'] }) {
+  const colors =
+    stage === 'stage_3'
+      ? { bg: '#FEF2F2', fg: '#DC2626', label: 'Stage 3' }
+      : stage === 'stage_2'
+        ? { bg: '#FFF7ED', fg: '#C2410C', label: 'Stage 2' }
+        : { bg: '#FEF3C7', fg: '#92400E', label: 'Stage 1' };
+
   return (
     <span
-      className="inline-flex items-center rounded-pill px-3 py-1 text-small-label font-semibold"
-      style={{ backgroundColor: c.bg, color: c.fg }}
+      className="inline-flex rounded-pill px-3 py-1 text-small-label font-semibold"
+      style={{ backgroundColor: colors.bg, color: colors.fg }}
     >
-      {c.label}
+      {colors.label}
     </span>
   );
+}
+
+function bandLabel(score: number): string {
+  if (score >= 80) return 'Critical';
+  if (score >= 60) return 'Elevated';
+  return 'Monitor';
 }
 
 function relativeTime(iso: string): string {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { currentUser, getStoredLanguage, setStoredLanguage, type UIlang } from 'shared';
+import { LoadingDots, currentUser, getStoredLanguage, setStoredLanguage, type UIlang } from 'shared';
 import BilingualToggle from '../components/BilingualToggle';
 import { formatRM } from '../lib/format';
 import type { InterceptState } from '../lib/flow';
@@ -80,13 +80,13 @@ export default function Intercept() {
           </div>
           <div className="text-[20px] font-extrabold mt-2 leading-tight">
             {lang === 'en'
-              ? 'Hold on - this transfer looks risky'
-              : 'Tunggu sebentar - pemindahan ini kelihatan berisiko'}
+              ? 'Hard stop - this transfer looks risky'
+              : 'Henti dahulu - pemindahan ini kelihatan berisiko'}
           </div>
           <div className="text-[12px] opacity-80 mt-1">
             {lang === 'en'
-              ? 'We paused the payment so you can double-check before any money leaves your wallet.'
-              : 'Kami hentikan bayaran ini supaya anda boleh semak sekali lagi sebelum wang keluar dari dompet anda.'}
+              ? 'SafeSend paused the payment before money left your wallet.'
+              : 'SafeSend menghentikan bayaran ini sebelum wang keluar dari dompet anda.'}
           </div>
         </div>
         <BilingualToggle value={lang} onChange={setLang} />
@@ -137,19 +137,6 @@ export default function Intercept() {
           </div>
         </div>
 
-        <details className="card p-4 group" open>
-          <summary className="cursor-pointer list-none flex items-center justify-between">
-            <span className="text-[13px] font-bold text-text-primary uppercase tracking-wider">
-              {lang === 'en' ? 'Read in both languages' : 'Baca dalam dua bahasa'}
-            </span>
-            <span className="text-tng-blue text-[12px] font-semibold group-open:rotate-180 transition-transform">▼</span>
-          </summary>
-          <div className="grid grid-cols-1 gap-3 mt-3 sm:grid-cols-2">
-            <LangCard label="English" body={explanation?.explanation_en ?? ''} />
-            <LangCard label="Bahasa Malaysia" body={explanation?.explanation_bm ?? ''} />
-          </div>
-        </details>
-
         <section className="card p-4">
           <div className="text-[13px] font-bold text-text-primary uppercase tracking-wider mb-2">
             {lang === 'en' ? 'Risk signals detected' : 'Petunjuk risiko dikesan'}
@@ -176,23 +163,6 @@ export default function Intercept() {
           </ul>
         </section>
 
-        <section className="rounded-xl p-4 bg-soft-blue-surface border border-sky-blue">
-          <div className="text-[13px] font-bold text-tng-blue uppercase tracking-wider">
-            {lang === 'en' ? 'Before you continue' : 'Sebelum anda teruskan'}
-          </div>
-          <ul className="mt-2 space-y-1.5 text-[13px] text-text-primary">
-            <li>{lang === 'en'
-              ? 'Call the recipient using a number you already trust.'
-              : 'Telefon penerima menggunakan nombor yang anda sudah percaya.'}</li>
-            <li>{lang === 'en'
-              ? 'Government agencies never ask for e-wallet transfers.'
-              : 'Agensi kerajaan tidak pernah meminta pemindahan e-dompet.'}</li>
-            <li>{lang === 'en'
-              ? 'If unsure, cancel now and verify first.'
-              : 'Jika ragu-ragu, batalkan dahulu dan sahkan terlebih dahulu.'}</li>
-          </ul>
-        </section>
-
         {error && (
           <div className="rounded-md bg-fraud-warning-bg border border-fraud-warning-border px-3 py-2 text-[13px] text-risk-red">
             {error}
@@ -207,9 +177,7 @@ export default function Intercept() {
           className="btn-danger"
         >
           {busyChoice === 'cancel'
-            ? lang === 'en'
-              ? 'Saving...'
-              : 'Menyimpan...'
+            ? <LoadingDots label={lang === 'en' ? 'Recording cancel' : 'Menyimpan'} tone="inverse" size="sm" />
             : lang === 'en'
               ? 'Cancel transfer'
               : 'Batalkan pemindahan'}
@@ -221,9 +189,7 @@ export default function Intercept() {
             className="btn-secondary"
           >
             {busyChoice === 'report'
-              ? lang === 'en'
-                ? 'Saving...'
-                : 'Menyimpan...'
+              ? <LoadingDots label={lang === 'en' ? 'Recording report' : 'Menyimpan'} tone="primary" size="sm" />
               : lang === 'en'
                 ? 'Report as scam'
                 : 'Lapor sebagai penipuan'}
@@ -234,26 +200,13 @@ export default function Intercept() {
             className="btn-ghost"
           >
             {busyChoice === 'proceed'
-              ? lang === 'en'
-                ? 'Saving...'
-                : 'Menyimpan...'
+              ? <LoadingDots label={lang === 'en' ? 'Recording override' : 'Menyimpan'} tone="primary" size="sm" />
               : lang === 'en'
                 ? 'Proceed anyway'
                 : 'Teruskan juga'}
           </button>
         </div>
       </div>
-    </div>
-  );
-}
-
-function LangCard({ label, body }: { label: string; body: string }) {
-  return (
-    <div className="rounded-md bg-app-gray p-3">
-      <div className="text-[10px] font-bold text-muted-text uppercase tracking-wider mb-1">
-        {label}
-      </div>
-      <div className="text-[13px] text-text-primary leading-relaxed">{body}</div>
     </div>
   );
 }
