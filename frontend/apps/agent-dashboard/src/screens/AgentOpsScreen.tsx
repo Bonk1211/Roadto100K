@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { AgentLane } from '../components/agentops/AgentLane.js';
 import { DecisionFeed } from '../components/agentops/DecisionFeed.js';
 import { InjectAlertButton } from '../components/agentops/InjectAlertButton.js';
-import { OpsMetricsBar } from '../components/agentops/OpsMetricsBar.js';
+import { LiveCasePanel } from '../components/agentops/LiveCasePanel.js';
+import { StatsHero } from '../components/agentops/StatsHero.js';
 import {
   AGENT_ORDER,
   fetchAgentStats,
@@ -79,7 +80,6 @@ export function AgentOpsScreen() {
       victim: null,
     };
     if (active.length === 0) return map;
-    // Distribute active runs across lanes deterministically.
     AGENT_ORDER.forEach((agent, idx) => {
       map[agent] = active[idx % active.length];
     });
@@ -118,26 +118,44 @@ export function AgentOpsScreen() {
 
   return (
     <div className="flex h-full flex-col gap-5">
-      <OpsMetricsBar stats={stats} queue={queue} workerOnline={workerOnline} />
-
-      <InjectAlertButton />
+      <StatsHero
+        stats={stats}
+        queue={queue}
+        workerOnline={workerOnline}
+        liveCount={active.length}
+      />
 
       <section>
-        <header className="mb-3 flex items-end justify-between">
-          <div>
-            <h2 className="text-section-heading text-text-primary">Agent team</h2>
-            <p className="text-caption text-muted-text">
-              5 specialist agents working in parallel. Each lane shows the agent's current alert
-              and last 3 verdicts.
-            </p>
-          </div>
-          <p className="text-caption text-muted-text">
-            {lastFetched
-              ? `Updated ${Math.max(0, Math.round((Date.now() - lastFetched) / 1000))}s ago`
-              : 'Loading…'}
-          </p>
-        </header>
+        <SectionHeader
+          eyebrow="Step 1"
+          title={active.length > 0 ? 'Live verification' : 'Live verification'}
+          subtitle="Watch the team review one alert end-to-end."
+        />
+        <LiveCasePanel runs={active} />
+      </section>
 
+      <section>
+        <SectionHeader
+          eyebrow="Step 2"
+          title="Push an alert into the queue"
+          subtitle="Pick a profile to inject a synthetic transaction. Worker picks it up within 2s."
+        />
+        <InjectAlertButton />
+      </section>
+
+      <section>
+        <SectionHeader
+          eyebrow="Team"
+          title="5 specialist agents on duty"
+          subtitle="Each agent reviews one slice of the alert and emits a verdict with confidence."
+          rightSlot={
+            <p className="text-caption text-muted-text">
+              {lastFetched
+                ? `Updated ${Math.max(0, Math.round((Date.now() - lastFetched) / 1000))}s ago`
+                : 'Loading…'}
+            </p>
+          }
+        />
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
           {AGENT_ORDER.map((agent) => (
             <AgentLane
@@ -151,7 +169,12 @@ export function AgentOpsScreen() {
         </div>
       </section>
 
-      <section className="min-h-[400px] flex-1">
+      <section className="min-h-[420px] flex-1">
+        <SectionHeader
+          eyebrow="History"
+          title="All decisions"
+          subtitle="alert → 5 agent verdicts → arbiter outcome"
+        />
         <DecisionFeed runs={recent} />
       </section>
 
@@ -165,5 +188,35 @@ export function AgentOpsScreen() {
         </div>
       )}
     </div>
+  );
+}
+
+function SectionHeader({
+  eyebrow,
+  title,
+  subtitle,
+  rightSlot,
+}: {
+  eyebrow?: string;
+  title: string;
+  subtitle?: string;
+  rightSlot?: React.ReactNode;
+}) {
+  return (
+    <header className="mb-3 flex items-end justify-between gap-3">
+      <div>
+        {eyebrow && (
+          <p
+            className="text-small-label uppercase tracking-wide"
+            style={{ color: '#0055D4' }}
+          >
+            {eyebrow}
+          </p>
+        )}
+        <h2 className="text-section-heading text-text-primary">{title}</h2>
+        {subtitle && <p className="text-caption text-muted-text">{subtitle}</p>}
+      </div>
+      {rightSlot}
+    </header>
   );
 }
