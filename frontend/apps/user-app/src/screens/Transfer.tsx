@@ -62,10 +62,12 @@ export default function Transfer() {
       />
 
       <div className="-mt-5 space-y-5 rounded-t-[32px] bg-app-gray px-3 pt-0 app-screen-enter motion-stagger">
-        <TransferRecipientCard
-          payee={{ name: transfer.payee?.name ?? demoPayee.name, phone: '+60 12-*** *892' }}
-          onChange={() => navigate('/payee')}
-        />
+        <div className="relative z-40 -mt-8">
+          <TransferRecipientCard
+            payee={{ name: transfer.payee?.name ?? demoPayee.name, phone: '+60 12-*** *892' }}
+            onChange={() => navigate('/payee')}
+          />
+        </div>
 
         <TransferAmountCard
           amount={displayAmount}
