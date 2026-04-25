@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { currentUser, getStoredLanguage, type ScreenTransactionResponse } from 'shared';
+import { currentUser, type ScreenTransactionResponse } from 'shared';
+import BilingualToggle from '../components/BilingualToggle';
 import SafeSendBadge from '../components/SafeSendBadge';
 import type { TransferConfirmState } from '../lib/flow';
 import { formatRM, maskAccount } from '../lib/format';
 import { screenTransaction, submitUserChoice } from '../lib/api';
+import { useLang } from '../lib/i18n';
 
 export default function Confirm() {
   const navigate = useNavigate();
@@ -13,7 +15,7 @@ export default function Confirm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [softWarning, setSoftWarning] = useState<ScreenTransactionResponse | null>(null);
-  const lang = getStoredLanguage();
+  const [lang, setLang] = useLang();
 
   const formattedTimestamp = useMemo(
     () => new Date().toLocaleString('en-MY', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' }),
@@ -107,9 +109,16 @@ export default function Confirm() {
           </svg>
         </button>
         <div className="flex-1">
-          <div className="text-[18px] font-bold">Confirm transfer</div>
-          <div className="text-[12px] opacity-80">Step 3 of 3 - SafeSend check before sending</div>
+          <div className="text-[18px] font-bold">
+            {lang === 'en' ? 'Confirm transfer' : 'Sahkan pemindahan'}
+          </div>
+          <div className="text-[12px] opacity-80">
+            {lang === 'en'
+              ? 'Step 3 of 3 — SafeSend check before sending'
+              : 'Langkah 3 / 3 — semakan SafeSend sebelum hantar'}
+          </div>
         </div>
+        <BilingualToggle value={lang} onChange={setLang} />
       </header>
 
       <main className="flex-1 px-4 pt-5 space-y-4">

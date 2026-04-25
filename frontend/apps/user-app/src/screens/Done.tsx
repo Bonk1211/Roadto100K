@@ -1,7 +1,9 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import type { Payee } from 'shared';
+import BilingualToggle from '../components/BilingualToggle';
 import type { DoneStatus } from '../lib/flow';
 import { formatRM } from '../lib/format';
+import { t, useLang, type StringKey } from '../lib/i18n';
 
 interface NavState {
   payee?: Payee;
@@ -9,46 +11,49 @@ interface NavState {
   status?: DoneStatus;
 }
 
-const COPY: Record<DoneStatus, {
-  badge: string;
-  title: string;
-  body: string;
-  tone: 'safe' | 'risk' | 'pending';
-}> = {
+const COPY: Record<
+  DoneStatus,
+  {
+    badgeKey: StringKey;
+    titleKey: StringKey;
+    bodyKey: StringKey;
+    tone: 'safe' | 'risk' | 'pending';
+  }
+> = {
   success: {
-    badge: 'Transfer complete',
-    title: 'Money sent successfully',
-    body: 'The recipient will receive funds in seconds via DuitNow.',
+    badgeKey: 'doneBadgeSuccess',
+    titleKey: 'doneTitleSuccess',
+    bodyKey: 'doneBodySuccess',
     tone: 'safe',
   },
   cancelled: {
-    badge: 'Transfer cancelled',
-    title: 'Your money is safe',
-    body: 'No funds left your wallet. Good call — when in doubt, always pause.',
+    badgeKey: 'doneBadgeCancelled',
+    titleKey: 'doneTitleCancelled',
+    bodyKey: 'doneBodyCancelled',
     tone: 'safe',
   },
   reported: {
-    badge: 'Reported to SafeSend',
-    title: 'Thank you for reporting',
-    body: 'Our fraud team has been notified and the recipient account will be reviewed.',
+    badgeKey: 'doneBadgeReported',
+    titleKey: 'doneTitleReported',
+    bodyKey: 'doneBodyReported',
     tone: 'pending',
   },
   overridden: {
-    badge: 'Transfer sent',
-    title: 'You proceeded against our warning',
-    body: 'If anything feels wrong later, contact TnG support immediately.',
+    badgeKey: 'doneBadgeOverridden',
+    titleKey: 'doneTitleOverridden',
+    bodyKey: 'doneBodyOverridden',
     tone: 'risk',
   },
   soft_warn_proceed: {
-    badge: 'Transfer sent',
-    title: 'You proceeded after a warning',
-    body: 'SafeSend recorded your choice. If anything feels off, contact TnG support immediately.',
+    badgeKey: 'doneBadgeOverridden',
+    titleKey: 'doneTitleSoftProceed',
+    bodyKey: 'doneBodySoftProceed',
     tone: 'pending',
   },
   soft_warn_cancelled: {
-    badge: 'Transfer cancelled',
-    title: 'You stopped after a warning',
-    body: 'No money left your wallet, and SafeSend recorded the cancelled transfer for review.',
+    badgeKey: 'doneBadgeCancelled',
+    titleKey: 'doneTitleSoftCancelled',
+    bodyKey: 'doneBodySoftCancelled',
     tone: 'safe',
   },
 };
@@ -57,6 +62,7 @@ export default function Done() {
   const navigate = useNavigate();
   const location = useLocation();
   const state = (location.state as NavState | null) ?? {};
+  const [lang, setLang] = useLang();
   const status: DoneStatus = state.status ?? 'success';
   const copy = COPY[status];
   const amount = state.amount ?? 0;
@@ -64,8 +70,10 @@ export default function Done() {
 
   return (
     <div className="phone-frame flex flex-col">
-      <main className="flex-1 px-4 pt-12 pb-6 flex flex-col items-center text-center">
-        {/* Hero icon */}
+      <div className="flex justify-end px-4 pt-3">
+        <BilingualToggle value={lang} onChange={setLang} />
+      </div>
+      <main className="flex-1 px-4 pt-6 pb-6 flex flex-col items-center text-center">
         <div
           className={[
             'w-20 h-20 rounded-full grid place-items-center mb-5',
@@ -76,18 +84,18 @@ export default function Done() {
         >
           {copy.tone === 'safe' && (
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
-              <path d="m5 12 5 5L20 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="m5 12 5 5L20 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           )}
           {copy.tone === 'risk' && (
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
-              <path d="M12 9v4M12 17h.01M10.3 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.41 0Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M12 9v4M12 17h.01M10.3 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.41 0Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           )}
           {copy.tone === 'pending' && (
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2"/>
-              <path d="M12 7v5l3 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
+              <path d="M12 7v5l3 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           )}
         </div>
@@ -100,18 +108,18 @@ export default function Done() {
             copy.tone === 'pending' ? 'bg-pending-orange/15 text-pending-orange' : '',
           ].join(' ')}
         >
-          {copy.badge}
+          {t(copy.badgeKey, lang)}
         </span>
 
         <h1 className="text-[24px] font-extrabold text-text-primary mt-3 leading-tight">
-          {copy.title}
+          {t(copy.titleKey, lang)}
         </h1>
-        <p className="text-[14px] text-muted-text mt-2 max-w-xs">{copy.body}</p>
+        <p className="text-[14px] text-muted-text mt-2 max-w-xs">{t(copy.bodyKey, lang)}</p>
 
         {amount > 0 && payee && (
           <div className="mt-6 w-full card p-4 text-left">
             <div className="text-[11px] font-semibold text-muted-text uppercase tracking-wider">
-              {status === 'cancelled' ? 'Would have sent' : 'Transaction'}
+              {status === 'cancelled' ? t('doneWouldHaveSent', lang) : t('doneTransaction', lang)}
             </div>
             <div className="flex items-center justify-between mt-2">
               <div>
@@ -130,11 +138,11 @@ export default function Done() {
 
       <div className="sticky bottom-0 bg-white border-t border-border-gray px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] space-y-2">
         <button onClick={() => navigate('/home')} className="btn-primary">
-          Back to wallet
+          {t('backToWallet', lang)}
         </button>
         {status !== 'success' && (
           <button onClick={() => navigate('/transfer')} className="btn-ghost">
-            Start a new transfer
+            {t('startNewTransfer', lang)}
           </button>
         )}
       </div>

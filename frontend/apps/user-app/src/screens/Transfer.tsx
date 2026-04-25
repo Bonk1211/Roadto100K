@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { demoAmount } from 'shared';
+import BilingualToggle from '../components/BilingualToggle';
 import { createSessionId } from '../lib/flow';
 import { formatRM } from '../lib/format';
+import { t, useLang } from '../lib/i18n';
 
 export default function Transfer() {
   const navigate = useNavigate();
+  const [lang, setLang] = useLang();
   const [amount, setAmount] = useState<string>(String(demoAmount));
   const [note, setNote] = useState('Bantuan kecemasan');
 
@@ -34,15 +37,16 @@ export default function Transfer() {
           </svg>
         </button>
         <div className="flex-1">
-          <div className="text-[18px] font-bold">Transfer</div>
-          <div className="text-[12px] opacity-80">Step 1 of 3 - enter amount</div>
+          <div className="text-[18px] font-bold">{t('transferTitle', lang)}</div>
+          <div className="text-[12px] opacity-80">{t('step1', lang)}</div>
         </div>
+        <BilingualToggle value={lang} onChange={setLang} />
       </header>
 
       <main className="flex-1 px-4 pt-5 space-y-4">
         <div className="card p-4">
           <div className="text-[12px] font-semibold text-tng-blue uppercase tracking-wider mb-2">
-            Amount (MYR)
+            {t('amountMyr', lang)}
           </div>
           <div className="flex items-center bg-soft-blue-surface rounded-xl px-4 h-20 border border-sky-blue">
             <span className="text-[18px] font-bold text-muted-text mr-3">RM</span>
@@ -69,23 +73,21 @@ export default function Transfer() {
 
         <div className="card p-4">
           <div className="text-[12px] font-semibold text-tng-blue uppercase tracking-wider mb-2">
-            Note
+            {t('noteLabel', lang)}
           </div>
           <input
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="What is this transfer for?"
+            placeholder={t('notePlaceholder', lang)}
             className="w-full bg-white border border-border-gray rounded-md px-3 h-11 text-[14px] text-text-primary placeholder:text-muted-text focus:outline-none focus:border-tng-blue"
           />
-          <div className="mt-2 text-[12px] text-muted-text">
-            SafeSend will use the next step to check who you are sending to before final confirmation.
-          </div>
+          <div className="mt-2 text-[12px] text-muted-text">{t('noteHelper', lang)}</div>
         </div>
       </main>
 
       <div className="sticky bottom-0 bg-white border-t border-border-gray px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <button onClick={onContinue} disabled={numericAmount <= 0} className="btn-primary">
-          Continue to payee
+          {t('continueToPayee', lang)}
         </button>
       </div>
     </div>
