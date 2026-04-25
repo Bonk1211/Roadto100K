@@ -114,7 +114,7 @@ export default function Confirm() {
         </BottomActionBar>
       )}
     >
-      <div className="relative pb-14">
+      <div className="relative">
         <FlowHeader
           title={lang === 'en' ? 'Confirm transfer' : 'Sahkan pemindahan'}
           onBack={() => navigate(-1)}
@@ -123,7 +123,7 @@ export default function Confirm() {
           eyebrow="Review & protect"
           step="Step 3 of 3"
         />
-        <div className="absolute inset-x-3 -bottom-10 z-40">
+        <div className="relative z-40 mx-3 -mt-3">
           <section className="app-panel overflow-hidden">
             <div className="bg-[linear-gradient(135deg,#005BAC_0%,#004B91_100%)] px-5 py-5 text-white">
               <div className="text-[12px] font-semibold uppercase tracking-[0.16em] text-white/70">
@@ -155,8 +155,7 @@ export default function Confirm() {
         </div>
       </div>
 
-      <div className="-mt-5 space-y-4 rounded-t-[32px] bg-app-gray px-3 pt-4 app-screen-enter motion-stagger">
-
+      <div className="space-y-4 bg-app-gray px-3 pt-4 app-screen-enter motion-stagger">
         <section className="app-panel divide-y divide-border-gray/80 overflow-hidden">
           <Row label="From" value={`${currentUser.name} wallet`} />
           <Row label="Schedule" value={`Now - ${formattedTimestamp}`} />
