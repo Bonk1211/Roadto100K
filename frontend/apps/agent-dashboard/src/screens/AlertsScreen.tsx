@@ -19,6 +19,7 @@ export function AlertsScreen() {
   const [filter, setFilter] = useState<'all' | 'open' | 'decided'>('all');
   const [toast, setToast] = useState<Toast | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -29,11 +30,13 @@ export function AlertsScreen() {
         if (!active) return;
         setAlerts(a);
         setStats(s);
+        setError(null);
         setLoading(false);
       } catch (err) {
         if (!active) return;
         // eslint-disable-next-line no-console
         console.error('refresh failed', err);
+        setError('Unable to refresh live dashboard data. Check that mock-api:4000 or the API Gateway is reachable.');
         setLoading(false);
       }
     }
@@ -47,7 +50,7 @@ export function AlertsScreen() {
   }, []);
 
   const sorted = useMemo(
-    () => [...alerts].sort((a, b) => b.score - a.score),
+    () => [...alerts].sort((a, b) => priorityScore(b) - priorityScore(a)),
     [alerts],
   );
 
@@ -62,7 +65,6 @@ export function AlertsScreen() {
     [alerts, selectedId],
   );
 
-  // Auto-select the highest-risk open alert if nothing selected.
   useEffect(() => {
     if (selectedId !== null) return;
     const top = sorted.find((a) => a.status === 'open');
@@ -80,7 +82,7 @@ export function AlertsScreen() {
             ? 'sent warning to user'
             : 'cleared as false positive';
       setToast({
-        message: `Successfully ${verb}${res.sms_sent ? ' · SMS sent' : ''}.`,
+        message: `Successfully ${verb}${res.sms_sent ? ' / SMS sent' : ''}.`,
         tone: 'success',
       });
       const fresh = await fetchStats();
@@ -98,6 +100,15 @@ export function AlertsScreen() {
     <div className="flex h-full flex-col gap-6">
       <StatsBar stats={stats} />
 
+      {error && (
+        <div
+          className="rounded-lg px-5 py-3 text-sm font-semibold"
+          style={{ backgroundColor: '#FFF7ED', color: '#C2410C', border: '1px solid #FDBA74' }}
+        >
+          {error}
+        </div>
+      )}
+
       <div className="grid flex-1 grid-cols-1 gap-6 xl:grid-cols-[minmax(0,2.1fr)_minmax(420px,1fr)]">
         <div className="flex flex-col gap-4 overflow-hidden">
           <div className="flex items-center justify-between">
@@ -107,8 +118,8 @@ export function AlertsScreen() {
               </h2>
               <p className="text-caption text-muted-text">
                 {loading
-                  ? 'Loading flagged transactions…'
-                  : `${filtered.length} alert${filtered.length === 1 ? '' : 's'} · refreshes every ${POLL_INTERVAL_MS / 1000}s`}
+                  ? 'Loading flagged transactions...'
+                  : `${filtered.length} alert${filtered.length === 1 ? '' : 's'} / refreshes every ${POLL_INTERVAL_MS / 1000}s`}
               </p>
             </div>
             <div
@@ -160,4 +171,13 @@ export function AlertsScreen() {
       )}
     </div>
   );
+}
+
+function priorityScore(alert: Alert): number {
+  const stageBoost =
+    alert.alert_type === 'mule_eviction' && alert.mule_stage
+      ? alert.mule_stage * 1000
+      : 0;
+  const typeBoost = alert.alert_type === 'mule_eviction' ? 200 : 0;
+  return stageBoost + typeBoost + alert.score;
 }

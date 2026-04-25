@@ -14,13 +14,15 @@ from functools import lru_cache
 # Static config (from Lambda environment variables)
 # ---------------------------------------------------------------------------
 AWS_REGION = os.environ.get("AWS_REGION", "ap-southeast-1")
-DYNAMODB_TABLE = os.environ.get("DYNAMODB_TABLE", "SafeSendAlerts")
 KINESIS_STREAM = os.environ.get("KINESIS_STREAM", "safesend-events")
 SNS_TOPIC_ARN = os.environ.get("SNS_TOPIC_ARN", "")
 BEDROCK_MODEL_ID = os.environ.get(
     "BEDROCK_MODEL_ID", "anthropic.claude-3-haiku-20240307-v1:0"
 )
 BEDROCK_REGION = os.environ.get("BEDROCK_REGION", "us-east-1")
+
+# PostgreSQL RDS (optional — if DATABASE_URL is set)
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
 
 # Alert TTL in seconds (7 days)
 ALERT_TTL_SECONDS = 7 * 24 * 60 * 60

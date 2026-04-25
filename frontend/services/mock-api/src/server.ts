@@ -4,6 +4,7 @@ import type {
   Alert,
   AgentDecision,
   AnalyseMessageResponse,
+  ContainmentExecutionRequest,
   ScreenTransactionResponse,
   ScreeningAction,
   ScreeningPayeeInfo,
@@ -11,7 +12,7 @@ import type {
   TriggeredSignal,
   UserChoice,
 } from 'shared';
-import { mockPayees, mockTransactions, mockUsers } from 'shared';
+import { mockPayees, mockTransactions, mockUsers, muleContainmentAccounts } from 'shared';
 import {
   addAlert,
   getStats,
@@ -25,6 +26,18 @@ import { bandFor, scoreTransaction } from './eas-mock.js';
 import { getNetworkGraph } from './network-graph.js';
 import { evaluateSignals, type ScoreInput } from './rule-engine.js';
 import { scanMessage } from './scam-message-detector.js';
+import {
+  initDb,
+  getAlerts as dbGetAlerts,
+  getAlert as dbGetAlert,
+  getAccounts as dbGetAccounts,
+  getTransactions as dbGetTransactions,
+  getMuleCases as dbGetMuleCases,
+  getNetworkGraph as dbGetNetworkGraph,
+  getStats as dbGetStats,
+  updateAlertStatus as dbUpdateAlertStatus,
+  closeDb,
+} from './db.js';
 
 const PORT = Number(process.env.PORT ?? 4000);
 
@@ -79,6 +92,8 @@ app.post('/api/screen-transaction', (req, res) => {
       txn,
       score: finalScore,
       band: bandFor(finalScore),
+      alert_type: 'sender_interception',
+      rm_at_risk: txn.amount,
       signals,
       explanation,
       status: 'open',
@@ -189,6 +204,26 @@ app.get('/api/network-graph', (_req, res) => {
   res.json(getNetworkGraph());
 });
 
+app.post('/api/containment/execute', (req, res) => {
+  const body = req.body as Partial<ContainmentExecutionRequest>;
+  const muleAccountId = String(body?.mule_account_id ?? 'p_scam_03');
+  const requested = Array.isArray(body?.account_ids) ? body.account_ids : [];
+  const contained = muleContainmentAccounts.filter((account) =>
+    requested.length === 0 ? account.selected !== false : requested.includes(account.account_id),
+  );
+  const total = contained.reduce((sum, account) => sum + account.rm_exposure, 0);
+
+  res.json({
+    ok: true,
+    incident_id: `INC-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-001`,
+    contained_accounts: contained,
+    total_rm_exposure: total,
+    sns_sent: contained.length,
+    incident_summary: `Auto-generated compliance summary: mule ${muleAccountId} and ${contained.length} linked accounts suspended. Withdrawals held in escrow and notifications sent.`,
+    executed_at: new Date().toISOString(),
+  });
+});
+
 app.get('/api/stats', (_req, res) => {
   res.json(getStats());
 });
@@ -197,13 +232,116 @@ app.get('/api/mock/users', (_req, res) => res.json(mockUsers));
 app.get('/api/mock/payees', (_req, res) => res.json(mockPayees));
 app.get('/api/mock/transactions', (_req, res) => res.json(mockTransactions));
 
+// ---- PostgreSQL RDS endpoints (if DATABASE_URL is set) ----
+
+app.get('/api/db/alerts', async (req, res) => {
+  try {
+    const { status, limit = 20 } = req.query;
+    const alerts = await dbGetAlerts(typeof status === 'string' ? status : undefined, Number(limit));
+    res.json({ ok: true, data: alerts });
+  } catch (e) {
+    res.status(503).json({ ok: false, error: 'Database not available' });
+  }
+});
+
+app.get('/api/db/alerts/:id', async (req, res) => {
+  try {
+    const alert = await dbGetAlert(req.params.id);
+    if (!alert) {
+      return res.status(404).json({ ok: false, error: 'Alert not found' });
+    }
+    res.json({ ok: true, data: alert });
+  } catch (e) {
+    res.status(503).json({ ok: false, error: 'Database not available' });
+  }
+});
+
+app.get('/api/db/accounts', async (req, res) => {
+  try {
+    const { limit = 50 } = req.query;
+    const accounts = await dbGetAccounts(Number(limit));
+    res.json({ ok: true, data: accounts });
+  } catch (e) {
+    res.status(503).json({ ok: false, error: 'Database not available' });
+  }
+});
+
+app.get('/api/db/transactions', async (req, res) => {
+  try {
+    const { limit = 50 } = req.query;
+    const transactions = await dbGetTransactions(Number(limit));
+    res.json({ ok: true, data: transactions });
+  } catch (e) {
+    res.status(503).json({ ok: false, error: 'Database not available' });
+  }
+});
+
+app.get('/api/db/mule-cases', async (req, res) => {
+  try {
+    const { status, limit = 20 } = req.query;
+    const cases = await dbGetMuleCases(typeof status === 'string' ? status : undefined, Number(limit));
+    res.json({ ok: true, data: cases });
+  } catch (e) {
+    res.status(503).json({ ok: false, error: 'Database not available' });
+  }
+});
+
+app.get('/api/db/network-graph', async (req, res) => {
+  try {
+    const { limit = 100 } = req.query;
+    const graph = await dbGetNetworkGraph(Number(limit));
+    res.json({ ok: true, data: graph });
+  } catch (e) {
+    res.status(503).json({ ok: false, error: 'Database not available' });
+  }
+});
+
+app.get('/api/db/stats', async (req, res) => {
+  try {
+    const stats = await dbGetStats();
+    res.json({ ok: true, data: stats });
+  } catch (e) {
+    res.status(503).json({ ok: false, error: 'Database not available' });
+  }
+});
+
+app.post('/api/db/alerts/:id/update-status', async (req, res) => {
+  try {
+    const { status, agent_id, notes } = req.body;
+    if (!status || !['open', 'resolved', 'cleared'].includes(status)) {
+      return res.status(400).json({ ok: false, error: 'Invalid status' });
+    }
+    const updated = await dbUpdateAlertStatus(req.params.id, status, agent_id || 'unknown', notes || '');
+    if (!updated) {
+      return res.status(404).json({ ok: false, error: 'Alert not found' });
+    }
+    res.json({ ok: true, data: updated });
+  } catch (e) {
+    res.status(503).json({ ok: false, error: 'Database not available' });
+  }
+});
+
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error('[mock-api] error:', err);
   res.status(500).json({ ok: false, error: err.message });
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, async () => {
+  const dbInitialized = initDb();
+  if (dbInitialized) {
+    console.log('[mock-api] PostgreSQL RDS endpoints available at /api/db/*');
+  }
   console.log(`[mock-api] listening on http://localhost:${PORT}`);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  console.log('[mock-api] SIGTERM received, closing connections...');
+  await closeDb();
+  server.close(() => {
+    console.log('[mock-api] server closed');
+    process.exit(0);
+  });
 });
 
 function actionFor(score: number): ScreeningAction {

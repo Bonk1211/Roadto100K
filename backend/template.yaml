@@ -2,7 +2,7 @@ AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: >
   SafeSend — Multi-layer scam prevention system for Touch 'n Go FinHack.
-  AWS SAM template for Lambda functions, API Gateway, DynamoDB, Kinesis, SNS.
+  AWS SAM template for Lambda functions, API Gateway, PostgreSQL RDS, Kinesis, SNS.
 
 Globals:
   Function:
@@ -11,7 +11,7 @@ Globals:
     Timeout: 10
     Environment:
       Variables:
-        DYNAMODB_TABLE: !Ref AlertsTable
+        DATABASE_URL: !Ref DatabaseUrl
         KINESIS_STREAM: !Ref EventsStream
         SNS_TOPIC_ARN: !Ref UserAlertsTopic
         BEDROCK_MODEL_ID: "anthropic.claude-3-haiku-20240307-v1:0"
@@ -24,6 +24,10 @@ Parameters:
     Type: String
     Default: prod
     AllowedValues: [prod, dev]
+  DatabaseUrl:
+    Type: String
+    NoEcho: true
+    Description: PostgreSQL connection string used by Lambda functions.
 
 Resources:
   # =========================================================================
@@ -59,8 +63,6 @@ Resources:
       Layers:
         - !Ref SharedLayer
       Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref AlertsTable
         - KinesisCrudPolicy:
             StreamName: !Ref EventsStream
         - Statement:
@@ -103,8 +105,6 @@ Resources:
       Layers:
         - !Ref SharedLayer
       Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref AlertsTable
         - KinesisCrudPolicy:
             StreamName: !Ref EventsStream
         - SNSPublishMessagePolicy:
@@ -128,8 +128,11 @@ Resources:
       Layers:
         - !Ref SharedLayer
       Policies:
-        - DynamoDBReadPolicy:
-            TableName: !Ref AlertsTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - rds-db:connect
+              Resource: "*"
       Events:
         ListAlerts:
           Type: HttpApi
@@ -153,8 +156,11 @@ Resources:
       Layers:
         - !Ref SharedLayer
       Policies:
-        - DynamoDBReadPolicy:
-            TableName: !Ref AlertsTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - rds-db:connect
+              Resource: "*"
       Events:
         GetStats:
           Type: HttpApi
@@ -196,37 +202,6 @@ Resources:
       BuildMethod: python3.12
 
   # =========================================================================
-  # DynamoDB Table
-  # =========================================================================
-  AlertsTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: SafeSendAlerts
-      BillingMode: PAY_PER_REQUEST
-      AttributeDefinitions:
-        - AttributeName: txn_id
-          AttributeType: S
-        - AttributeName: status
-          AttributeType: S
-        - AttributeName: risk_score
-          AttributeType: N
-      KeySchema:
-        - AttributeName: txn_id
-          KeyType: HASH
-      GlobalSecondaryIndexes:
-        - IndexName: status-risk_score-index
-          KeySchema:
-            - AttributeName: status
-              KeyType: HASH
-            - AttributeName: risk_score
-              KeyType: RANGE
-          Projection:
-            ProjectionType: ALL
-      TimeToLiveSpecification:
-        AttributeName: expires_at
-        Enabled: true
-
-  # =========================================================================
   # Kinesis Data Stream
   # =========================================================================
   EventsStream:
@@ -254,10 +229,6 @@ Outputs:
   ApiUrl:
     Description: API Gateway endpoint URL
     Value: !Sub "https://${SafeSendApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}"
-
-  AlertsTableName:
-    Description: DynamoDB table name
-    Value: !Ref AlertsTable
 
   EventsStreamName:
     Description: Kinesis stream name

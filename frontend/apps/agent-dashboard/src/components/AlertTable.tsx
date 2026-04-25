@@ -17,10 +17,11 @@ export function AlertTable({ alerts, selectedId, onSelect }: Props) {
       <table className="w-full text-left text-sm">
         <thead className="bg-app-gray text-small-label uppercase tracking-wide text-muted-text">
           <tr>
+            <th className="px-5 py-3 font-semibold">Stage</th>
             <th className="px-5 py-3 font-semibold">Score</th>
-            <th className="px-5 py-3 font-semibold">User → Payee</th>
-            <th className="px-5 py-3 font-semibold">Amount</th>
-            <th className="px-5 py-3 font-semibold">Scam type</th>
+            <th className="px-5 py-3 font-semibold">Account / Alert</th>
+            <th className="px-5 py-3 font-semibold">RM exposure</th>
+            <th className="px-5 py-3 font-semibold">Pattern</th>
             <th className="px-5 py-3 font-semibold">Status</th>
             <th className="px-5 py-3 font-semibold">When</th>
           </tr>
@@ -28,8 +29,8 @@ export function AlertTable({ alerts, selectedId, onSelect }: Props) {
         <tbody>
           {alerts.length === 0 && (
             <tr>
-              <td colSpan={6} className="px-5 py-12 text-center text-muted-text">
-                No alerts yet — waiting for SafeSend to flag something.
+              <td colSpan={7} className="px-5 py-12 text-center text-muted-text">
+                No alerts loaded. Demo fallback should seed mule alerts before rehearsal.
               </td>
             </tr>
           )}
@@ -45,21 +46,21 @@ export function AlertTable({ alerts, selectedId, onSelect }: Props) {
                 style={{ borderColor: '#E5E7EB' }}
               >
                 <td className="px-5 py-4">
+                  <StagePill alert={alert} />
+                </td>
+                <td className="px-5 py-4">
                   <RiskScoreBadge score={alert.score} size="sm" />
                 </td>
                 <td className="px-5 py-4">
                   <div className="font-semibold text-text-primary">
-                    {alert.txn.user_id}{' '}
-                    <span className="text-muted-text">→</span>{' '}
                     {alert.txn.payee_name}
                   </div>
                   <div className="text-caption text-muted-text">
-                    {alert.txn.payee_account} ·{' '}
-                    {alert.txn.is_new_payee ? 'new payee' : 'recurring payee'}
+                    {typeLabel(alert)} / {alert.txn.payee_account}
                   </div>
                 </td>
                 <td className="px-5 py-4 font-mono text-base font-bold text-text-primary">
-                  RM {alert.txn.amount.toLocaleString('en-MY')}
+                  RM {(alert.rm_at_risk ?? alert.txn.amount).toLocaleString('en-MY')}
                 </td>
                 <td className="px-5 py-4">
                   <ScamTypeChip scamType={alert.explanation.scam_type} />
@@ -77,6 +78,39 @@ export function AlertTable({ alerts, selectedId, onSelect }: Props) {
       </table>
     </div>
   );
+}
+
+function StagePill({ alert }: { alert: Alert }) {
+  if (alert.alert_type === 'mule_eviction' && alert.mule_stage) {
+    const map = {
+      1: { bg: '#FEFCE8', fg: '#A16207', label: 'Stage 1' },
+      2: { bg: '#FFF7ED', fg: '#C2410C', label: 'Stage 2' },
+      3: { bg: '#FEF2F2', fg: '#DC2626', label: 'Stage 3' },
+    } satisfies Record<1 | 2 | 3, { bg: string; fg: string; label: string }>;
+    const c = map[alert.mule_stage];
+    return (
+      <span
+        className="inline-flex items-center rounded-pill px-3 py-1 text-small-label font-bold"
+        style={{ backgroundColor: c.bg, color: c.fg }}
+      >
+        {c.label}
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className="inline-flex items-center rounded-pill px-3 py-1 text-small-label font-semibold"
+      style={{ backgroundColor: '#EAF3FF', color: '#005BAC' }}
+    >
+      Sender
+    </span>
+  );
+}
+
+function typeLabel(alert: Alert): string {
+  if (alert.alert_type === 'mule_eviction') return 'Mule eviction';
+  return 'Sender interception';
 }
 
 function StatusPill({ status }: { status: Alert['status'] }) {
@@ -99,7 +133,7 @@ function StatusPill({ status }: { status: Alert['status'] }) {
 
 function relativeTime(iso: string): string {
   const ms = Date.now() - Date.parse(iso);
-  const sec = Math.round(ms / 1000);
+  const sec = Math.max(0, Math.round(ms / 1000));
   if (sec < 60) return `${sec}s ago`;
   const min = Math.round(sec / 60);
   if (min < 60) return `${min}m ago`;
