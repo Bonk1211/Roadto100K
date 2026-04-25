@@ -3,11 +3,46 @@
  * Queries the SafeSend database
  */
 
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import postgres from 'postgres';
+
+loadDatabaseEnv();
 
 const DATABASE_URL = process.env.DATABASE_URL;
 
 let sql: postgres.Sql | null = null;
+
+function loadDatabaseEnv() {
+  const sourceDir = dirname(fileURLToPath(import.meta.url));
+  const candidates = [
+    resolve(process.cwd(), 'backend/.env'),
+    resolve(process.cwd(), '../backend/.env'),
+    resolve(sourceDir, '../../../../backend/.env'),
+    resolve(sourceDir, '../../../.env'),
+    resolve(process.cwd(), '.env'),
+  ];
+
+  for (const envPath of candidates) {
+    if (!existsSync(envPath)) continue;
+
+    const lines = readFileSync(envPath, 'utf8').split(/\r?\n/);
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+
+      const separator = trimmed.indexOf('=');
+      if (separator === -1) continue;
+
+      const key = trimmed.slice(0, separator).trim();
+      const rawValue = trimmed.slice(separator + 1).trim();
+      if (!key || process.env[key] !== undefined) continue;
+
+      process.env[key] = rawValue.replace(/^['"]|['"]$/g, '');
+    }
+  }
+}
 
 export function initDb() {
   if (!DATABASE_URL) {
@@ -30,14 +65,12 @@ export function initDb() {
 
 export async function getAlerts(status?: string, limit: number = 20) {
   if (!sql) throw new Error('Database not initialized');
-  
-  let query = sql`SELECT * FROM alerts`;
+
   if (status) {
-    query = sql`SELECT * FROM alerts WHERE status = ${status}`;
+    return sql`SELECT * FROM alerts WHERE status = ${status} LIMIT ${limit}`;
   }
-  query = query`LIMIT ${limit}`;
-  
-  return query;
+
+  return sql`SELECT * FROM alerts LIMIT ${limit}`;
 }
 
 export async function getAlert(alertId: string) {
@@ -74,15 +107,12 @@ export async function getTransaction(txnId: string) {
 
 export async function getMuleCases(status?: string, limit: number = 20) {
   if (!sql) throw new Error('Database not initialized');
-  
-  let query;
+
   if (status) {
-    query = sql`SELECT * FROM mule_cases WHERE status = ${status}`;
-  } else {
-    query = sql`SELECT * FROM mule_cases`;
+    return sql`SELECT * FROM mule_cases WHERE status = ${status} LIMIT ${limit}`;
   }
-  query = query`LIMIT ${limit}`;
-  return query;
+
+  return sql`SELECT * FROM mule_cases LIMIT ${limit}`;
 }
 
 export async function getMuleCase(caseId: string) {

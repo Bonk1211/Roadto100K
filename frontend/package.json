@@ -10,7 +10,7 @@
   ],
   "scripts": {
     "install:all": "npm install",
-    "dev": "concurrently -n api,user,agent -c blue,green,magenta \"npm run dev -w services/mock-api\" \"npm run dev -w apps/user-app\" \"npm run dev -w apps/agent-dashboard\"",
+    "dev": "concurrently -n mock-api,user,plugin,agent -c blue,green,yellow,magenta \"npm run dev -w services/mock-api\" \"npm run dev -w apps/user-app\" \"npm run dev -w apps/plugin\" \"npm run dev -w apps/agent-dashboard\"",
     "dev:api": "npm run dev -w services/mock-api",
     "dev:user": "npm run dev -w apps/user-app",
     "dev:agent": "npm run dev -w apps/agent-dashboard",

@@ -1,26 +1,16 @@
-from dotenv import load_dotenv
-import os, psycopg2
+# Load Database Content
 
-load_dotenv(".env")
+Use this command from the repo root to print row counts for every PostgreSQL
+table:
 
-conn = psycopg2.connect(os.environ["DATABASE_URL"])
-cur = conn.cursor()
+```powershell
+.\.venv\Scripts\python.exe backend\load_db_content.py
+```
 
-cur.execute("""
-SELECT table_name
-FROM information_schema.tables
-WHERE table_schema = 'public'
-AND table_type = 'BASE TABLE'
-ORDER BY table_name;
-""")
+Or from inside `backend/`:
 
-tables = [row[0] for row in cur.fetchall()]
+```powershell
+..\.venv\Scripts\python.exe load_db_content.py
+```
 
-for table in tables:
-    cur.execute(f'SELECT COUNT(*) FROM "{table}";')
-    count = cur.fetchone()[0]
-    print(f"{table}: {count} rows")
-
-cur.close()
-conn.close()
-
+The script reads `DATABASE_URL` from `backend/.env`.
