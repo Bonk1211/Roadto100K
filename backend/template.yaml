@@ -11,7 +11,10 @@ Globals:
     Timeout: 10
     Environment:
       Variables:
-        DYNAMODB_TABLE: !Ref AlertsTable
+        RDS_HOST: "database-1.cf82a0026hlh.ap-southeast-1.rds.amazonaws.com"
+        RDS_PORT: "5432"
+        RDS_DBNAME: "postgres"
+        RDS_USER: "postgres"
         KINESIS_STREAM: !Ref EventsStream
         SNS_TOPIC_ARN: !Ref UserAlertsTopic
         BEDROCK_MODEL_ID: "anthropic.claude-3-haiku-20240307-v1:0"
@@ -59,8 +62,6 @@ Resources:
       Layers:
         - !Ref SharedLayer
       Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref AlertsTable
         - KinesisCrudPolicy:
             StreamName: !Ref EventsStream
         - Statement:
@@ -103,8 +104,6 @@ Resources:
       Layers:
         - !Ref SharedLayer
       Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref AlertsTable
         - KinesisCrudPolicy:
             StreamName: !Ref EventsStream
         - SNSPublishMessagePolicy:
@@ -127,9 +126,6 @@ Resources:
       Handler: handler.handler
       Layers:
         - !Ref SharedLayer
-      Policies:
-        - DynamoDBReadPolicy:
-            TableName: !Ref AlertsTable
       Events:
         ListAlerts:
           Type: HttpApi
@@ -152,9 +148,6 @@ Resources:
       Handler: handler.handler
       Layers:
         - !Ref SharedLayer
-      Policies:
-        - DynamoDBReadPolicy:
-            TableName: !Ref AlertsTable
       Events:
         GetStats:
           Type: HttpApi
@@ -182,6 +175,31 @@ Resources:
             Path: /api/network-graph
             Method: GET
 
+  TelegramWebhookFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: safesend-telegram-webhook
+      CodeUri: lambdas/telegram_webhook/
+      Handler: handler.handler
+      Layers:
+        - !Ref SharedLayer
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+              Resource: "*"
+      Environment:
+        Variables:
+          TELEGRAM_BOT_TOKEN: "8652683424:AAHO_QfnAJCyCS_2VEREkmaCTFwkhJ77Nfo"
+      Events:
+        TelegramWebhook:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SafeSendApi
+            Path: /api/telegram/webhook
+            Method: POST
+
   # =========================================================================
   # Shared Lambda Layer
   # =========================================================================
@@ -195,36 +213,6 @@ Resources:
     Metadata:
       BuildMethod: python3.12
 
-  # =========================================================================
-  # DynamoDB Table
-  # =========================================================================
-  AlertsTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: SafeSendAlerts
-      BillingMode: PAY_PER_REQUEST
-      AttributeDefinitions:
-        - AttributeName: txn_id
-          AttributeType: S
-        - AttributeName: status
-          AttributeType: S
-        - AttributeName: risk_score
-          AttributeType: N
-      KeySchema:
-        - AttributeName: txn_id
-          KeyType: HASH
-      GlobalSecondaryIndexes:
-        - IndexName: status-risk_score-index
-          KeySchema:
-            - AttributeName: status
-              KeyType: HASH
-            - AttributeName: risk_score
-              KeyType: RANGE
-          Projection:
-            ProjectionType: ALL
-      TimeToLiveSpecification:
-        AttributeName: expires_at
-        Enabled: true
 
   # =========================================================================
   # Kinesis Data Stream
