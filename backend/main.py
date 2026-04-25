@@ -23,6 +23,7 @@ FEATURES = [
 ]
 
 _cache = {}
+_mule_cases = {}  # in-memory mule case store keyed by account_id
 
 app = FastAPI(title="SafeSend Fraud Scorer")
 app.add_middleware(
@@ -159,6 +160,66 @@ def retrain():
             "trained_at": trained_at,
             "model_key": MODEL_KEY,
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class MuleAlert(BaseModel):
+    account_id: str
+    mule_score: float
+    stage: int
+    status: str
+    withdrawal_status: str
+    signals_fired: list = []
+
+
+@app.post("/mule-alert")
+def mule_alert(alert: MuleAlert):
+    """Receive mule detection result from Alibaba ECS or AWS Lambda."""
+    try:
+        now = datetime.now(timezone.utc).isoformat()
+        record = {
+            **alert.dict(),
+            "detected_at": now,
+            "source": "alibaba-ecs" if alert.stage >= 1 else "aws-lambda",
+        }
+
+        # Store in memory
+        _mule_cases[alert.account_id] = record
+
+        # Persist to S3 for dashboard and retrain pipeline
+        try:
+            all_cases = list(_mule_cases.values())
+            _s3().put_object(
+                Bucket=BUCKET,
+                Key="data/mule-cases/latest.json",
+                Body=json.dumps(all_cases),
+                ContentType="application/json",
+            )
+        except Exception as e:
+            print(f"[mule-alert] S3 write failed (non-blocking): {e}")
+
+        print(f"[mule-alert] account={alert.account_id} stage={alert.stage} score={alert.mule_score}")
+        return {"status": "ok", "account_id": alert.account_id, "stage": alert.stage}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/mule-cases")
+def mule_cases():
+    """Return all detected mule cases — polled by agent dashboard."""
+    try:
+        cases = list(_mule_cases.values())
+        # Also try loading from S3 if in-memory is empty (after restart)
+        if not cases:
+            try:
+                obj = _s3().get_object(Bucket=BUCKET, Key="data/mule-cases/latest.json")
+                cases = json.loads(obj["Body"].read())
+                for c in cases:
+                    _mule_cases[c["account_id"]] = c
+            except Exception:
+                pass
+        return {"mule_cases": cases, "total": len(cases)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
