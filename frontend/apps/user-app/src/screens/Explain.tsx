@@ -98,7 +98,7 @@ export default function Explain() {
       )}
     >
       <FlowHeader
-        title={lang === 'en' ? 'Why SafeSend flagged this' : 'Mengapa SafeSend tandakan ini'}
+        title={lang === 'en' ? 'Potential Fraud' : 'Fraud Potensi'}
         onBack={() => navigate(-1)}
         theme="light"
         right={<BilingualToggle value={lang} onChange={setLang} />}
@@ -155,7 +155,7 @@ export default function Explain() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-sky-blue bg-soft-blue-surface p-3">
+          <div className="rounded-2xl p-3">
             <div className="flex items-start gap-4">
               <ConfidencePie
                 confidence={explanation?.confidence ?? 'high'}
@@ -188,7 +188,7 @@ export default function Explain() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-sky-blue bg-soft-blue-surface p-4">
+          <div className="rounded-2xl border border-sky-blue p-4">
             <div className="section-label">REASON</div>
             <div className="text-[14px] font-semibold leading-relaxed text-text-primary">
               {lang === 'en'
@@ -325,7 +325,7 @@ function ConfidencePie({
         : lang === 'en' ? 'Low confidence' : 'Keyakinan rendah';
 
   return (
-    <div className="flex flex-col items-center rounded-2xl border border-border-gray bg-white px-3 py-3 shadow-sm">
+    <div className="flex flex-col items-center rounded-2xl  bg-white px-3 py-3 shadow-sm">
       <div className="relative h-[72px] w-[72px]">
         <svg className="h-full w-full -rotate-90" viewBox="0 0 64 64" fill="none">
           <circle cx="32" cy="32" r={radius} stroke={track} strokeWidth="6" />
