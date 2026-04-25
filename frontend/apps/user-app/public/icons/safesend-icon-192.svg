@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" role="img" aria-labelledby="title desc">
+  <title id="title">SafeSend icon</title>
+  <desc id="desc">Blue rounded wallet tile with SafeSend shield and check.</desc>
+  <defs>
+    <linearGradient id="bg" x1="24" y1="18" x2="168" y2="174" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0C78D7" />
+      <stop offset="1" stop-color="#004A92" />
+    </linearGradient>
+  </defs>
+  <rect x="12" y="12" width="168" height="168" rx="38" fill="url(#bg)" />
+  <rect x="42" y="54" width="108" height="78" rx="20" fill="#F4F8FC" opacity="0.96" />
+  <path d="M131 85h18a11 11 0 0 1 0 22h-18z" fill="#B8D8F5" />
+  <circle cx="145" cy="96" r="5" fill="#005BAC" />
+  <path d="M96 44c17 0 31 8 31 20v18c0 22-14 39-31 49-17-10-31-27-31-49V64c0-12 14-20 31-20Z" fill="#00B26A" />
+  <path d="m82 84 10 10 18-21" fill="none" stroke="#F4F8FC" stroke-linecap="round" stroke-linejoin="round" stroke-width="8" />
+</svg>

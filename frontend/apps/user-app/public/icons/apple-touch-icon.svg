@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" role="img" aria-labelledby="title desc">
+  <title id="title">SafeSend Apple touch icon</title>
+  <desc id="desc">Rounded blue SafeSend install icon for home screen bookmarks.</desc>
+  <defs>
+    <linearGradient id="bg" x1="20" y1="16" x2="160" y2="164" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0C78D7" />
+      <stop offset="1" stop-color="#004A92" />
+    </linearGradient>
+  </defs>
+  <rect x="10" y="10" width="160" height="160" rx="36" fill="url(#bg)" />
+  <rect x="39" y="52" width="102" height="74" rx="18" fill="#F4F8FC" opacity="0.96" />
+  <path d="M123 81h17a10 10 0 0 1 0 20h-17z" fill="#B8D8F5" />
+  <circle cx="136" cy="91" r="5" fill="#005BAC" />
+  <path d="M90 43c16 0 29 7 29 19v17c0 21-13 37-29 47-16-10-29-26-29-47V62c0-12 13-19 29-19Z" fill="#00B26A" />
+  <path d="m77 80 9 10 17-20" fill="none" stroke="#F4F8FC" stroke-linecap="round" stroke-linejoin="round" stroke-width="7" />
+</svg>
