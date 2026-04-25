@@ -14,13 +14,17 @@ export function SettingsScreen() {
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_360px]">
       <section
-        className="rounded-[28px] bg-white p-6 shadow-card"
-        style={{ border: '1px solid #E5E7EB' }}
+        className="bg-white p-6"
+        style={{
+          border: '1px solid #e0e2e6',
+          borderRadius: 24,
+          boxShadow: 'rgba(15,48,106,0.05) 0px 0px 20px',
+        }}
       >
-        <p className="text-small-label uppercase tracking-wide text-muted-text">
+        <p className="text-small-label uppercase" style={{ color: '#1b61c9', letterSpacing: '0.28px', fontWeight: 600 }}>
           Model health
         </p>
-        <h2 className="mt-2 text-section-heading text-text-primary">Retraining</h2>
+        <h2 className="mt-2 text-section-heading" style={{ color: '#181d26' }}>Retraining</h2>
 
         <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <Metric label="Version" value={model.modelVersion} />
@@ -31,21 +35,21 @@ export function SettingsScreen() {
 
         <div className="mt-6 grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
           <section
-            className="rounded-[24px] p-5"
-            style={{ backgroundColor: '#F8FAFC', border: '1px solid #E5E7EB' }}
+            className="p-5"
+            style={{ backgroundColor: '#f8fafc', border: '1px solid #e0e2e6', borderRadius: 16 }}
           >
-            <h3 className="text-card-title text-text-primary">Cycle</h3>
+            <h3 className="text-card-title" style={{ color: '#181d26' }}>Cycle</h3>
             <ol className="mt-4 space-y-4">
               {['Decisions logged', 'Labels staged', 'Model retrained', 'Queue refreshed'].map(
                 (item, index) => (
                   <li key={item} className="flex gap-3">
                     <span
-                      className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-pill text-small-label font-bold"
-                      style={{ backgroundColor: '#DBEAFE', color: '#1D4ED8' }}
+                      className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center text-small-label"
+                      style={{ backgroundColor: '#eef4fc', color: '#1b61c9', borderRadius: 999, fontWeight: 600, border: '1px solid #cfe0f5' }}
                     >
                       {index + 1}
                     </span>
-                    <p className="text-sm leading-6 text-text-primary">{item}</p>
+                    <p className="text-sm leading-6" style={{ color: '#181d26' }}>{item}</p>
                   </li>
                 ),
               )}
@@ -53,12 +57,12 @@ export function SettingsScreen() {
           </section>
 
           <aside
-            className="rounded-[24px] bg-white p-5 shadow-card"
-            style={{ border: '1px solid #E5E7EB' }}
+            className="bg-white p-5"
+            style={{ border: '1px solid #e0e2e6', borderRadius: 16, boxShadow: 'rgba(15,48,106,0.05) 0px 0px 20px' }}
           >
-            <p className="text-small-label uppercase tracking-wide text-muted-text">Window</p>
-            <h3 className="mt-2 text-card-title text-text-primary">{model.nextWindow}</h3>
-            <p className="mt-2 text-caption text-muted-text">
+            <p className="text-small-label uppercase" style={{ color: 'rgba(4,14,32,0.55)', letterSpacing: '0.28px', fontWeight: 600 }}>Window</p>
+            <h3 className="mt-2 text-card-title" style={{ color: '#181d26' }}>{model.nextWindow}</h3>
+            <p className="mt-2 text-caption" style={{ color: 'rgba(4,14,32,0.69)' }}>
               Last run: {new Date(model.lastTrainedAt).toLocaleString()}
             </p>
 
@@ -66,8 +70,14 @@ export function SettingsScreen() {
               type="button"
               onClick={runRetrainDemo}
               disabled={status === 'running'}
-              className="mt-5 inline-flex h-12 w-full items-center justify-center rounded-2xl font-bold text-white disabled:opacity-60"
-              style={{ backgroundColor: '#0055D4' }}
+              className="mt-5 inline-flex h-12 w-full items-center justify-center text-white disabled:opacity-60"
+              style={{
+                backgroundColor: '#1b61c9',
+                borderRadius: 12,
+                fontWeight: 600,
+                letterSpacing: '0.08px',
+                boxShadow: 'rgba(45,127,249,0.28) 0px 1px 3px, rgba(0,0,0,0.06) 0px 0px 0px 0.5px inset',
+              }}
             >
               {status === 'running'
                 ? <LoadingDots label="Running" tone="inverse" size="sm" />
@@ -80,11 +90,15 @@ export function SettingsScreen() {
       </section>
 
       <section
-        className="rounded-[28px] bg-white p-6 shadow-card"
-        style={{ border: '1px solid #E5E7EB' }}
+        className="bg-white p-6"
+        style={{
+          border: '1px solid #e0e2e6',
+          borderRadius: 24,
+          boxShadow: 'rgba(15,48,106,0.05) 0px 0px 20px',
+        }}
       >
-        <p className="text-small-label uppercase tracking-wide text-muted-text">Watch</p>
-        <div className="mt-4 space-y-3 text-sm text-text-primary">
+        <p className="text-small-label uppercase" style={{ color: '#1b61c9', letterSpacing: '0.28px', fontWeight: 600 }}>Watch</p>
+        <div className="mt-4 space-y-3 text-sm" style={{ color: '#181d26' }}>
           <p>Coverage under 90% needs review.</p>
           <p>Accuracy should rise after decisions land.</p>
           <p>Stage 3 spikes should trigger containment.</p>
@@ -97,11 +111,11 @@ export function SettingsScreen() {
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div
-      className="rounded-[22px] bg-white p-5 shadow-card"
-      style={{ border: '1px solid #E5E7EB' }}
+      className="bg-white p-5"
+      style={{ border: '1px solid #e0e2e6', borderRadius: 16, boxShadow: 'rgba(15,48,106,0.05) 0px 0px 20px' }}
     >
-      <p className="text-small-label uppercase tracking-wide text-muted-text">{label}</p>
-      <p className="mt-2 text-2xl font-bold text-text-primary">{value}</p>
+      <p className="text-small-label uppercase" style={{ color: 'rgba(4,14,32,0.55)', letterSpacing: '0.28px', fontWeight: 600 }}>{label}</p>
+      <p className="mt-2 text-2xl" style={{ color: '#181d26', fontWeight: 600 }}>{value}</p>
     </div>
   );
 }

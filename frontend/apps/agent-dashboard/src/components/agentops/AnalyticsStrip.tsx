@@ -37,14 +37,14 @@ export function AnalyticsStrip({ runs }: Props) {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <p className="text-small-label uppercase tracking-wide" style={{ color: '#0055D4' }}>
+        <p className="text-small-label uppercase tracking-wide" style={{ color: '#1b61c9' }}>
           Analytics
         </p>
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
           className="rounded-pill px-3 py-1 text-small-label font-semibold transition-colors hover:bg-app-gray"
-          style={{ color: '#0055D4', border: '1px solid #BFDBFE' }}
+          style={{ color: '#1b61c9', border: '1px solid #cfe0f5' }}
         >
           {open ? '▾ Hide charts' : '▸ Show charts'}
         </button>
@@ -107,7 +107,7 @@ export function AnalyticsStrip({ runs }: Props) {
                   <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
                   <XAxis dataKey="label" tick={axisTick} axisLine={false} tickLine={false} />
                   <YAxis tick={axisTick} axisLine={false} tickLine={false} allowDecimals={false} />
-                  <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(0,85,212,0.06)' }} />
+                  <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(27,97,201,0.06)' }} />
                   <Bar dataKey="blocks" stackId="v" fill={CHART_COLORS.block} />
                   <Bar dataKey="warns" stackId="v" fill={CHART_COLORS.warn} />
                   <Bar dataKey="clears" stackId="v" fill={CHART_COLORS.clear} />
@@ -160,7 +160,7 @@ export function AnalyticsStrip({ runs }: Props) {
                   <CartesianGrid stroke={CHART_COLORS.grid} horizontal={false} />
                   <XAxis type="number" tick={axisTick} axisLine={false} tickLine={false} allowDecimals={false} />
                   <YAxis dataKey="type" type="category" width={88} tick={{ fontSize: 10, fill: '#475569' }} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(0,85,212,0.06)' }} />
+                  <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(27,97,201,0.06)' }} />
                   <Bar dataKey="block" stackId="t" fill={CHART_COLORS.block} />
                   <Bar dataKey="warn" stackId="t" fill={CHART_COLORS.warn} />
                   <Bar dataKey="clear" stackId="t" fill={CHART_COLORS.clear} radius={[0, 4, 4, 0]} />
@@ -186,10 +186,10 @@ function Card({
   return (
     <div
       className="flex flex-col rounded-2xl bg-white p-3 shadow-card"
-      style={{ border: '1px solid #E5E7EB' }}
+      style={{ border: '1px solid #e0e2e6' }}
     >
       <header className="mb-1">
-        <p className="text-[10px] uppercase tracking-wide" style={{ color: '#0055D4' }}>
+        <p className="text-[10px] uppercase tracking-wide" style={{ color: '#1b61c9' }}>
           {title}
         </p>
         <p className="text-[10px] text-muted-text">{subtitle}</p>
@@ -201,7 +201,7 @@ function Card({
 
 function Empty() {
   return (
-    <div className="flex h-[120px] items-center justify-center rounded-md text-[10px] text-muted-text" style={{ backgroundColor: '#F8FAFC' }}>
+    <div className="flex h-[120px] items-center justify-center rounded-md text-[10px] text-muted-text" style={{ backgroundColor: '#f8fafc' }}>
       Waiting for data…
     </div>
   );
@@ -209,7 +209,7 @@ function Empty() {
 
 const axisTick = { fontSize: 10, fill: '#64748B', fontWeight: 600 };
 const tooltipStyle: React.CSSProperties = {
-  border: '1px solid #E5E7EB',
+  border: '1px solid #e0e2e6',
   borderRadius: 10,
   fontSize: 11,
   padding: '6px 8px',

@@ -1,11 +1,9 @@
 import { useState } from 'react';
 import { AgentOpsScreen } from './screens/AgentOpsScreen.js';
-import { AlertsScreen } from './screens/AlertsScreen.js';
 import { NetworkScreen } from './screens/NetworkScreen.js';
 import { SettingsScreen } from './screens/SettingsScreen.js';
-import { StatsScreen } from './screens/StatsScreen.js';
 
-type Tab = 'agent-ops' | 'investigations' | 'network' | 'intelligence' | 'model';
+type Tab = 'agent-ops' | 'network' | 'model';
 
 const NAV: { id: Tab; label: string; description: string }[] = [
   {
@@ -14,19 +12,9 @@ const NAV: { id: Tab; label: string; description: string }[] = [
     description: 'Autonomous fraud verification team',
   },
   {
-    id: 'investigations',
-    label: 'Investigations',
-    description: 'Queue, detail, containment',
-  },
-  {
     id: 'network',
     label: 'Network',
     description: 'Network graph',
-  },
-  {
-    id: 'intelligence',
-    label: 'Intelligence',
-    description: 'Risk mix and trends',
   },
   {
     id: 'model',
@@ -40,15 +28,13 @@ export default function App() {
   const active = NAV.find((item) => item.id === tab)!;
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-app-gray">
+    <div className="flex h-screen w-screen flex-col overflow-hidden" style={{ backgroundColor: '#f8fafc' }}>
       <TopNav tab={tab} onTab={setTab} />
       <PageHeader title={active.label} subtitle={active.description} />
 
       <main className="flex-1 overflow-auto px-8 py-6">
         {tab === 'agent-ops' && <AgentOpsScreen />}
-        {tab === 'investigations' && <AlertsScreen />}
         {tab === 'network' && <NetworkScreen />}
-        {tab === 'intelligence' && <StatsScreen />}
         {tab === 'model' && <SettingsScreen />}
       </main>
     </div>
@@ -58,19 +44,29 @@ export default function App() {
 function TopNav({ tab, onTab }: { tab: Tab; onTab: (t: Tab) => void }) {
   return (
     <header
-      className="flex h-16 shrink-0 items-center gap-6 px-6 text-white"
-      style={{ background: 'linear-gradient(90deg, #071B33 0%, #0A2A4D 60%, #0A2A4D 100%)' }}
+      className="flex h-16 shrink-0 items-center gap-6 px-6"
+      style={{
+        backgroundColor: '#ffffff',
+        borderBottom: '1px solid #e0e2e6',
+        color: '#181d26',
+      }}
     >
       <div className="flex shrink-0 items-center gap-3">
         <div
-          className="flex h-10 w-10 items-center justify-center rounded-xl font-bold"
-          style={{ backgroundColor: '#FFE600', color: '#0055D4' }}
+          className="flex h-9 w-9 items-center justify-center font-bold"
+          style={{
+            backgroundColor: '#1b61c9',
+            color: '#ffffff',
+            borderRadius: 12,
+            letterSpacing: '0.12px',
+            boxShadow: 'rgba(45,127,249,0.28) 0px 1px 3px, rgba(0,0,0,0.06) 0px 0px 0px 0.5px inset',
+          }}
         >
           SS
         </div>
         <div className="leading-tight">
-          <p className="text-feature-title">SafeSend</p>
-          <p className="text-small-label text-white/60">Analyst console</p>
+          <p className="text-feature-title" style={{ color: '#181d26' }}>SafeSend</p>
+          <p className="text-small-label" style={{ color: 'rgba(4,14,32,0.69)' }}>Analyst console</p>
         </div>
       </div>
 
@@ -82,19 +78,18 @@ function TopNav({ tab, onTab }: { tab: Tab; onTab: (t: Tab) => void }) {
               key={item.id}
               type="button"
               onClick={() => onTab(item.id)}
-              className="flex shrink-0 items-center gap-2 rounded-pill px-4 py-2 text-small-label font-semibold transition-colors"
+              className="flex shrink-0 items-center gap-2 px-3 py-2 text-small-label transition-colors"
               style={{
-                backgroundColor: isActive ? '#0055D4' : 'transparent',
-                color: isActive ? '#FFFFFF' : 'rgba(255,255,255,0.78)',
-                border: isActive ? '1px solid rgba(255,255,255,0.18)' : '1px solid transparent',
+                backgroundColor: isActive ? '#eef4fc' : 'transparent',
+                color: isActive ? '#1b61c9' : 'rgba(4,14,32,0.69)',
+                fontWeight: isActive ? 600 : 500,
+                borderRadius: 12,
+                letterSpacing: '0.08px',
               }}
             >
               <span
-                className="flex h-6 w-6 items-center justify-center rounded-pill"
-                style={{
-                  backgroundColor: isActive ? '#FFE600' : 'rgba(255,255,255,0.10)',
-                  color: isActive ? '#0055D4' : '#FFFFFF',
-                }}
+                className="flex h-5 w-5 items-center justify-center"
+                style={{ color: isActive ? '#1b61c9' : 'rgba(4,14,32,0.55)' }}
               >
                 <NavIcon id={item.id} />
               </span>
@@ -106,19 +101,30 @@ function TopNav({ tab, onTab }: { tab: Tab; onTab: (t: Tab) => void }) {
 
       <div className="flex shrink-0 items-center gap-3">
         <span
-          className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-small-label font-semibold"
-          style={{ backgroundColor: '#ECFDF5', color: '#166534' }}
+          className="inline-flex items-center gap-2 px-3 py-1 text-small-label"
+          style={{
+            backgroundColor: '#ECFDF5',
+            color: '#166534',
+            borderRadius: 999,
+            fontWeight: 500,
+            border: '1px solid #BBF7D0',
+          }}
         >
           <span className="inline-block h-2 w-2 rounded-pill" style={{ backgroundColor: '#16A34A' }} />
           Pipeline live
         </span>
         <div className="leading-tight text-right">
-          <p className="text-small-label font-semibold text-white">Agent Aisha</p>
-          <p className="text-[10px] text-white/55">Fraud Ops · Shift PM</p>
+          <p className="text-small-label" style={{ color: '#181d26', fontWeight: 600 }}>Agent Aisha</p>
+          <p className="text-[10px]" style={{ color: 'rgba(4,14,32,0.55)' }}>Fraud Ops · Shift PM</p>
         </div>
         <div
-          className="flex h-9 w-9 items-center justify-center rounded-pill font-bold"
-          style={{ backgroundColor: '#FFE600', color: '#0055D4' }}
+          className="flex h-9 w-9 items-center justify-center font-bold"
+          style={{
+            backgroundColor: '#eef4fc',
+            color: '#1b61c9',
+            borderRadius: 999,
+            border: '1px solid #e0e2e6',
+          }}
         >
           A
         </div>
@@ -130,15 +136,15 @@ function TopNav({ tab, onTab }: { tab: Tab; onTab: (t: Tab) => void }) {
 function PageHeader({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <div
-      className="flex items-end justify-between bg-white px-8 py-4"
-      style={{ borderBottom: '1px solid #E5E7EB' }}
+      className="flex items-end justify-between bg-white px-8 py-5"
+      style={{ borderBottom: '1px solid #e0e2e6' }}
     >
       <div>
-        <p className="text-small-label uppercase tracking-wide text-muted-text">
+        <p className="text-small-label uppercase" style={{ color: 'rgba(4,14,32,0.55)', letterSpacing: '0.28px' }}>
           SafeSend Agent Console
         </p>
-        <h1 className="mt-1 text-page-title text-text-primary">{title}</h1>
-        <p className="text-caption text-muted-text">{subtitle}</p>
+        <h1 className="mt-1 text-page-title" style={{ color: '#181d26' }}>{title}</h1>
+        <p className="text-caption" style={{ color: 'rgba(4,14,32,0.69)' }}>{subtitle}</p>
       </div>
     </div>
   );
@@ -146,12 +152,12 @@ function PageHeader({ title, subtitle }: { title: string; subtitle: string }) {
 
 function NavIcon({ id }: { id: Tab }) {
   const commonProps = {
-    width: 14,
-    height: 14,
+    width: 16,
+    height: 16,
     viewBox: '0 0 24 24',
     fill: 'none',
     stroke: 'currentColor',
-    strokeWidth: 2.1,
+    strokeWidth: 2,
     strokeLinecap: 'round' as const,
     strokeLinejoin: 'round' as const,
   };
@@ -172,17 +178,6 @@ function NavIcon({ id }: { id: Tab }) {
     );
   }
 
-  if (id === 'investigations') {
-    return (
-      <svg {...commonProps}>
-        <path d="M4 5h16" />
-        <path d="M4 12h10" />
-        <path d="M4 19h7" />
-        <circle cx="18" cy="12" r="3" />
-      </svg>
-    );
-  }
-
   if (id === 'network') {
     return (
       <svg {...commonProps}>
@@ -192,17 +187,6 @@ function NavIcon({ id }: { id: Tab }) {
         <path d="M8 8.5 10.5 16" />
         <path d="M16 7.5 13.5 16" />
         <path d="M8 7h8" />
-      </svg>
-    );
-  }
-
-  if (id === 'intelligence') {
-    return (
-      <svg {...commonProps}>
-        <path d="M5 19V9" />
-        <path d="M12 19V5" />
-        <path d="M19 19v-7" />
-        <path d="M3 19h18" />
       </svg>
     );
   }

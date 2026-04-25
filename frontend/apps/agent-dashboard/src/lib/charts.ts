@@ -2,17 +2,17 @@ import type { AgentName, FinalVerdict, VerificationRun } from './agentops.js';
 import { AGENT_META, AGENT_ORDER } from './agentops.js';
 
 export const CHART_COLORS = {
-  block: '#EF4444',
+  block: '#DC2626',
   warn: '#F59E0B',
-  clear: '#22C55E',
+  clear: '#16A34A',
   inconclusive: '#94A3B8',
-  brand: '#0055D4',
-  brandSoft: '#0EA5E9',
-  yellow: '#FFE600',
-  ink: '#0F3B82',
-  grid: '#E5E7EB',
-  muted: '#94A3B8',
-  surface: '#F8FAFC',
+  brand: '#1b61c9',
+  brandSoft: '#254fad',
+  yellow: '#1b61c9',
+  ink: '#181d26',
+  grid: '#e0e2e6',
+  muted: 'rgba(4,14,32,0.55)',
+  surface: '#f8fafc',
 } as const;
 
 export interface VerdictDonutSlice {
