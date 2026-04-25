@@ -43,8 +43,8 @@ export default function AppShell({
         />
       </div>
 
-      <div className="relative z-10 flex h-full min-h-0 flex-col">
-        <main className={['app-scroll-hidden flex-1 min-h-0 overflow-y-auto overscroll-contain pb-5', contentClassName].join(' ').trim()}>
+      <div className="relative z-10 flex h-full min-h-0 w-full min-w-0 flex-col">
+        <main className={['app-scroll-hidden flex-1 min-h-0 w-full min-w-0 overflow-y-auto overscroll-contain pb-5', contentClassName].join(' ').trim()}>
           {children}
         </main>
         {footer}
