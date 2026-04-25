@@ -1,9 +1,11 @@
 import { currentUser, mockTransactions } from 'shared';
+import AppShell from '../components/AppShell';
 import BilingualToggle from '../components/BilingualToggle';
-import WalletCard from '../components/WalletCard';
-import QuickActionGrid from '../components/QuickActionGrid';
 import BottomTabBar from '../components/BottomTabBar';
+import QuickActionGrid from '../components/QuickActionGrid';
 import SafeSendBadge from '../components/SafeSendBadge';
+import TopBar from '../components/TopBar';
+import WalletCard from '../components/WalletCard';
 import { formatRM } from '../lib/format';
 import { t, useLang } from '../lib/i18n';
 
@@ -12,64 +14,62 @@ const BALANCE = 12450.8;
 export default function Home() {
   const [lang, setLang] = useLang();
   const recent = mockTransactions
-    .filter((t) => t.user_id === currentUser.id)
+    .filter((tx) => tx.user_id === currentUser.id)
     .slice(0, 4);
 
   const dateLocale = lang === 'en' ? 'en-MY' : 'ms-MY';
 
   return (
-    <div className="phone-frame flex flex-col">
-      <div className="bg-tng-blue h-[64px] flex items-end px-5 pb-3 text-white">
-        <div className="flex items-center justify-between w-full">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-white/20 grid place-items-center text-[13px] font-bold">
-              {currentUser.name.charAt(0)}
-            </div>
-            <div>
-              <div className="text-[11px] opacity-80">{t('welcomeBack', lang)}</div>
-              <div className="text-[14px] font-bold leading-none">{currentUser.name}</div>
-            </div>
-          </div>
+    <AppShell contentClassName="pt-1" footer={<BottomTabBar lang={lang} />}>
+      <TopBar
+        title={currentUser.name}
+        subtitle={t('welcomeBack', lang)}
+        theme="light"
+        right={(
           <div className="flex items-center gap-2">
             <BilingualToggle value={lang} onChange={setLang} />
             <SafeSendBadge size="sm" />
           </div>
-        </div>
-      </div>
+        )}
+        badge={(
+          <div className="flex items-center gap-2">
+            <div className="grid h-9 w-9 place-items-center rounded-full bg-tng-blue text-[13px] font-bold text-white shadow-card">
+              {currentUser.name.charAt(0)}
+            </div>
+            <div className="rounded-pill border border-white/70 bg-white/85 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-tng-blue shadow-sm">
+              Wallet overview
+            </div>
+          </div>
+        )}
+      />
 
-      <main className="flex-1 px-4 pt-4 pb-6 space-y-4">
+      <div className="space-y-4">
         <WalletCard balance={BALANCE} userName={currentUser.name} lang={lang} />
 
         <QuickActionGrid lang={lang} />
 
-        <div className="rounded-xl p-4 bg-soft-blue-surface border border-sky-blue flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-royal-blue text-electric-yellow grid place-items-center flex-shrink-0">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5l-8-3Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-            </svg>
+        <section className="app-panel overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3">
+            <div>
+              <div className="section-label">{t('recentActivity', lang)}</div>
+              <div className="mt-1 text-[15px] font-bold text-text-primary">Your latest transfers</div>
+            </div>
+            <button className="rounded-pill bg-soft-blue-surface px-3 py-1.5 text-[12px] font-semibold text-tng-blue">
+              {t('seeAll', lang)}
+            </button>
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-[13px] font-bold text-text-primary">{t('safeSendOn', lang)}</div>
-            <div className="text-[12px] text-muted-text">{t('safeSendOnSub', lang)}</div>
-          </div>
-        </div>
 
-        <section className="card overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border-gray">
-            <div className="text-card-title text-text-primary">{t('recentActivity', lang)}</div>
-            <button className="text-[13px] font-semibold text-tng-blue">{t('seeAll', lang)}</button>
-          </div>
-          <ul>
+          <ul className="px-2 pb-2">
             {recent.map((tx) => (
               <li
                 key={tx.txn_id}
-                className="flex items-center gap-3 px-4 py-3 border-b border-border-gray last:border-b-0"
+                className="flex items-center gap-3 rounded-2xl px-3 py-3 transition-colors hover:bg-app-gray/80"
               >
-                <div className="w-10 h-10 rounded-full bg-soft-blue-surface text-tng-blue grid place-items-center font-bold">
+                <div className="grid h-11 w-11 place-items-center rounded-2xl bg-[linear-gradient(180deg,#F8FBFF_0%,#EAF3FF_100%)] text-tng-blue font-bold shadow-sm">
                   {tx.payee_name.charAt(0)}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-[14px] font-semibold text-text-primary truncate">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[14px] font-semibold text-text-primary">
                     {tx.payee_name}
                   </div>
                   <div className="text-[12px] text-muted-text">
@@ -81,16 +81,34 @@ export default function Home() {
                     {t('transferLabel', lang)}
                   </div>
                 </div>
-                <div className="text-[14px] font-bold text-text-primary">
-                  -{formatRM(tx.amount)}
+                <div className="text-right">
+                  <div className="text-[14px] font-bold text-text-primary">-{formatRM(tx.amount)}</div>
+                  <div className="text-[11px] font-semibold text-success-green">Completed</div>
                 </div>
               </li>
             ))}
           </ul>
         </section>
-      </main>
+      </div>
+    </AppShell>
+  );
+}
 
-      <BottomTabBar lang={lang} />
+function StatusStat({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: string;
+  accent: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-border-gray/70 bg-white/80 p-3 shadow-sm">
+      <div className={['inline-flex rounded-pill px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em]', accent].join(' ')}>
+        {label}
+      </div>
+      <div className="mt-3 text-[18px] font-extrabold text-text-primary">{value}</div>
     </div>
   );
 }
