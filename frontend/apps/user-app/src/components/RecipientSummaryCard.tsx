@@ -33,7 +33,6 @@ export default function RecipientSummaryCard({
           ) : null}
         </div>
         <div className="mt-0.5 text-[13px] font-mono text-muted-text">{detail}</div>
-        {subdetail ? <div className="mt-1 text-[12px] text-muted-text">{subdetail}</div> : null}
       </div>
     </div>
   );
