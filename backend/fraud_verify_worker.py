@@ -64,6 +64,15 @@ AGENT_LABELS: dict[str, str] = {
 
 VERDICTS = ("block", "warn", "clear", "inconclusive")
 
+# Rules fast-path: skip Bedrock entirely for obviously high or obviously low risk.
+RULES_HIGH_SCORE = float(os.environ.get("RULES_HIGH_SCORE", "85"))
+RULES_LOW_SCORE = float(os.environ.get("RULES_LOW_SCORE", "25"))
+ENABLE_RULES_FAST_PATH = os.environ.get("RULES_FAST_PATH", "1") != "0"
+
+# UX trickle: spread finding inserts across this many seconds so the dashboard
+# sees streaming arrivals even when the LLM returned them in one shot.
+TRICKLE_SECONDS = float(os.environ.get("TRICKLE_SECONDS", "1.6"))
+
 
 # ---------------------------------------------------------------------------
 # DB helpers (DATABASE_URL, same pattern as local_pg_api.py)
@@ -89,6 +98,20 @@ def db_cursor():
 
 def _new_run_id() -> str:
     return f"run_{uuid.uuid4().hex[:16]}"
+
+
+def is_paused() -> bool:
+    """Read pause flag from worker_settings. Default false on any DB error."""
+    try:
+        with db_cursor() as cur:
+            cur.execute("SELECT value FROM worker_settings WHERE key = 'paused'")
+            row = cur.fetchone()
+        if not row:
+            return False
+        return str(row["value"]).lower() == "true"
+    except Exception as e:  # noqa: BLE001
+        print(f"[worker] is_paused read failed: {e}", flush=True)
+        return False
 
 
 # ---------------------------------------------------------------------------
@@ -178,6 +201,46 @@ def insert_run(run_id: str, alert_id: str, mode: str) -> None:
         cur.execute(
             "UPDATE alerts SET verification_status = 'running' WHERE alert_id = %s",
             (alert_id,),
+        )
+
+
+def init_stream(run_id: str, agent_name: str) -> None:
+    with db_cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO agent_streams (run_id, agent_name, partial_text, status)
+            VALUES (%s, %s, '', 'streaming')
+            ON CONFLICT (run_id, agent_name)
+            DO UPDATE SET partial_text = '', status = 'streaming',
+                          started_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+            """,
+            (run_id, agent_name),
+        )
+
+
+def append_stream(run_id: str, agent_name: str, full_text: str) -> None:
+    """Replace partial_text with the latest accumulated buffer."""
+    with db_cursor() as cur:
+        cur.execute(
+            """
+            UPDATE agent_streams
+               SET partial_text = %s,
+                   updated_at = CURRENT_TIMESTAMP
+             WHERE run_id = %s AND agent_name = %s
+            """,
+            (full_text, run_id, agent_name),
+        )
+
+
+def complete_stream(run_id: str, agent_name: str, status: str = "done") -> None:
+    with db_cursor() as cur:
+        cur.execute(
+            """
+            UPDATE agent_streams
+               SET status = %s, updated_at = CURRENT_TIMESTAMP
+             WHERE run_id = %s AND agent_name = %s
+            """,
+            (status, run_id, agent_name),
         )
 
 
@@ -446,6 +509,52 @@ def _mock_finding(agent: str, ctx: dict) -> dict:
     }
 
 
+def _rules_classify(ctx: dict) -> list[dict] | None:
+    """
+    Fast-path classifier. Returns 5 synthesised findings if the case is
+    obviously high or obviously low risk, otherwise None (defer to Bedrock).
+    """
+    if not ENABLE_RULES_FAST_PATH:
+        return None
+
+    score = float(ctx.get("risk_score") or 0)
+    mule_stage = str(ctx.get("mule_stage") or "")
+    age_recv = int(ctx.get("receiver_age_days") or 0)
+    is_first = bool(ctx.get("is_first_transfer"))
+    device_match = bool(ctx.get("device_match")) if ctx.get("device_match") is not None else True
+    amount = float(ctx.get("amount") or 0)
+
+    obvious_high = (
+        score >= RULES_HIGH_SCORE
+        and (mule_stage in ("stage_3", "stage_2") or age_recv <= 7)
+    )
+    obvious_low = score <= RULES_LOW_SCORE and device_match and not is_first and amount < 500
+
+    if not (obvious_high or obvious_low):
+        return None
+
+    findings: list[dict] = []
+    for agent in AGENTS:
+        f = _mock_finding(agent, ctx)
+        # Pin verdict so rules path is decisive (no per-agent dissent here).
+        if obvious_high:
+            f["verdict"] = "block"
+            f["confidence"] = max(f["confidence"], 92)
+            f["reasoning"] = (
+                f"[rules] Score {score:.0f}, receiver age {age_recv}d, mule {mule_stage or 'n/a'}. "
+                + f["reasoning"][:140]
+            )
+        else:
+            f["verdict"] = "clear"
+            f["confidence"] = max(f["confidence"], 75)
+            f["reasoning"] = (
+                f"[rules] Score {score:.0f}, device match, repeat payee, low amount. "
+                + f["reasoning"][:140]
+            )
+        findings.append(f)
+    return findings
+
+
 def _arbitrate(findings: list[dict]) -> tuple[dict, int]:
     """Majority verdict weighted by confidence; returns (decision, agreement_pct)."""
     weights: dict[str, float] = {"block": 0.0, "warn": 0.0, "clear": 0.0, "inconclusive": 0.0}
@@ -584,6 +693,211 @@ async def _bedrock_finding(agent: str, ctx: dict) -> dict:
     return parsed
 
 
+# Debounce DB writes during streaming so we don't hammer Postgres on every token.
+STREAM_DB_FLUSH_SEC = float(os.environ.get("STREAM_DB_FLUSH_SEC", "0.18"))
+
+
+async def _bedrock_finding_streamed(agent: str, ctx: dict, run_id: str) -> dict:
+    """Per-agent Bedrock streaming call. Tokens flushed to agent_streams as they arrive."""
+    body = json.dumps(
+        {
+            "anthropic_version": "bedrock-2023-05-31",
+            "max_tokens": 400,
+            "temperature": 0,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": (
+                        f"{_BEDROCK_PROMPTS[agent]}\n\n"
+                        f"Alert context:\n{json.dumps(_safe_ctx(ctx), default=str)}\n\n"
+                        f"{_BEDROCK_OUTPUT}"
+                    ),
+                }
+            ],
+        }
+    )
+
+    init_stream(run_id, agent)
+    loop = asyncio.get_event_loop()
+    buffer: list[str] = []
+    last_flush = time.time()
+
+    def _open_stream():
+        client = _get_bedrock_client()
+        return client.invoke_model_with_response_stream(
+            modelId=BEDROCK_MODEL_ID,
+            contentType="application/json",
+            accept="application/json",
+            body=body,
+        )
+
+    def _flush_blocking(text: str):
+        try:
+            append_stream(run_id, agent, text)
+        except Exception as e:  # noqa: BLE001
+            print(f"[worker] stream flush ({agent}) error: {e}", flush=True)
+
+    try:
+        resp = await loop.run_in_executor(None, _open_stream)
+        stream = resp["body"]
+
+        # Iterator is blocking; pump it on the executor a chunk at a time.
+        def _next_event(it):
+            try:
+                return next(it)
+            except StopIteration:
+                return None
+
+        it = iter(stream)
+        while True:
+            event = await loop.run_in_executor(None, _next_event, it)
+            if event is None:
+                break
+            chunk = event.get("chunk")
+            if not chunk:
+                continue
+            data = json.loads(chunk["bytes"])
+            etype = data.get("type")
+            if etype == "content_block_delta":
+                delta = data.get("delta") or {}
+                text_delta = delta.get("text") or ""
+                if text_delta:
+                    buffer.append(text_delta)
+                    now = time.time()
+                    if now - last_flush >= STREAM_DB_FLUSH_SEC:
+                        last_flush = now
+                        await loop.run_in_executor(None, _flush_blocking, "".join(buffer))
+            elif etype == "message_stop":
+                break
+        # Final flush + parse
+        full_text = "".join(buffer)
+        await loop.run_in_executor(None, _flush_blocking, full_text)
+        complete_stream(run_id, agent, "done")
+
+        parsed = json.loads(_extract_json(full_text)) if full_text.strip() else {}
+    except Exception as e:  # noqa: BLE001
+        complete_stream(run_id, agent, "error")
+        print(f"[worker] stream ({agent}) failed: {e}", flush=True)
+        parsed = {}
+
+    parsed.setdefault("verdict", "inconclusive")
+    parsed["agent_name"] = agent
+    parsed["verdict"] = str(parsed.get("verdict", "inconclusive")).lower()
+    if parsed["verdict"] not in VERDICTS:
+        parsed["verdict"] = "inconclusive"
+    parsed["confidence"] = int(parsed.get("confidence", 50))
+    parsed.setdefault("evidence", [])
+    parsed.setdefault("reasoning", "(no reasoning)")
+    return parsed
+
+
+async def _mock_finding_streamed(agent: str, ctx: dict, run_id: str) -> dict:
+    """Mock equivalent: emit `reasoning` as fake tokens to agent_streams."""
+    init_stream(run_id, agent)
+    final = _mock_finding(agent, ctx)
+    text = str(final.get("reasoning") or "")
+    # Chunk into ~6-char tokens to mimic streaming cadence
+    loop = asyncio.get_event_loop()
+    buf: list[str] = []
+    chunk_size = 6
+    pieces = [text[i : i + chunk_size] for i in range(0, len(text), chunk_size)] or [""]
+    last_flush = time.time()
+    for piece in pieces:
+        buf.append(piece)
+        await asyncio.sleep(0.05 + random.uniform(0, 0.05))
+        now = time.time()
+        if now - last_flush >= STREAM_DB_FLUSH_SEC:
+            last_flush = now
+            await loop.run_in_executor(None, append_stream, run_id, agent, "".join(buf))
+    await loop.run_in_executor(None, append_stream, run_id, agent, text)
+    complete_stream(run_id, agent, "done")
+    return final
+
+
+_BEDROCK_TEAM_PROMPT = """You ARE the SafeSend autonomous fraud-review team. Five specialists review the alert IN PARALLEL and each emit one short verdict.
+
+Specialists:
+1. txn       (Transaction Analyst): amount, velocity, channel.
+2. behavior  (Behaviour Analyst): device match, account age, takeover signals.
+3. network   (Network Analyst): mule cluster, hops, inbound/outbound ratio.
+4. policy    (Compliance Officer): BNM PSA, AMLA, TnG fraud SOP thresholds.
+5. victim    (Victim Profiler): sender profile, coercion / Macau / love / investment scam shape.
+
+Each specialist returns:
+  verdict in {"block","warn","clear","inconclusive"}
+  confidence integer 0-100
+  evidence: 2-3 short {"signal","value"} entries
+  reasoning: ONE short sentence
+
+Distinct angles, no two should give identical reasoning. Real specialists disagree sometimes — that is fine.
+
+Return ONLY a JSON object exactly like:
+{
+  "agents": [
+    {"name":"txn","verdict":"...","confidence":0,"evidence":[{"signal":"...","value":"..."}],"reasoning":"..."},
+    {"name":"behavior", ...},
+    {"name":"network", ...},
+    {"name":"policy", ...},
+    {"name":"victim", ...}
+  ]
+}
+"""
+
+
+async def _bedrock_team_findings(ctx: dict) -> list[dict]:
+    """One Bedrock invocation -> 5 agent findings. Big speedup vs serial calls."""
+    body = json.dumps(
+        {
+            "anthropic_version": "bedrock-2023-05-31",
+            "max_tokens": 900,
+            "temperature": 0,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": (
+                        f"{_BEDROCK_TEAM_PROMPT}\n"
+                        f"Alert context:\n{json.dumps(_safe_ctx(ctx), default=str)}"
+                    ),
+                }
+            ],
+        }
+    )
+
+    def _invoke():
+        client = _get_bedrock_client()
+        resp = client.invoke_model(
+            modelId=BEDROCK_MODEL_ID,
+            contentType="application/json",
+            accept="application/json",
+            body=body,
+        )
+        payload = json.loads(resp["body"].read())
+        return payload.get("content", [{}])[0].get("text", "")
+
+    loop = asyncio.get_event_loop()
+    text = await loop.run_in_executor(None, _invoke)
+    parsed = json.loads(_extract_json(text))
+    raw_agents = parsed.get("agents") or []
+
+    by_name = {str(a.get("name", "")).lower(): a for a in raw_agents}
+    out: list[dict] = []
+    for agent in AGENTS:
+        a = by_name.get(agent) or {}
+        verdict = str(a.get("verdict", "inconclusive")).lower()
+        if verdict not in VERDICTS:
+            verdict = "inconclusive"
+        out.append(
+            {
+                "agent_name": agent,
+                "verdict": verdict,
+                "confidence": int(a.get("confidence", 50)),
+                "evidence": a.get("evidence") or [],
+                "reasoning": str(a.get("reasoning") or "(no reasoning)"),
+            }
+        )
+    return out
+
+
 def _safe_ctx(ctx: dict) -> dict:
     """Trim context to JSON-serialisable fields for Bedrock."""
     keys = (
@@ -632,43 +946,55 @@ async def verify_alert(alert_id: str) -> None:
         return
 
     run_id = _new_run_id()
-    mode = "mock" if MOCK_MODE else "bedrock"
-    insert_run(run_id, alert_id, mode)
-    print(f"[worker] run {run_id} alert={alert_id} mode={mode} score={ctx.get('risk_score')}", flush=True)
-
     started = time.time()
-    findings: list[dict] = []
 
-    # Mock mode: fire all 5 agents in parallel — fast and zero throttle risk.
-    # Bedrock mode: fire serially so the on-demand TPM/RPS quotas don't bite.
-    # Findings still stream to the dashboard one-by-one in both modes.
-    async def _run_and_record(agent: str) -> dict:
-        try:
-            finding = await run_one(agent, ctx)
-        except Exception as e:  # noqa: BLE001
-            finding = {
-                "agent_name": agent,
-                "verdict": "inconclusive",
-                "confidence": 0,
-                "evidence": [{"signal": "error", "value": str(e)[:200]}],
-                "reasoning": f"Agent {agent} failed: {e}",
-                "latency_ms": int((time.time() - started) * 1000),
-            }
-        try:
-            insert_finding(run_id, finding)
-        except Exception as e:  # noqa: BLE001
-            print(f"[worker] insert_finding failed: {e}", flush=True)
-        return finding
-
-    if MOCK_MODE:
-        findings = await asyncio.gather(*(_run_and_record(a) for a in AGENTS))
+    # 1) Rules fast-path (no LLM, ~10ms)
+    rules_findings = _rules_classify(ctx)
+    if rules_findings is not None:
+        mode = "rules"
+        insert_run(run_id, alert_id, mode)
+        print(
+            f"[worker] run {run_id} alert={alert_id} mode={mode} score={ctx.get('risk_score')}",
+            flush=True,
+        )
+        findings = await _stream_findings(run_id, rules_findings, started)
     else:
-        for agent in AGENTS:
-            findings.append(await _run_and_record(agent))
+        mode = "mock" if MOCK_MODE else "bedrock"
+        insert_run(run_id, alert_id, mode)
+        print(
+            f"[worker] run {run_id} alert={alert_id} mode={mode} score={ctx.get('risk_score')}",
+            flush=True,
+        )
 
-    # Tiny pause so the arbiter feels like a separate step in the timeline.
-    if MOCK_MODE:
-        await asyncio.sleep(random.uniform(0.3, 0.6))
+        # 2) Per-agent streaming: 5 calls in parallel, tokens written to
+        #    agent_streams as they arrive. Each agent finalises independently.
+        async def _stream_one(agent: str) -> dict:
+            t0 = time.time()
+            try:
+                if MOCK_MODE:
+                    f = await _mock_finding_streamed(agent, ctx, run_id)
+                else:
+                    f = await _bedrock_finding_streamed(agent, ctx, run_id)
+            except Exception as e:  # noqa: BLE001
+                print(f"[worker] agent {agent} failed: {e}", flush=True)
+                f = {
+                    "agent_name": agent,
+                    "verdict": "inconclusive",
+                    "confidence": 0,
+                    "evidence": [{"signal": "error", "value": str(e)[:200]}],
+                    "reasoning": f"Agent {agent} failed: {e}",
+                }
+            f["latency_ms"] = int((time.time() - t0) * 1000)
+            try:
+                insert_finding(run_id, f)
+            except Exception as e:  # noqa: BLE001
+                print(f"[worker] insert_finding ({agent}) failed: {e}", flush=True)
+            return f
+
+        findings = await asyncio.gather(*[_stream_one(a) for a in AGENTS])
+
+    # Tiny pause so the arbiter feels like a separate step.
+    await asyncio.sleep(random.uniform(0.2, 0.4))
 
     decision, agreement = _arbitrate(findings)
     total_ms = int((time.time() - started) * 1000)
@@ -677,12 +1003,33 @@ async def verify_alert(alert_id: str) -> None:
         finalise_run(run_id, alert_id, decision, total_ms, agreement)
         print(
             f"[worker] run {run_id} -> {decision['final_verdict']} "
-            f"({agreement}% agree, {total_ms}ms)",
+            f"({agreement}% agree, {total_ms}ms, mode={mode})",
             flush=True,
         )
     except Exception as e:  # noqa: BLE001
-        print(f"[worker] finalise_run failed: {e}")
+        print(f"[worker] finalise_run failed: {e}", flush=True)
         mark_run_failed(run_id, alert_id, str(e))
+
+
+async def _mock_team_findings(ctx: dict) -> list[dict]:
+    """Mock equivalent of single-shot team call: returns 5 findings instantly."""
+    return [_mock_finding(a, ctx) for a in AGENTS]
+
+
+async def _stream_findings(run_id: str, findings_data: list[dict], started: float) -> list[dict]:
+    """Insert findings one-by-one with a small gap so the dashboard sees streaming arrivals."""
+    n = max(1, len(findings_data))
+    gap = max(0.05, TRICKLE_SECONDS / n)
+    out: list[dict] = []
+    for f in findings_data:
+        f.setdefault("latency_ms", int((time.time() - started) * 1000))
+        try:
+            insert_finding(run_id, f)
+        except Exception as e:  # noqa: BLE001
+            print(f"[worker] insert_finding failed: {e}", flush=True)
+        out.append(f)
+        await asyncio.sleep(gap)
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -698,31 +1045,75 @@ def _stop(*_args: Any) -> None:
     print("[worker] shutdown requested")
 
 
+async def _release_claim(alert_id: str) -> None:
+    """Reset a claimed alert back to unverified so it can be re-picked later."""
+    try:
+        with db_cursor() as cur:
+            cur.execute(
+                "UPDATE alerts SET verification_status = NULL WHERE alert_id = %s "
+                "AND verification_status IN ('queued','running')",
+                (alert_id,),
+            )
+    except Exception as e:  # noqa: BLE001
+        print(f"[worker] release_claim error: {e}", flush=True)
+
+
 async def main_loop() -> None:
     sem = asyncio.Semaphore(BATCH)
     inflight: set[asyncio.Task] = set()
+    last_paused_state = False
 
     while _running:
+        paused_now = is_paused()
+        if paused_now != last_paused_state:
+            print(
+                f"[worker] state change: {'PAUSED' if paused_now else 'RESUMED'}",
+                flush=True,
+            )
+            last_paused_state = paused_now
+            # On pause: cancel every queued/in-flight task so the dashboard
+            # sees an immediate stop rather than a long drain.
+            if paused_now and inflight:
+                count = len(inflight)
+                print(f"[worker] cancelling {count} in-flight task(s)", flush=True)
+                for t in list(inflight):
+                    t.cancel()
+                results = await asyncio.gather(*inflight, return_exceptions=True)
+                inflight.clear()
+                cancelled = sum(1 for r in results if isinstance(r, asyncio.CancelledError))
+                print(f"[worker] cancelled {cancelled}/{count}", flush=True)
+
+        if paused_now:
+            await asyncio.sleep(POLL_SEC)
+            continue
+
         try:
-            picked = claim_unverified_alerts(BATCH * 2)
+            picked = claim_unverified_alerts(BATCH)
         except Exception as e:  # noqa: BLE001
-            print(f"[worker] claim error: {e}")
+            print(f"[worker] claim error: {e}", flush=True)
             picked = []
 
         for entry in picked:
+            alert_id = entry["alert_id"]
 
-            async def _run(alert_id: str) -> None:
-                async with sem:
-                    await verify_alert(alert_id)
+            async def _run(aid: str = alert_id) -> None:
+                try:
+                    async with sem:
+                        await verify_alert(aid)
+                except asyncio.CancelledError:
+                    # Pause cancelled us mid-flight — release the claim so the
+                    # alert returns to the queue when the worker resumes.
+                    await _release_claim(aid)
+                    raise
 
-            t = asyncio.create_task(_run(entry["alert_id"]))
+            t = asyncio.create_task(_run())
             inflight.add(t)
             t.add_done_callback(inflight.discard)
 
         await asyncio.sleep(POLL_SEC)
 
     if inflight:
-        print(f"[worker] draining {len(inflight)} in-flight runs")
+        print(f"[worker] draining {len(inflight)} in-flight runs", flush=True)
         await asyncio.gather(*inflight, return_exceptions=True)
 
 

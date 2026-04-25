@@ -59,6 +59,28 @@ def main() -> int:
 
     ALTER TABLE alerts ADD COLUMN IF NOT EXISTS verification_status VARCHAR(50);
     CREATE INDEX IF NOT EXISTS idx_alerts_verify_status ON alerts(verification_status);
+
+    CREATE TABLE IF NOT EXISTS agent_streams (
+        run_id        VARCHAR(64) NOT NULL REFERENCES verification_runs(run_id) ON DELETE CASCADE,
+        agent_name    VARCHAR(50) NOT NULL,
+        partial_text  TEXT        NOT NULL DEFAULT '',
+        status        VARCHAR(20) NOT NULL DEFAULT 'streaming',
+        started_at    TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at    TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (run_id, agent_name)
+    );
+    CREATE INDEX IF NOT EXISTS idx_streams_run ON agent_streams(run_id);
+
+    CREATE TABLE IF NOT EXISTS worker_settings (
+        key        VARCHAR(50) PRIMARY KEY,
+        value      TEXT,
+        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_by VARCHAR(100)
+    );
+
+    INSERT INTO worker_settings (key, value)
+    VALUES ('paused', 'false')
+    ON CONFLICT (key) DO NOTHING;
     """
 
     with psycopg2.connect(database_url) as conn:

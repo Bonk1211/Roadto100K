@@ -1,23 +1,27 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AgentLane } from '../components/agentops/AgentLane.js';
+import { AnalyticsStrip } from '../components/agentops/AnalyticsStrip.js';
+import { CommandBar } from '../components/agentops/CommandBar.js';
+import { CompactAgentStrip } from '../components/agentops/CompactAgentStrip.js';
 import { DecisionFeed } from '../components/agentops/DecisionFeed.js';
-import { InjectAlertButton } from '../components/agentops/InjectAlertButton.js';
 import { LiveCasePanel } from '../components/agentops/LiveCasePanel.js';
-import { StatsHero } from '../components/agentops/StatsHero.js';
 import {
   AGENT_ORDER,
   fetchAgentStats,
   fetchVerificationQueue,
   fetchVerificationsActive,
   fetchVerificationsRecent,
+  fetchWorkerState,
   type AgentFinding,
   type AgentName,
   type AgentStats,
+  type AgentStatRow,
   type QueueDepth,
   type VerificationRun,
+  type WorkerState,
 } from '../lib/agentops.js';
 
-const POLL_MS = 1500;
+const POLL_MS_IDLE = 1500;
+const POLL_MS_ACTIVE = 400;
 const RECENT_LIMIT = 30;
 const RECENT_PER_LANE = 3;
 
@@ -26,42 +30,46 @@ export function AgentOpsScreen() {
   const [active, setActive] = useState<VerificationRun[]>([]);
   const [queue, setQueue] = useState<QueueDepth | null>(null);
   const [stats, setStats] = useState<AgentStats | null>(null);
+  const [workerState, setWorkerState] = useState<WorkerState | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [lastFetched, setLastFetched] = useState<number | null>(null);
 
   useEffect(() => {
     let alive = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
 
     async function tick() {
       try {
-        const [recentRuns, activeRuns, queueDepth, agentStats] = await Promise.all([
+        const [recentRuns, activeRuns, queueDepth, agentStats, wState] = await Promise.all([
           fetchVerificationsRecent(RECENT_LIMIT),
           fetchVerificationsActive(),
           fetchVerificationQueue(),
           fetchAgentStats(60),
+          fetchWorkerState(),
         ]);
         if (!alive) return;
         setRecent(recentRuns);
         setActive(activeRuns);
         setQueue(queueDepth);
         setStats(agentStats);
-        setLastFetched(Date.now());
+        setWorkerState(wState);
         setError(null);
+        const nextDelay = activeRuns.length > 0 ? POLL_MS_ACTIVE : POLL_MS_IDLE;
+        timer = setTimeout(tick, nextDelay);
       } catch (err: unknown) {
         if (!alive) return;
         setError(
           err instanceof Error
             ? err.message
-            : 'Failed to fetch verification data — is local_pg_api running on port 4100?',
+            : 'Worker unreachable — start local_pg_api on :4100',
         );
+        timer = setTimeout(tick, POLL_MS_IDLE);
       }
     }
 
     tick();
-    const id = setInterval(tick, POLL_MS);
     return () => {
       alive = false;
-      clearInterval(id);
+      if (timer) clearTimeout(timer);
     };
   }, []);
 
@@ -71,20 +79,7 @@ export function AgentOpsScreen() {
     return stats.totals.runs_decided > 0;
   }, [stats, active]);
 
-  const activeByAgent = useMemo(() => {
-    const map: Record<AgentName, VerificationRun | null> = {
-      txn: null,
-      behavior: null,
-      network: null,
-      policy: null,
-      victim: null,
-    };
-    if (active.length === 0) return map;
-    AGENT_ORDER.forEach((agent, idx) => {
-      map[agent] = active[idx % active.length];
-    });
-    return map;
-  }, [active]);
+  const primaryActiveRun = active[0] ?? null;
 
   const recentByAgent = useMemo(() => {
     const map: Record<AgentName, { run: VerificationRun; finding: AgentFinding }[]> = {
@@ -107,7 +102,7 @@ export function AgentOpsScreen() {
   }, [recent]);
 
   const statsByAgent = useMemo(() => {
-    const map: Record<string, AgentStats['per_agent'][number]> = {};
+    const map: Record<string, AgentStatRow> = {};
     if (stats) {
       for (const a of stats.per_agent) {
         map[a.agent_name] = a;
@@ -116,67 +111,37 @@ export function AgentOpsScreen() {
     return map;
   }, [stats]);
 
+  void AGENT_ORDER; // satisfy import while using it indirectly via children
+
   return (
-    <div className="flex h-full flex-col gap-5">
-      <StatsHero
+    <div className="flex h-full flex-col gap-4">
+      <CommandBar
         stats={stats}
         queue={queue}
+        workerState={workerState}
         workerOnline={workerOnline}
         liveCount={active.length}
+        onWorkerChanged={setWorkerState}
       />
 
-      <section>
-        <SectionHeader
-          eyebrow="Step 1"
-          title={active.length > 0 ? 'Live verification' : 'Live verification'}
-          subtitle="Watch the team review one alert end-to-end."
-        />
-        <LiveCasePanel runs={active} />
-      </section>
+      <div
+        className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]"
+      >
+        <section className="flex min-h-0 flex-col gap-3">
+          <LiveCasePanel runs={primaryActiveRun ? [primaryActiveRun] : []} />
+          <CompactAgentStrip
+            activeRun={primaryActiveRun}
+            recentByAgent={recentByAgent}
+            statsByAgent={statsByAgent}
+          />
+        </section>
 
-      <section>
-        <SectionHeader
-          eyebrow="Step 2"
-          title="Push an alert into the queue"
-          subtitle="Pick a profile to inject a synthetic transaction. Worker picks it up within 2s."
-        />
-        <InjectAlertButton />
-      </section>
+        <section className="flex min-h-0 flex-col">
+          <DecisionFeed runs={recent} />
+        </section>
+      </div>
 
-      <section>
-        <SectionHeader
-          eyebrow="Team"
-          title="5 specialist agents on duty"
-          subtitle="Each agent reviews one slice of the alert and emits a verdict with confidence."
-          rightSlot={
-            <p className="text-caption text-muted-text">
-              {lastFetched
-                ? `Updated ${Math.max(0, Math.round((Date.now() - lastFetched) / 1000))}s ago`
-                : 'Loading…'}
-            </p>
-          }
-        />
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
-          {AGENT_ORDER.map((agent) => (
-            <AgentLane
-              key={agent}
-              agent={agent}
-              activeRun={activeByAgent[agent]}
-              recent={recentByAgent[agent]}
-              stats={statsByAgent[agent] ?? null}
-            />
-          ))}
-        </div>
-      </section>
-
-      <section className="min-h-[420px] flex-1">
-        <SectionHeader
-          eyebrow="History"
-          title="All decisions"
-          subtitle="alert → 5 agent verdicts → arbiter outcome"
-        />
-        <DecisionFeed runs={recent} />
-      </section>
+      <AnalyticsStrip runs={recent} />
 
       {error && (
         <div
@@ -188,35 +153,5 @@ export function AgentOpsScreen() {
         </div>
       )}
     </div>
-  );
-}
-
-function SectionHeader({
-  eyebrow,
-  title,
-  subtitle,
-  rightSlot,
-}: {
-  eyebrow?: string;
-  title: string;
-  subtitle?: string;
-  rightSlot?: React.ReactNode;
-}) {
-  return (
-    <header className="mb-3 flex items-end justify-between gap-3">
-      <div>
-        {eyebrow && (
-          <p
-            className="text-small-label uppercase tracking-wide"
-            style={{ color: '#0055D4' }}
-          >
-            {eyebrow}
-          </p>
-        )}
-        <h2 className="text-section-heading text-text-primary">{title}</h2>
-        {subtitle && <p className="text-caption text-muted-text">{subtitle}</p>}
-      </div>
-      {rightSlot}
-    </header>
   );
 }

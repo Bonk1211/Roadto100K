@@ -1,3 +1,12 @@
+import {
+  Cell,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+} from 'recharts';
 import type {
   AgentFinding,
   AgentName,
@@ -10,6 +19,7 @@ import {
   shortAlertId,
   verdictPalette,
 } from '../../lib/agentops.js';
+import { CHART_COLORS } from '../../lib/charts.js';
 
 interface Props {
   agent: AgentName;
@@ -98,6 +108,11 @@ export function AgentLane({ agent, activeRun, recent, stats }: Props) {
             <span className="font-semibold text-text-primary">Idle</span> · Awaiting next alert
           </p>
         )}
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2 px-4">
+        <ConfidenceSpark recent={recent} />
+        <VerdictMiniDonut recent={recent} />
       </div>
 
       <div className="mt-3 px-4 pb-3">
@@ -241,4 +256,118 @@ function verdictIcon(verdict: 'block' | 'warn' | 'clear' | 'inconclusive'): stri
     default:
       return '?';
   }
+}
+
+function ConfidenceSpark({
+  recent,
+}: {
+  recent: { run: VerificationRun; finding: AgentFinding }[];
+}) {
+  const data = recent
+    .slice()
+    .reverse()
+    .map((r, i) => ({
+      i,
+      conf: r.finding.confidence,
+    }));
+  if (data.length < 2) {
+    return (
+      <div
+        className="flex h-[58px] items-center justify-center rounded-md text-[10px] text-muted-text"
+        style={{ backgroundColor: '#F9FAFB' }}
+      >
+        Confidence trend
+      </div>
+    );
+  }
+  return (
+    <div
+      className="rounded-md p-2"
+      style={{ backgroundColor: '#F9FAFB' }}
+    >
+      <p className="text-[10px] uppercase tracking-wide text-muted-text">Confidence</p>
+      <ResponsiveContainer width="100%" height={36}>
+        <LineChart data={data} margin={{ top: 4, right: 2, bottom: 0, left: 2 }}>
+          <Tooltip
+            contentStyle={{
+              border: '1px solid #E5E7EB',
+              borderRadius: 8,
+              fontSize: 10,
+              padding: '4px 6px',
+            }}
+            labelFormatter={() => ''}
+            formatter={(v: number) => [`${v}%`, 'Conf']}
+          />
+          <Line
+            type="monotone"
+            dataKey="conf"
+            stroke={CHART_COLORS.brand}
+            strokeWidth={2}
+            dot={false}
+            isAnimationActive
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function VerdictMiniDonut({
+  recent,
+}: {
+  recent: { run: VerificationRun; finding: AgentFinding }[];
+}) {
+  const buckets = { block: 0, warn: 0, clear: 0, inconclusive: 0 };
+  for (const r of recent) {
+    const v = r.finding.verdict as keyof typeof buckets;
+    if (v in buckets) buckets[v] += 1;
+  }
+  const data = [
+    { name: 'Block', value: buckets.block, color: CHART_COLORS.block },
+    { name: 'Warn', value: buckets.warn, color: CHART_COLORS.warn },
+    { name: 'Clear', value: buckets.clear, color: CHART_COLORS.clear },
+    { name: 'Incon.', value: buckets.inconclusive, color: CHART_COLORS.inconclusive },
+  ].filter((d) => d.value > 0);
+
+  if (data.length === 0) {
+    return (
+      <div
+        className="flex h-[58px] items-center justify-center rounded-md text-[10px] text-muted-text"
+        style={{ backgroundColor: '#F9FAFB' }}
+      >
+        Verdict mix
+      </div>
+    );
+  }
+  return (
+    <div
+      className="rounded-md p-1"
+      style={{ backgroundColor: '#F9FAFB' }}
+    >
+      <ResponsiveContainer width="100%" height={58}>
+        <PieChart>
+          <Pie
+            data={data}
+            dataKey="value"
+            innerRadius={14}
+            outerRadius={26}
+            paddingAngle={2}
+            stroke="none"
+          >
+            {data.map((d, i) => (
+              <Cell key={i} fill={d.color} />
+            ))}
+          </Pie>
+          <Tooltip
+            contentStyle={{
+              border: '1px solid #E5E7EB',
+              borderRadius: 8,
+              fontSize: 10,
+              padding: '4px 6px',
+            }}
+          />
+        </PieChart>
+      </ResponsiveContainer>
+    </div>
+  );
 }

@@ -1,22 +1,26 @@
-import type { AgentStats, QueueDepth } from '../../lib/agentops.js';
+import { Area, AreaChart, ResponsiveContainer, Tooltip } from 'recharts';
+import type { AgentStats, QueueDepth, VerificationRun } from '../../lib/agentops.js';
 import { formatLatency } from '../../lib/agentops.js';
+import { cycleSeries } from '../../lib/charts.js';
 
 interface Props {
   stats: AgentStats | null;
   queue: QueueDepth | null;
   workerOnline: boolean;
   liveCount: number;
+  recent: VerificationRun[];
 }
 
 const HUMAN_AVG_MS = 7 * 60 * 1000; // 7 minutes baseline analyst review
 
-export function StatsHero({ stats, queue, workerOnline, liveCount }: Props) {
+export function StatsHero({ stats, queue, workerOnline, liveCount, recent }: Props) {
   const totals = stats?.totals;
   const blocks = totals?.blocks ?? 0;
   const warns = totals?.warns ?? 0;
   const clears = totals?.clears ?? 0;
   const decided = totals?.runs_decided ?? 0;
   const avgMs = totals?.avg_total_ms ?? 0;
+  const cycle = cycleSeries(recent);
 
   const speedup = avgMs > 0 ? Math.max(1, Math.round(HUMAN_AVG_MS / avgMs)) : 0;
   const blockPct = decided > 0 ? Math.round((blocks / decided) * 100) : 0;
@@ -65,11 +69,15 @@ export function StatsHero({ stats, queue, workerOnline, liveCount }: Props) {
           sub={`Last ${stats?.window_minutes ?? 60} min`}
           tone="brand"
         />
-        <BigNumber
+        <BigNumberWithSpark
           label="Avg cycle"
           value={formatLatency(avgMs)}
-          sub={avgMs > 0 ? `Min ${formatLatency(totals?.min_total_ms ?? 0)} · Max ${formatLatency(totals?.max_total_ms ?? 0)}` : 'No runs yet'}
-          tone="brand"
+          sub={
+            avgMs > 0
+              ? `Min ${formatLatency(totals?.min_total_ms ?? 0)} · Max ${formatLatency(totals?.max_total_ms ?? 0)}`
+              : 'No runs yet'
+          }
+          spark={cycle}
         />
         <BigNumber
           label="Queue"
@@ -115,6 +123,69 @@ function BigNumber({ label, value, sub, tone }: BigNumberProps) {
       <p className="mt-1 text-[42px] font-bold leading-none" style={{ color: fg }}>
         {value}
       </p>
+      <p className="mt-2 text-caption text-white/65">{sub}</p>
+    </div>
+  );
+}
+
+function BigNumberWithSpark({
+  label,
+  value,
+  sub,
+  spark,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  spark: { index: number; cycleSec: number }[];
+}) {
+  return (
+    <div
+      className="flex flex-col rounded-xl p-4"
+      style={{ backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)' }}
+    >
+      <p className="text-small-label uppercase tracking-wide text-white/55">{label}</p>
+      <div className="mt-1 flex items-end justify-between gap-3">
+        <p className="text-[42px] font-bold leading-none" style={{ color: '#FFE600' }}>
+          {value}
+        </p>
+        {spark.length >= 2 && (
+          <div className="h-[42px] flex-1">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={spark} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
+                <defs>
+                  <linearGradient id="heroSpark" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#FFE600" stopOpacity={0.55} />
+                    <stop offset="100%" stopColor="#FFE600" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <Tooltip
+                  contentStyle={{
+                    background: '#0F3B82',
+                    border: '1px solid rgba(255,255,255,0.18)',
+                    borderRadius: 8,
+                    color: '#FFFFFF',
+                    fontSize: 11,
+                    padding: '4px 8px',
+                  }}
+                  cursor={{ stroke: 'rgba(255,255,255,0.4)', strokeWidth: 1 }}
+                  formatter={(v: number) => [`${v}s`, 'Cycle']}
+                  labelFormatter={() => ''}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="cycleSec"
+                  stroke="#FFE600"
+                  strokeWidth={2}
+                  fill="url(#heroSpark)"
+                  dot={false}
+                  isAnimationActive
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
       <p className="mt-2 text-caption text-white/65">{sub}</p>
     </div>
   );

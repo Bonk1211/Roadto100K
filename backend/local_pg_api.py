@@ -426,7 +426,33 @@ def _findings_for_runs(cur, run_ids):
     return grouped
 
 
-def _serialise_run(row, findings):
+def _streams_for_runs(cur, run_ids):
+    if not run_ids:
+        return {}
+    cur.execute(
+        """
+        SELECT run_id, agent_name, partial_text, status,
+               started_at, updated_at
+          FROM agent_streams
+         WHERE run_id = ANY(%s)
+        """,
+        (list(run_ids),),
+    )
+    grouped: dict = {}
+    for s in fetch_all_dicts(cur):
+        grouped.setdefault(s["run_id"], []).append(
+            {
+                "agent_name": s["agent_name"],
+                "partial_text": s["partial_text"] or "",
+                "status": s["status"],
+                "started_at": s["started_at"],
+                "updated_at": s["updated_at"],
+            }
+        )
+    return grouped
+
+
+def _serialise_run(row, findings, streams=None):
     return {
         "run_id": row["run_id"],
         "alert_id": row["alert_id"],
@@ -446,6 +472,7 @@ def _serialise_run(row, findings):
         "stage": row["stage"],
         "priority": row["priority"],
         "findings": findings,
+        "streams": streams or [],
     }
 
 
@@ -488,8 +515,44 @@ def load_verifications_recent(limit=50):
     return [_serialise_run(r, findings.get(r["run_id"], [])) for r in rows]
 
 
+STALE_RUN_SECONDS = 120
+
+
+def _expire_stale_runs(cur):
+    """Mark verification_runs.status='running' older than STALE_RUN_SECONDS as 'failed'.
+
+    Worker may crash mid-run; without this, dead runs linger forever in the live panel.
+    """
+    cur.execute(
+        """
+        UPDATE verification_runs
+           SET status = 'failed',
+               completed_at = COALESCE(completed_at, NOW()),
+               arbiter_reasoning = COALESCE(arbiter_reasoning,
+                   '[auto] expired — worker silent > %s s')
+         WHERE status = 'running'
+           AND started_at < NOW() - (%s || ' seconds')::INTERVAL
+         RETURNING alert_id
+        """,
+        (STALE_RUN_SECONDS, STALE_RUN_SECONDS),
+    )
+    expired_alerts = [r[0] for r in cur.fetchall()]
+    if expired_alerts:
+        cur.execute(
+            """
+            UPDATE alerts
+               SET verification_status = 'failed'
+             WHERE alert_id = ANY(%s)
+               AND verification_status IN ('running', 'queued')
+            """,
+            (expired_alerts,),
+        )
+
+
 def load_verifications_active():
     with get_conn() as conn, conn.cursor() as cur:
+        _expire_stale_runs(cur)
+        conn.commit()
         cur.execute(
             """
             SELECT
@@ -521,8 +584,12 @@ def load_verifications_active():
         rows = fetch_all_dicts(cur)
         run_ids = [r["run_id"] for r in rows]
         findings = _findings_for_runs(cur, run_ids)
+        streams = _streams_for_runs(cur, run_ids)
 
-    return [_serialise_run(r, findings.get(r["run_id"], [])) for r in rows]
+    return [
+        _serialise_run(r, findings.get(r["run_id"], []), streams.get(r["run_id"], []))
+        for r in rows
+    ]
 
 
 def load_verification(run_id):
@@ -552,8 +619,33 @@ def load_verification(run_id):
     return _serialise_run(rows[0], findings.get(run_id, []))
 
 
+def load_run_streams(run_id: str):
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT agent_name, partial_text, status, started_at, updated_at
+              FROM agent_streams
+             WHERE run_id = %s
+            """,
+            (run_id,),
+        )
+        rows = fetch_all_dicts(cur)
+    return [
+        {
+            "agent_name": r["agent_name"],
+            "partial_text": r["partial_text"] or "",
+            "status": r["status"],
+            "started_at": r["started_at"],
+            "updated_at": r["updated_at"],
+        }
+        for r in rows
+    ]
+
+
 def load_verification_queue():
     with get_conn() as conn, conn.cursor() as cur:
+        _expire_stale_runs(cur)
+        conn.commit()
         cur.execute(
             """
             SELECT verification_status,
@@ -678,6 +770,43 @@ def reverify_alert(alert_id):
     return {"ok": True, "alert_id": row[0], "queued": True}
 
 
+def load_worker_state():
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT key, value, updated_at, updated_by FROM worker_settings WHERE key='paused'"
+        )
+        row = cur.fetchone()
+        if not row:
+            cur.execute(
+                "INSERT INTO worker_settings (key, value) VALUES ('paused','false') ON CONFLICT DO NOTHING"
+            )
+            conn.commit()
+            return {"paused": False, "updated_at": None, "updated_by": None}
+        _key, value, updated_at, updated_by = row
+        return {
+            "paused": str(value).lower() == "true",
+            "updated_at": updated_at,
+            "updated_by": updated_by,
+        }
+
+
+def set_worker_paused(paused: bool, by: str = "agent_console"):
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO worker_settings (key, value, updated_at, updated_by)
+            VALUES ('paused', %s, CURRENT_TIMESTAMP, %s)
+            ON CONFLICT (key) DO UPDATE
+               SET value = EXCLUDED.value,
+                   updated_at = EXCLUDED.updated_at,
+                   updated_by = EXCLUDED.updated_by
+            """,
+            ("true" if paused else "false", by),
+        )
+        conn.commit()
+    return load_worker_state()
+
+
 def inject_test_alert(body):
     """Create a synthetic alert + transaction so the worker has something to verify."""
     profile = (body or {}).get("profile", "high_risk")
@@ -699,10 +828,23 @@ def inject_test_alert(body):
         alert_type = "mule_eviction"
         priority = "critical"
 
-    sender_id = "acc_user_001"
     receiver_id = f"acc_synth_{suffix}"
 
     with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT account_id FROM accounts
+             WHERE status = 'active'
+               AND account_type IN ('personal','business','merchant','ewallet')
+             ORDER BY account_id
+             LIMIT 1
+            """
+        )
+        sender_row = cur.fetchone()
+        if not sender_row:
+            return {"ok": False, "error": "no active account available to use as sender"}
+        sender_id = sender_row[0]
+
         cur.execute(
             """
             INSERT INTO accounts
@@ -795,6 +937,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond({"runs": load_verifications_active()})
             if path == "/api/verifications/queue":
                 return self.respond(load_verification_queue())
+            if path.startswith("/api/verifications/") and path.endswith("/streams"):
+                run_id = path[len("/api/verifications/") : -len("/streams")]
+                return self.respond({"streams": load_run_streams(run_id)})
             if path.startswith("/api/verifications/"):
                 run_id = path[len("/api/verifications/"):]
                 run = load_verification(run_id)
@@ -804,6 +949,8 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/agent-stats":
                 window = int(query.get("window_minutes", 60))
                 return self.respond(load_agent_stats(window))
+            if path == "/api/worker/state":
+                return self.respond(load_worker_state())
             return self.respond({"error": "Not found"}, status=404)
         except Exception as exc:
             return self.respond({"error": str(exc)}, status=500)
@@ -823,6 +970,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(execute_containment(body))
             if path == "/api/verifications/inject":
                 return self.respond(inject_test_alert(body))
+            if path == "/api/worker/pause":
+                return self.respond(set_worker_paused(True, body.get("by", "agent_console")))
+            if path == "/api/worker/resume":
+                return self.respond(set_worker_paused(False, body.get("by", "agent_console")))
             return self.respond({"error": "Not found"}, status=404)
         except Exception as exc:
             return self.respond({"error": str(exc)}, status=500)

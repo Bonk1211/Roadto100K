@@ -21,6 +21,14 @@ export interface AgentFinding {
   created_at: string;
 }
 
+export interface AgentStream {
+  agent_name: AgentName | string;
+  partial_text: string;
+  status: 'streaming' | 'done' | 'error' | string;
+  started_at: string;
+  updated_at: string;
+}
+
 export interface VerificationRun {
   run_id: string;
   alert_id: string;
@@ -40,6 +48,7 @@ export interface VerificationRun {
   stage: string | null;
   priority: string | null;
   findings: AgentFinding[];
+  streams?: AgentStream[];
 }
 
 export interface QueueDepth {
@@ -160,6 +169,27 @@ export async function reverifyAlert(alertId: string): Promise<{ ok: boolean; ale
     `/api/alerts/${alertId}/reverify`,
     {},
   );
+  return data;
+}
+
+export interface WorkerState {
+  paused: boolean;
+  updated_at: string | null;
+  updated_by: string | null;
+}
+
+export async function fetchWorkerState(): Promise<WorkerState> {
+  const { data } = await api.get<WorkerState>('/api/worker/state');
+  return data;
+}
+
+export async function pauseWorker(by = 'agent_console'): Promise<WorkerState> {
+  const { data } = await api.post<WorkerState>('/api/worker/pause', { by });
+  return data;
+}
+
+export async function resumeWorker(by = 'agent_console'): Promise<WorkerState> {
+  const { data } = await api.post<WorkerState>('/api/worker/resume', { by });
   return data;
 }
 
