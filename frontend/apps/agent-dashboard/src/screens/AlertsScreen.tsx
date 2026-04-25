@@ -1,18 +1,23 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { Alert, AgentDecision, DashboardStats } from 'shared';
+import type { DashboardStats, NetworkGraph } from 'shared';
 import { AlertTable } from '../components/AlertTable.js';
 import { FraudQueryBar } from '../components/FraudQueryBar.js';
 import { FraudQueryResults } from '../components/FraudQueryResults.js';
 import { StatsBar } from '../components/StatsBar.js';
 import {
   fetchAlerts,
+  fetchNetworkGraph,
   fetchStats,
-  postDecision,
   type FraudQueryResponse,
 } from '../lib/api.js';
-import { AlertDetail } from './AlertDetail.js';
+import { buildInvestigationAlerts } from '../lib/investigations/alertAdapter.js';
+import { deriveContainmentCandidates } from '../lib/investigations/containmentAdapter.js';
+import type { InvestigationAlert } from '../lib/investigations/types.js';
+import { ContainmentPanel } from '../modules/investigations/ContainmentPanel.js';
 
 const POLL_INTERVAL_MS = 5000;
+
+type FilterOption = 'all' | 'open' | 'decided';
 
 interface Toast {
   message: string;
@@ -24,9 +29,7 @@ export function AlertsScreen() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [graph, setGraph] = useState<NetworkGraph | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [query, setQuery] = useState('');
-  const [queryState, setQueryState] = useState<QueryResultState>(DEFAULT_QUERY_STATE);
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [filter, setFilter] = useState<FilterOption>('all');
   const [toast, setToast] = useState<Toast | null>(null);
   const [loading, setLoading] = useState(true);
   const [queryResults, setQueryResults] = useState<FraudQueryResponse | null>(null);
@@ -61,28 +64,19 @@ export function AlertsScreen() {
     };
   }, []);
 
-  const computedQueryState = useMemo(
-    () => runNaturalLanguageQuery(query, alerts),
-    [alerts, query],
-  );
-
-  useEffect(() => {
-    setQueryState(computedQueryState);
-  }, [computedQueryState]);
-
   const filtered = useMemo(() => {
-    const allowed = new Set(queryState.matchingIds);
-    if (allowed.size === 0) return alerts;
-    return alerts.filter((alert) => allowed.has(alert.alert.id));
-  }, [alerts, queryState.matchingIds]);
+    if (filter === 'open') return alerts.filter((item) => item.alert.status === 'open');
+    if (filter === 'decided') return alerts.filter((item) => item.alert.status !== 'open');
+    return alerts;
+  }, [alerts, filter]);
 
   const selected = useMemo(
-    () => filtered.find((alert) => alert.alert.id === selectedId) ?? filtered[0] ?? null,
+    () => filtered.find((item) => item.alert.id === selectedId) ?? filtered[0] ?? null,
     [filtered, selectedId],
   );
 
   const containmentCandidates = useMemo(
-    () => deriveContainmentCandidates(graph, selected),
+    () => deriveContainmentCandidates(graph, selected?.alert ?? null),
     [graph, selected],
   );
 
@@ -91,33 +85,6 @@ export function AlertsScreen() {
       setSelectedId(filtered[0].alert.id);
     }
   }, [filtered, selected]);
-
-  async function handleDecide(alertId: string, action: AgentDecision) {
-    try {
-      const result = await postDecision(alertId, action);
-      setAlerts((prev) =>
-        buildInvestigationAlerts(
-          prev.map((item) => (item.alert.id === alertId ? result.alert : item.alert)),
-          graph,
-        ),
-      );
-      setToast({
-        message:
-          action === 'block'
-            ? 'Block recorded.'
-            : action === 'warn'
-              ? 'Warning recorded.'
-              : 'Alert cleared.',
-        tone: 'success',
-      });
-      setStats(await fetchStats());
-    } catch (error) {
-      console.error(error);
-      setToast({ message: 'Action failed.', tone: 'error' });
-    } finally {
-      window.setTimeout(() => setToast(null), 3000);
-    }
-  }
 
   const showingQuery = queryResults !== null;
 
@@ -171,6 +138,7 @@ export function AlertsScreen() {
                 alerts={filtered}
                 selectedId={selectedId}
                 onSelect={setSelectedId}
+                loading={loading}
               />
             )}
           </div>
@@ -183,15 +151,6 @@ export function AlertsScreen() {
           />
         </div>
       </div>
-
-      <NlpQueryDrawer
-        isOpen={drawerOpen}
-        query={query}
-        queryState={queryState}
-        onClose={() => setDrawerOpen(false)}
-        onQueryChange={setQuery}
-        onReset={resetQuery}
-      />
 
       {toast && (
         <div

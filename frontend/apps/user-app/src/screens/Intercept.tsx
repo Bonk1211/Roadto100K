@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { LoadingDots, currentUser, getStoredLanguage, setStoredLanguage, type UIlang } from 'shared';
+import { LoadingDots, currentUser, type ScamType } from 'shared';
 import BilingualToggle from '../components/BilingualToggle';
 import ExplainSheet from '../components/ExplainSheet';
 import { formatRM } from '../lib/format';
@@ -9,6 +9,15 @@ import { submitUserChoice } from '../lib/api';
 import { useLang } from '../lib/i18n';
 
 type Choice = 'cancel' | 'proceed' | 'report';
+
+const SCAM_LABEL: Record<ScamType, { en: string; bm: string }> = {
+  macau_scam: { en: 'Macau scam pattern', bm: 'Corak penipuan Macau' },
+  investment_scam: { en: 'Investment scam pattern', bm: 'Corak penipuan pelaburan' },
+  love_scam: { en: 'Love scam pattern', bm: 'Corak penipuan cinta' },
+  account_takeover: { en: 'Account takeover signs', bm: 'Tanda akaun dirampas' },
+  mule_account: { en: 'Mule account pattern', bm: 'Corak akaun mule' },
+  false_positive: { en: 'Mixed signals', bm: 'Petunjuk bercampur' },
+};
 
 export default function Intercept() {
   const navigate = useNavigate();
@@ -31,6 +40,8 @@ export default function Intercept() {
 
   const { payee, amount, screening } = state;
   const explanation = screening.bedrock_explanation;
+  const scamType = explanation?.scam_type ?? 'macau_scam';
+  const scamLabel = SCAM_LABEL[scamType] ?? SCAM_LABEL.macau_scam;
 
   const handleChoice = async (choice: Choice) => {
     setBusyChoice(choice);
@@ -71,7 +82,7 @@ export default function Intercept() {
             {lang === 'en'
               ? 'Hard stop - this transfer looks risky'
               : 'Henti dahulu - pemindahan ini kelihatan berisiko'}
-          </div>
+          </h1>
           <div className="text-[12px] opacity-80 mt-1">
             {lang === 'en'
               ? 'SafeSend paused the payment before money left your wallet.'

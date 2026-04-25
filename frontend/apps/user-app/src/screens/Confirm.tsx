@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { LoadingDots, currentUser, getStoredLanguage, type ScreenTransactionResponse } from 'shared';
+import { LoadingDots, currentUser, type ScreenTransactionResponse } from 'shared';
+import BilingualToggle from '../components/BilingualToggle';
 import SafeSendBadge from '../components/SafeSendBadge';
 import type { TransferConfirmState } from '../lib/flow';
 import { formatRM, maskAccount } from '../lib/format';
@@ -15,7 +16,7 @@ export default function Confirm() {
   const [error, setError] = useState<string | null>(null);
   const [softWarning, setSoftWarning] = useState<ScreenTransactionResponse | null>(null);
   const [choicePending, setChoicePending] = useState<'cancel' | 'proceed' | null>(null);
-  const lang = getStoredLanguage();
+  const [lang, setLang] = useLang();
 
   const formattedTimestamp = useMemo(
     () => new Date().toLocaleString('en-MY', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' }),

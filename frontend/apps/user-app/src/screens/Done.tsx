@@ -1,9 +1,6 @@
-import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { getStoredLanguage, setStoredLanguage, type UIlang } from 'shared';
 import BilingualToggle from '../components/BilingualToggle';
 import type { Payee } from 'shared';
-import BilingualToggle from '../components/BilingualToggle';
 import type { DoneStatus } from '../lib/flow';
 import { formatRM } from '../lib/format';
 import { t, useLang, type StringKey } from '../lib/i18n';
@@ -113,11 +110,6 @@ export default function Done() {
   const copy = COPY[status];
   const amount = state.amount ?? 0;
   const payee = state.payee;
-  const [lang, setLang] = useState<UIlang>(getStoredLanguage());
-
-  useEffect(() => {
-    setStoredLanguage(lang);
-  }, [lang]);
 
   return (
     <div className="phone-frame flex flex-col">
