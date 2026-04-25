@@ -183,9 +183,8 @@ def invoke_bedrock(
         )
 
         result = json.loads(response["body"].read())
-        content = result.get("content", [{}])[0].get("text", "")
-
-        # Parse the JSON response from Claude
+        content = result.get("content", [{}])[0].get("text", "").strip()
+        content = _extract_json(content)
         parsed = json.loads(content)
 
         # Validate required fields
@@ -208,3 +207,364 @@ def invoke_bedrock(
 def get_canned_response(scam_type: str) -> dict[str, str]:
     """Get a canned fallback response by scam type."""
     return CANNED_RESPONSES.get(scam_type, CANNED_RESPONSES["macau_scam"])
+
+
+# ===========================================================================
+# Type 2 — Agent alert explanation (F2 mule flag)
+#
+# Audience: fraud analyst.
+# Output: structured paragraph naming which signals fired with their values,
+# pattern name, confidence, recommended action.
+# ===========================================================================
+
+AGENT_RECOMMENDED_ACTIONS = ("block", "warn", "monitor", "clear")
+
+AGENT_CANNED: dict[str, dict[str, Any]] = {
+    "macau_scam": {
+        "signals_summary": (
+            "User initiated a high-value transfer to a brand-new payee account "
+            "(<14 days old) at an unusual hour. Amount is multiple times the "
+            "user's 30-day average, matching the Macau-scam pressure pattern."
+        ),
+        "pattern_name": "macau_scam",
+        "confidence": "high",
+        "recommended_action": "block",
+        "analyst_notes": (
+            "Verify by calling the user on a known number. Macau scams escalate "
+            "quickly and victim is typically being coached on a live call."
+        ),
+    },
+    "mule_account": {
+        "signals_summary": (
+            "Receiver account is days old, linked to other already-flagged "
+            "accounts in the scam graph, and is acting purely as a pass-through "
+            "(in/out within 24h). Classic mule funnel."
+        ),
+        "pattern_name": "mule_account",
+        "confidence": "high",
+        "recommended_action": "block",
+        "analyst_notes": (
+            "Trigger F3 bulk containment if 2+ linked mules in cluster. Suspend "
+            "withdrawals on receiver and immediate downstream accounts."
+        ),
+    },
+    "investment_scam": {
+        "signals_summary": (
+            "Repeated transfers from the user to a payee promising guaranteed "
+            "returns; payee account is under 30 days old and not registered with SC."
+        ),
+        "pattern_name": "investment_scam",
+        "confidence": "high",
+        "recommended_action": "warn",
+        "analyst_notes": "Cross-check payee against SC investor alert list before block.",
+    },
+    "account_takeover": {
+        "signals_summary": (
+            "Login from a previously-unseen device followed by an immediate "
+            "high-value transfer at an unusual hour. Possible SIM-swap or "
+            "credential compromise."
+        ),
+        "pattern_name": "account_takeover",
+        "confidence": "medium",
+        "recommended_action": "warn",
+        "analyst_notes": (
+            "Force re-authentication. Contact telco for SIM-swap check before final block."
+        ),
+    },
+    "false_positive": {
+        "signals_summary": (
+            "A few signals were unusual (amount, hour) but the payee has prior "
+            "successful transfers and a long account history. Low risk."
+        ),
+        "pattern_name": "false_positive",
+        "confidence": "low",
+        "recommended_action": "clear",
+        "analyst_notes": "Use this case as a 0-label training example.",
+    },
+}
+
+
+def build_agent_prompt(
+    txn_id: str,
+    user_id: str,
+    payee: str,
+    amount: float,
+    triggered_signals: list[dict],
+    rule_score: int,
+    ml_score: int,
+    final_score: int,
+) -> str:
+    """Type 2 prompt — for fraud analyst, structured paragraph + recommendation."""
+    signal_lines = "\n".join(
+        f"- {s.get('signal', '?')} (+{s.get('weight', '?')}): {s.get('label_en', '')}"
+        for s in (triggered_signals or [])
+    ) or "- (no signals listed)"
+
+    return f"""You are writing an explanation for a Touch 'n Go fraud analyst.
+The analyst will read this in their alert console and decide block / warn / clear.
+
+Alert details:
+- Transaction ID: {txn_id}
+- User: {user_id}
+- Payee: {payee}
+- Amount: RM {amount}
+- Rule engine score: {rule_score}/100
+- ML (EAS) score: {ml_score}/100
+- Composite final score: {final_score}/100
+
+Signals triggered:
+{signal_lines}
+
+Instructions:
+1. Write `signals_summary`: 2–4 sentences. TECHNICAL tone. Reference the actual
+   signal names and values. Do NOT use baby-talk — analyst is a domain expert.
+2. Classify `pattern_name` (one of: macau_scam, investment_scam, love_scam,
+   mule_account, account_takeover, false_positive).
+3. Give `confidence` (high / medium / low).
+4. Give `recommended_action` (block / warn / monitor / clear).
+5. Write `analyst_notes`: 1–2 sentences with concrete next steps the analyst
+   should take (call user, contact telco, trigger bulk containment, etc.).
+
+Respond ONLY in valid JSON. No preamble, no markdown.
+Format:
+{{
+  "signals_summary": "...",
+  "pattern_name": "...",
+  "confidence": "...",
+  "recommended_action": "...",
+  "analyst_notes": "..."
+}}"""
+
+
+def invoke_agent_explanation(
+    txn_id: str,
+    user_id: str,
+    payee: str,
+    amount: float,
+    triggered_signals: list[dict],
+    rule_score: int,
+    ml_score: int,
+    final_score: int,
+    fallback_scam_type: str = "macau_scam",
+) -> dict[str, Any]:
+    """
+    Call Bedrock for an agent-facing alert explanation (Type 2).
+
+    Returns dict with: signals_summary, pattern_name, confidence,
+    recommended_action, analyst_notes. Falls back to canned response on error.
+    """
+    prompt = build_agent_prompt(
+        txn_id, user_id, payee, amount,
+        triggered_signals, rule_score, ml_score, final_score,
+    )
+
+    try:
+        body = json.dumps(
+            {
+                "anthropic_version": "bedrock-2023-05-31",
+                "max_tokens": 700,
+                "temperature": 0,
+                "messages": [{"role": "user", "content": prompt}],
+            }
+        )
+        response = _get_client().invoke_model(
+            modelId=BEDROCK_MODEL_ID,
+            contentType="application/json",
+            accept="application/json",
+            body=body,
+        )
+        result = json.loads(response["body"].read())
+        text = result.get("content", [{}])[0].get("text", "").strip()
+        text = _extract_json(text)
+        parsed = json.loads(text)
+
+        required = (
+            "signals_summary",
+            "pattern_name",
+            "confidence",
+            "recommended_action",
+            "analyst_notes",
+        )
+        if all(k in parsed for k in required):
+            # Defensive: clamp recommended_action to allowed values.
+            if parsed["recommended_action"] not in AGENT_RECOMMENDED_ACTIONS:
+                parsed["recommended_action"] = "warn"
+            return parsed
+
+        print(f"[bedrock-agent] Missing fields, falling back")
+        return AGENT_CANNED.get(fallback_scam_type, AGENT_CANNED["macau_scam"])
+
+    except Exception as e:  # noqa: BLE001
+        print(f"[bedrock-agent] Error: {e}")
+        return AGENT_CANNED.get(fallback_scam_type, AGENT_CANNED["macau_scam"])
+
+
+# ===========================================================================
+# Type 3 — Incident report (F3 bulk containment)
+#
+# Audience: TnG compliance team.
+# Output: structured incident summary — accounts, RM exposure, pattern,
+# actions taken, timestamp chain. Pre-formatted for compliance sign-off.
+# ===========================================================================
+
+INCIDENT_CANNED_FALLBACK: dict[str, Any] = {
+    "incident_summary": (
+        "Coordinated mule cluster detected. SafeSend identified multiple "
+        "newly-opened accounts sharing device fingerprints and a common "
+        "downstream withdrawal pattern. Bulk containment executed."
+    ),
+    "pattern_description": (
+        "All flagged accounts were created within the last 7 days, share at "
+        "least one device fingerprint with another flagged account, and "
+        "received funds from victim users without any subsequent merchant "
+        "spend (in/out within 12 hours). This is consistent with a mule "
+        "funnel used to launder Macau-scam victim funds."
+    ),
+    "pattern_name": "mule_account",
+    "confidence": "high",
+    "actions_taken": [
+        "Suspended affected receiver accounts",
+        "Held outbound withdrawals pending compliance review",
+        "Notified affected senders via SNS",
+        "Logged training-set entries to S3 (label=fraud)",
+    ],
+    "compliance_recommendation": (
+        "Sign off on permanent account closure for all listed accounts. "
+        "Forward case file to NSRC within 24 hours."
+    ),
+}
+
+
+def build_incident_prompt(
+    incident_id: str,
+    pattern_hint: str,
+    accounts: list[dict],
+    rm_exposure: float,
+    detection_signals: list[str],
+    timeline: list[dict],
+) -> str:
+    """Type 3 prompt — for compliance team, pre-formatted incident report."""
+    accounts_block = "\n".join(
+        f"- {a.get('account_id', '?')} (role: {a.get('role', '?')}, "
+        f"age: {a.get('age_days', '?')}d, last_balance: RM {a.get('balance', 0)})"
+        for a in (accounts or [])
+    ) or "- (none listed)"
+
+    timeline_block = "\n".join(
+        f"- {t.get('timestamp', '?')}: {t.get('event', '?')}"
+        for t in (timeline or [])
+    ) or "- (no timeline events)"
+
+    signals_str = ", ".join(detection_signals) if detection_signals else "(none)"
+
+    return f"""You are drafting an incident report for the Touch 'n Go compliance team.
+A senior compliance officer will read, edit if needed, and sign off.
+
+Incident metadata:
+- Incident ID: {incident_id}
+- Suspected pattern: {pattern_hint}
+- Total RM exposure: RM {rm_exposure}
+- Detection signals: {signals_str}
+
+Accounts involved:
+{accounts_block}
+
+Timeline of events:
+{timeline_block}
+
+Instructions:
+1. Write `incident_summary`: 2 sentences. Plain English. Top of report.
+2. Write `pattern_description`: ONE paragraph (4–6 sentences) explaining
+   the scam pattern in compliance-grade language, citing the signals and the
+   relationship between accounts.
+3. Classify `pattern_name` (one of: macau_scam, investment_scam, love_scam,
+   mule_account, account_takeover, false_positive).
+4. Give `confidence` (high / medium / low).
+5. List `actions_taken`: 3–5 short imperative bullets describing what
+   SafeSend already did automatically.
+6. Write `compliance_recommendation`: 1–2 sentences on what compliance
+   should do next (sign-off, NSRC report, account closure, etc.).
+
+Respond ONLY in valid JSON. No preamble, no markdown.
+Format:
+{{
+  "incident_summary": "...",
+  "pattern_description": "...",
+  "pattern_name": "...",
+  "confidence": "...",
+  "actions_taken": ["...", "..."],
+  "compliance_recommendation": "..."
+}}"""
+
+
+def invoke_incident_report(
+    incident_id: str,
+    pattern_hint: str,
+    accounts: list[dict],
+    rm_exposure: float,
+    detection_signals: list[str],
+    timeline: list[dict],
+) -> dict[str, Any]:
+    """
+    Call Bedrock for a compliance incident report (Type 3).
+
+    Returns dict with: incident_summary, pattern_description, pattern_name,
+    confidence, actions_taken, compliance_recommendation. Falls back to a
+    canned report on error.
+    """
+    prompt = build_incident_prompt(
+        incident_id, pattern_hint, accounts, rm_exposure,
+        detection_signals, timeline,
+    )
+
+    try:
+        body = json.dumps(
+            {
+                "anthropic_version": "bedrock-2023-05-31",
+                "max_tokens": 900,
+                "temperature": 0,
+                "messages": [{"role": "user", "content": prompt}],
+            }
+        )
+        response = _get_client().invoke_model(
+            modelId=BEDROCK_MODEL_ID,
+            contentType="application/json",
+            accept="application/json",
+            body=body,
+        )
+        result = json.loads(response["body"].read())
+        text = result.get("content", [{}])[0].get("text", "").strip()
+        text = _extract_json(text)
+        parsed = json.loads(text)
+
+        required = (
+            "incident_summary",
+            "pattern_description",
+            "pattern_name",
+            "confidence",
+            "actions_taken",
+            "compliance_recommendation",
+        )
+        if all(k in parsed for k in required) and isinstance(parsed["actions_taken"], list):
+            return parsed
+
+        print(f"[bedrock-incident] Missing fields, falling back")
+        return INCIDENT_CANNED_FALLBACK
+
+    except Exception as e:  # noqa: BLE001
+        print(f"[bedrock-incident] Error: {e}")
+        return INCIDENT_CANNED_FALLBACK
+
+
+# ---------------------------------------------------------------------------
+# JSON extraction helper — Bedrock occasionally wraps in ```json fences or
+# adds prose. Pull the first balanced {...} block.
+# ---------------------------------------------------------------------------
+def _extract_json(text: str) -> str:
+    import re
+
+    fence = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
+    if fence:
+        return fence.group(1)
+    brace = re.search(r"\{.*\}", text, re.DOTALL)
+    return brace.group(0) if brace else text
