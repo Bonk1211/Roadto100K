@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { LoadingDots, currentUser, type ScamType } from 'shared';
 import AppShell from '../components/AppShell';
 import BilingualToggle from '../components/BilingualToggle';
+import BottomActionBar from '../components/BottomActionBar';
 import ExplainSheet from '../components/ExplainSheet';
 import FlowHeader from '../components/FlowHeader';
 import { formatRM } from '../lib/format';
@@ -77,7 +78,7 @@ export default function Intercept() {
     <AppShell
       theme="security"
       footer={(
-        <div className="sticky bottom-0 bg-white border-t border-border-gray px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] space-y-2">
+        <BottomActionBar className="space-y-2">
           <button
             onClick={() => void handleChoice('cancel')}
             disabled={busyChoice !== null}
@@ -110,10 +111,10 @@ export default function Intercept() {
                 ? <LoadingDots label={lang === 'en' ? 'Recording override' : 'Menyimpan'} tone="primary" size="sm" />
                 : lang === 'en'
                   ? 'Proceed anyway'
-                  : 'Teruskan juga'}
+                : 'Teruskan juga'}
             </button>
           </div>
-        </div>
+        </BottomActionBar>
       )}
     >
       <FlowHeader

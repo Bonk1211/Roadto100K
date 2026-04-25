@@ -11,14 +11,15 @@ interface Props {
 export default function WalletCard({ balance, userName, lang }: Props) {
   return (
     <div
-      className="rounded-2xl p-6 text-white shadow-elevated relative overflow-hidden"
+      className="relative overflow-hidden rounded-[28px] p-5 text-white shadow-elevated"
       style={{
-        background: 'linear-gradient(135deg, #005BAC 0%, #003F7D 100%)',
+        background: 'linear-gradient(145deg, #005BAC 0%, #004B91 45%, #003F7D 100%)',
       }}
     >
-      <div className="absolute top-0 left-6 right-6 h-[3px] bg-electric-yellow rounded-b-pill opacity-90" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,230,0,0.18),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.12),transparent_30%)]" />
+      <div className="absolute left-6 right-6 top-0 h-[4px] rounded-b-pill bg-electric-yellow opacity-90" />
 
-      <div className="flex items-center justify-between">
+      <div className="relative flex items-center justify-between">
         <div>
           <div className="text-[12px] font-semibold uppercase tracking-wider opacity-80">
             {t('tngWallet', lang)}
@@ -41,17 +42,21 @@ export default function WalletCard({ balance, userName, lang }: Props) {
         </div>
       </div>
 
-      <div className="mt-5">
+      <div className="relative mt-6">
         <div className="text-[12px] font-semibold opacity-80 uppercase tracking-wider">
           {t('availableBalance', lang)}
         </div>
         <div className="text-wallet-balance mt-1 tracking-tight">
           {formatRM(balance)}
         </div>
+        <div className="mt-3 inline-flex items-center gap-2 rounded-pill bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-white/90">
+          <span className="h-2 w-2 rounded-full bg-electric-yellow" />
+          Protected by SafeSend
+        </div>
       </div>
 
-      <div className="mt-5 flex gap-2">
-        <button className="flex-1 h-10 rounded-pill bg-white text-tng-blue text-[13px] font-bold">
+      <div className="relative mt-5 flex gap-2">
+        <button className="flex-1 h-10 rounded-pill bg-white text-tng-blue text-[13px] font-bold shadow-sm">
           {t('reload', lang)}
         </button>
         <button className="flex-1 h-10 rounded-pill bg-white/15 text-white text-[13px] font-bold border border-white/30">

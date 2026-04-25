@@ -2,6 +2,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import type { ScamType } from 'shared';
 import AppShell from '../components/AppShell';
 import BilingualToggle from '../components/BilingualToggle';
+import BottomActionBar from '../components/BottomActionBar';
 import ConfidenceMeter from '../components/ConfidenceMeter';
 import FlowHeader from '../components/FlowHeader';
 import ScamTypeEducation from '../components/ScamTypeEducation';
@@ -110,11 +111,11 @@ export default function Explain() {
     <AppShell
       theme="security"
       footer={(
-        <div className="sticky bottom-0 border-t border-border-gray bg-white px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <BottomActionBar>
           <button onClick={() => navigate(-1)} className="btn-primary">
             {lang === 'en' ? 'Back to alert' : 'Kembali ke amaran'}
           </button>
-        </div>
+        </BottomActionBar>
       )}
     >
       <FlowHeader

@@ -18,27 +18,16 @@ export default function FlowHeader({
   right,
   theme = 'light',
   step,
-  eyebrow,
 }: FlowHeaderProps) {
+  const surfaceTheme = theme === 'security' ? 'security' : 'brand';
   const badge = (
     <div className="flex flex-wrap items-center gap-2">
-      {eyebrow ? (
-        <div
-          className={
-            theme === 'security'
-              ? 'rounded-pill bg-electric-yellow px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.16em] text-royal-blue shadow-yellow-depth'
-              : 'section-label'
-          }
-        >
-          {eyebrow}
-        </div>
-      ) : null}
       {step ? (
         <div
           className={
             theme === 'security'
               ? 'rounded-pill border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-white/85'
-              : 'rounded-pill border border-white/70 bg-white/85 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-tng-blue shadow-sm'
+              : 'rounded-pill border border-white/10 bg-white/15 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-white'
           }
         >
           {step}
@@ -48,13 +37,21 @@ export default function FlowHeader({
   );
 
   return (
-    <TopBar
-      title={title}
-      subtitle={subtitle}
-      onBack={onBack}
-      right={right}
-      theme={theme}
-      badge={badge}
-    />
+    <div
+      className={
+        theme === 'security'
+          ? ''
+          : '-mx-4 bg-[linear-gradient(180deg,#005BAC_0%,#004B91_100%)] px-4 pb-8 shadow-[inset_0_-1px_0_rgba(255,255,255,0.12)]'
+      }
+    >
+      <TopBar
+        title={title}
+        subtitle={subtitle}
+        onBack={onBack}
+        right={right}
+        theme={surfaceTheme}
+        badge={badge}
+      />
+    </div>
   );
 }

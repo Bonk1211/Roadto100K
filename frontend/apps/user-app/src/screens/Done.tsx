@@ -2,7 +2,9 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import type { Payee } from 'shared';
 import AppShell from '../components/AppShell';
 import BilingualToggle from '../components/BilingualToggle';
+import BottomActionBar from '../components/BottomActionBar';
 import FlowHeader from '../components/FlowHeader';
+import RecipientSummaryCard from '../components/RecipientSummaryCard';
 import type { DoneStatus } from '../lib/flow';
 import { formatRM } from '../lib/format';
 import { useLang } from '../lib/i18n';
@@ -116,7 +118,7 @@ export default function Done() {
   return (
     <AppShell
       footer={(
-        <div className="sticky bottom-0 space-y-2 border-t border-white/70 bg-white/88 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur">
+        <BottomActionBar className="space-y-2">
           <button onClick={() => navigate('/home')} className="btn-primary">
             {lang === 'en' ? 'Back to wallet' : 'Kembali ke dompet'}
           </button>
@@ -125,7 +127,7 @@ export default function Done() {
               {lang === 'en' ? 'Start a new transfer' : 'Mulakan pemindahan baharu'}
             </button>
           )}
-        </div>
+        </BottomActionBar>
       )}
     >
       <FlowHeader
@@ -136,7 +138,7 @@ export default function Done() {
         step="Step 3 of 3"
       />
 
-      <div className="flex flex-1 flex-col items-center pt-6 text-center">
+      <div className="-mt-5 flex flex-1 flex-col items-center rounded-t-[32px] bg-app-gray pt-6 text-center">
         <div
           className={[
             'mb-5 grid h-24 w-24 place-items-center rounded-full shadow-card',
@@ -191,12 +193,12 @@ export default function Done() {
                   ? 'Transaction'
                   : 'Transaksi'}
             </div>
-            <div className="mt-2 flex items-center justify-between">
-              <div>
-                <div className="text-[14px] font-semibold text-text-primary">{payee.name}</div>
-                <div className="text-[12px] font-mono text-muted-text">
-                  TnG · {payee.account}
-                </div>
+            <div className="mt-2 flex items-center justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <RecipientSummaryCard
+                  name={payee.name}
+                  detail={`TnG · ${payee.account}`}
+                />
               </div>
               <div className="text-[20px] font-extrabold text-text-primary">
                 {formatRM(amount)}

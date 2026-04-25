@@ -96,14 +96,14 @@ const actions: Action[] = [
 export default function QuickActionGrid({ lang }: Props) {
   const navigate = useNavigate();
   return (
-    <div className="grid grid-cols-4 gap-y-5 gap-x-2 bg-white rounded-2xl p-5 shadow-card">
+    <div className="app-panel grid grid-cols-4 gap-x-2 gap-y-4 p-4">
       {actions.map((a) => (
         <button
           key={a.key}
           onClick={() => a.to && navigate(a.to)}
-          className="flex flex-col items-center gap-1.5 group"
+          className="flex flex-col items-center gap-1.5 rounded-2xl px-1 py-1.5 active:bg-app-gray/70"
         >
-          <span className="w-12 h-12 rounded-2xl bg-soft-blue-surface text-tng-blue grid place-items-center group-active:scale-95 transition-transform">
+          <span className="grid h-12 w-12 place-items-center rounded-2xl bg-soft-blue-surface text-tng-blue shadow-sm transition-transform group-active:scale-95">
             {a.icon}
           </span>
           <span className="text-[12px] font-semibold text-text-primary">{t(a.labelKey, lang)}</span>

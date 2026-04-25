@@ -3,7 +3,9 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { demoPayee, mockPayees, type Payee } from 'shared';
 import AppShell from '../components/AppShell';
 import BilingualToggle from '../components/BilingualToggle';
+import BottomActionBar from '../components/BottomActionBar';
 import FlowHeader from '../components/FlowHeader';
+import RecipientSummaryCard from '../components/RecipientSummaryCard';
 import type { TransferAmountState } from '../lib/flow';
 import { t, useLang } from '../lib/i18n';
 
@@ -33,7 +35,7 @@ export default function PayeeScreen() {
   return (
     <AppShell
       footer={(
-        <div className="sticky bottom-0 border-t border-white/70 bg-white/88 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur">
+        <BottomActionBar>
           <button
             onClick={() =>
               navigate('/confirm', {
@@ -47,7 +49,7 @@ export default function PayeeScreen() {
           >
             {t('reviewTransfer', lang)}
           </button>
-        </div>
+        </BottomActionBar>
       )}
     >
       <FlowHeader
@@ -59,7 +61,7 @@ export default function PayeeScreen() {
         step="Step 2 of 3"
       />
 
-      <div className="space-y-4 pt-2">
+      <div className="-mt-5 space-y-4 rounded-t-[32px] bg-app-gray pt-4">
         <section className="app-panel p-5">
           <label className="section-label mb-2 block">
             {t('recipientLabel', lang)}
@@ -86,18 +88,12 @@ export default function PayeeScreen() {
 
         <section className="app-panel p-5">
           <div className="section-label mb-3">{t('payeeLookup', lang)}</div>
-          <div className="flex items-start gap-3">
-            <div className="grid h-14 w-14 place-items-center rounded-[20px] bg-[linear-gradient(180deg,#F8FBFF_0%,#EAF3FF_100%)] text-[18px] font-bold text-tng-blue shadow-sm">
-              {payee.name.charAt(0)}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-[16px] font-bold text-text-primary">{payee.name}</div>
-              <div className="text-[13px] font-mono text-muted-text">{payee.account}</div>
-              <div className="mt-1 text-[12px] text-muted-text">
-                {t('accountAge', lang)}: {payee.account_age_days} {t('days', lang)}
-              </div>
-            </div>
-          </div>
+          <RecipientSummaryCard
+            name={payee.name}
+            detail={payee.account}
+            subdetail={`${t('accountAge', lang)}: ${payee.account_age_days} ${t('days', lang)}`}
+            badge={payee.flagged_in_scam_graph ? undefined : 'Verified'}
+          />
 
           <div className="mt-4 rounded-2xl border border-sky-blue bg-soft-blue-surface p-3 text-[12px] text-tng-blue">
             {t('payeeCheckNote', lang)}

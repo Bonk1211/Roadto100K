@@ -1,10 +1,10 @@
 import { currentUser, mockTransactions } from 'shared';
+import ActivityRow from '../components/ActivityRow';
 import AppShell from '../components/AppShell';
 import BilingualToggle from '../components/BilingualToggle';
 import BottomTabBar from '../components/BottomTabBar';
 import QuickActionGrid from '../components/QuickActionGrid';
 import SafeSendBadge from '../components/SafeSendBadge';
-import TopBar from '../components/TopBar';
 import WalletCard from '../components/WalletCard';
 import { formatRM } from '../lib/format';
 import { t, useLang } from '../lib/i18n';
@@ -20,9 +20,24 @@ export default function Home() {
   const dateLocale = lang === 'en' ? 'en-MY' : 'ms-MY';
 
   return (
-    <AppShell contentClassName="pt-1" footer={<BottomTabBar lang={lang} />}>
+    <AppShell contentClassName="px-0 pb-0" footer={<BottomTabBar lang={lang} />}>
+      <section className="bg-[linear-gradient(180deg,#005BAC_0%,#004B91_100%)] px-4 pb-8 pt-4 text-white">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-[12px] font-medium text-white/75">{t('welcomeBack', lang)}</div>
+            <div className="mt-1 text-[24px] font-extrabold leading-tight">{currentUser.name}</div>
+          </div>
+          <div className="flex items-center gap-2">
+            <BilingualToggle value={lang} onChange={setLang} />
+            <SafeSendBadge size="sm" />
+          </div>
+        </div>
+        <div className="mt-4 rounded-[22px] bg-white/10 px-4 py-3 text-[12px] text-white/80">
+          Real-time protection is active while you pay, transfer, and review recipients.
+        </div>
+      </section>
 
-      <div className="space-y-4">
+      <div className="-mt-8 space-y-4 px-4 pb-4">
         <WalletCard balance={BALANCE} userName={currentUser.name} lang={lang} />
 
         <QuickActionGrid lang={lang} />
@@ -40,51 +55,20 @@ export default function Home() {
 
           <ul className="px-2 pb-2">
             {recent.map((tx) => (
-              <li
+              <ActivityRow
                 key={tx.txn_id}
-                className="flex items-center gap-3 rounded-2xl px-3 py-3 transition-colors hover:bg-app-gray/80"
-              >
-                <div className="min-w-0 flex-1">
-                    <div className="text-[12px] text-muted-text">
-                        {new Date(tx.timestamp).toLocaleDateString(dateLocale, {
-                            day: '2-digit',
-                            month: 'short',
-                        })}
-                        {' · '}
-                        {t('transferLabel', lang)}
-                    </div>
-                  <div className="truncate text-[14px] font-semibold text-text-primary">
-                    {tx.payee_name}
-                  </div>
-
-                </div>
-                <div className="text-right">
-                  <div className="text-[14px] font-bold text-text-primary">-{formatRM(tx.amount)}</div>
-                </div>
-              </li>
+                avatarLabel={tx.payee_name.charAt(0)}
+                title={tx.payee_name}
+                meta={`${new Date(tx.timestamp).toLocaleDateString(dateLocale, {
+                  day: '2-digit',
+                  month: 'short',
+                })} · ${t('transferLabel', lang)}`}
+                amount={`-${formatRM(tx.amount)}`}
+              />
             ))}
           </ul>
         </section>
       </div>
     </AppShell>
-  );
-}
-
-function StatusStat({
-  label,
-  value,
-  accent,
-}: {
-  label: string;
-  value: string;
-  accent: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-border-gray/70 bg-white/80 p-3 shadow-sm">
-      <div className={['inline-flex rounded-pill px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em]', accent].join(' ')}>
-        {label}
-      </div>
-      <div className="mt-3 text-[18px] font-extrabold text-text-primary">{value}</div>
-    </div>
   );
 }
