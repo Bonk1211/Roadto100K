@@ -90,7 +90,9 @@ def init_schema():
         status VARCHAR(50) DEFAULT 'open',
         priority VARCHAR(50),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        resolved_at TIMESTAMP
+        resolved_at TIMESTAMP,
+        processed_ms INTEGER,
+        user_display VARCHAR(255)
     );
     
     -- RISK_SCORES (after transactions since it references both)

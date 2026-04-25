@@ -9,7 +9,7 @@ import type {
 const baseURL =
   import.meta.env.VITE_API_URL ??
   import.meta.env.VITE_API_BASE_URL ??
-  'https://yognv4d3gl.execute-api.ap-southeast-1.amazonaws.com/prod';
+  'https://kxizsxqc6udjjhkwtugm3lrwqu0ivknv.lambda-url.ap-southeast-1.on.aws';
 
 export const api = axios.create({
   baseURL,

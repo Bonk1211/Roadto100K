@@ -159,6 +159,22 @@ def upsert_mule_case(features: dict, scoring: dict) -> str | None:
 
     account_id = features["account_id"]
     with _cursor() as cur:
+        # Ensure FK target exists. mule_cases.account_id REFERENCES accounts(account_id).
+        cur.execute(
+            """
+            INSERT INTO accounts
+                (account_id, user_id, account_type, account_age_days,
+                 status, created_at, updated_at)
+            VALUES (%s, %s, 'ewallet', %s, 'monitoring', %s, %s)
+            ON CONFLICT (account_id) DO NOTHING
+            """,
+            (
+                account_id, account_id,
+                int(features.get("account_age_days") or 0),
+                _now(), _now(),
+            ),
+        )
+
         cur.execute(
             "SELECT mule_case_id FROM mule_cases WHERE account_id = %s ORDER BY created_at DESC LIMIT 1",
             (account_id,),

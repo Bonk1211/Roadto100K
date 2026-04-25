@@ -2,7 +2,7 @@
         backend-build backend-deploy backend-logs api-url
 
 PORTS := 5173 5175
-API_URL := https://yognv4d3gl.execute-api.ap-southeast-1.amazonaws.com/prod
+API_URL := https://kxizsxqc6udjjhkwtugm3lrwqu0ivknv.lambda-url.ap-southeast-1.on.aws
 STACK   := safesend-backend
 REGION  := ap-southeast-1
 RDS_PWD ?= Roadto100K

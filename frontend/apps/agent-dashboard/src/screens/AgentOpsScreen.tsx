@@ -38,32 +38,49 @@ export function AgentOpsScreen() {
     let timer: ReturnType<typeof setTimeout> | null = null;
 
     async function tick() {
-      try {
-        const [recentRuns, activeRuns, queueDepth, agentStats, wState] = await Promise.all([
-          fetchVerificationsRecent(RECENT_LIMIT),
-          fetchVerificationsActive(),
-          fetchVerificationQueue(),
-          fetchAgentStats(60),
-          fetchWorkerState(),
-        ]);
-        if (!alive) return;
-        setRecent(recentRuns);
-        setActive(activeRuns);
-        setQueue(queueDepth);
-        setStats(agentStats);
-        setWorkerState(wState);
-        setError(null);
-        const nextDelay = activeRuns.length > 0 ? POLL_MS_ACTIVE : POLL_MS_IDLE;
-        timer = setTimeout(tick, nextDelay);
-      } catch (err: unknown) {
-        if (!alive) return;
+      const results = await Promise.allSettled([
+        fetchVerificationsRecent(RECENT_LIMIT),
+        fetchVerificationsActive(),
+        fetchVerificationQueue(),
+        fetchAgentStats(60),
+        fetchWorkerState(),
+      ]);
+      if (!alive) return;
+
+      const [recentRes, activeRes, queueRes, statsRes, workerRes] = results;
+      let activeRunsCount = 0;
+      let firstErr: unknown = null;
+
+      if (recentRes.status === 'fulfilled') setRecent(recentRes.value);
+      else firstErr ??= recentRes.reason;
+
+      if (activeRes.status === 'fulfilled') {
+        setActive(activeRes.value);
+        activeRunsCount = activeRes.value.length;
+      } else firstErr ??= activeRes.reason;
+
+      if (queueRes.status === 'fulfilled') setQueue(queueRes.value);
+      else firstErr ??= queueRes.reason;
+
+      if (statsRes.status === 'fulfilled') setStats(statsRes.value);
+      else firstErr ??= statsRes.reason;
+
+      if (workerRes.status === 'fulfilled') setWorkerState(workerRes.value);
+      else firstErr ??= workerRes.reason;
+
+      const allFailed = results.every((r) => r.status === 'rejected');
+      if (allFailed) {
         setError(
-          err instanceof Error
-            ? err.message
+          firstErr instanceof Error
+            ? firstErr.message
             : 'Worker unreachable — start local_pg_api on :4100',
         );
-        timer = setTimeout(tick, POLL_MS_IDLE);
+      } else {
+        setError(null);
       }
+
+      const nextDelay = activeRunsCount > 0 ? POLL_MS_ACTIVE : POLL_MS_IDLE;
+      timer = setTimeout(tick, nextDelay);
     }
 
     tick();

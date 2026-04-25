@@ -25,12 +25,10 @@ const NAV: { id: Tab; label: string; description: string }[] = [
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('agent-ops');
-  const active = NAV.find((item) => item.id === tab)!;
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden" style={{ backgroundColor: '#f8fafc' }}>
       <TopNav tab={tab} onTab={setTab} />
-      <PageHeader title={active.label} subtitle={active.description} />
 
       <main className="flex-1 overflow-auto px-8 py-6">
         {tab === 'agent-ops' && <AgentOpsScreen />}
@@ -130,23 +128,6 @@ function TopNav({ tab, onTab }: { tab: Tab; onTab: (t: Tab) => void }) {
         </div>
       </div>
     </header>
-  );
-}
-
-function PageHeader({ title, subtitle }: { title: string; subtitle: string }) {
-  return (
-    <div
-      className="flex items-end justify-between bg-white px-8 py-5"
-      style={{ borderBottom: '1px solid #e0e2e6' }}
-    >
-      <div>
-        <p className="text-small-label uppercase" style={{ color: 'rgba(4,14,32,0.55)', letterSpacing: '0.28px' }}>
-          SafeSend Agent Console
-        </p>
-        <h1 className="mt-1 text-page-title" style={{ color: '#181d26' }}>{title}</h1>
-        <p className="text-caption" style={{ color: 'rgba(4,14,32,0.69)' }}>{subtitle}</p>
-      </div>
-    </div>
   );
 }
 

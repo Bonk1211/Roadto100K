@@ -56,10 +56,6 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
         runtimeCaching: [],
       },
-      devOptions: {
-        enabled: true,
-        type: 'module',
-      },
     }),
   ],
   server: {

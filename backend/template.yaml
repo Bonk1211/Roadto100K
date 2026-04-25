@@ -1,8 +1,8 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: >
-  SafeSend — Multi-layer scam prevention system for Touch 'n Go FinHack.
-  AWS SAM template for Lambda functions, API Gateway, PostgreSQL (RDS), Kinesis, SNS.
+  SafeSend v4.1 — Single FastAPI Lambda behind a Function URL.
+  No API Gateway. Workers stay separate (verify_alert via SQS, retrain_trigger via EventBridge).
 
 Globals:
   Function:
@@ -23,7 +23,6 @@ Globals:
         VERIFY_QUEUE_URL: !Ref VerificationQueue
         VERIFY_MOCK: !Ref VerifyMock
         STREAM_DB_FLUSH_SEC: "0.18"
-        # Alibaba OSS compliance mirror — populated from SSM at deploy
         OSS_ENDPOINT: ""
         OSS_BUCKET: ""
         OSS_ACCESS_KEY_ID: ""
@@ -44,265 +43,67 @@ Parameters:
     Type: String
     Default: "0"
     AllowedValues: ["0", "1"]
-    Description: 1 = use deterministic mock streaming agents (no Bedrock cost). 0 = real Bedrock streaming.
+    Description: 1 = deterministic mock streaming agents. 0 = real Bedrock streaming.
 
 Resources:
   # =========================================================================
-  # API Gateway (HTTP API)
+  # Single API Lambda — FastAPI behind Mangum, exposed via Function URL.
+  # CodeUri = lambdas/ so the api handler can import sibling logic modules.
   # =========================================================================
-  SafeSendApi:
-    Type: AWS::Serverless::HttpApi
-    Properties:
-      StageName: !Ref Stage
-      CorsConfiguration:
-        AllowOrigins:
-          - "*"
-        AllowHeaders:
-          - Content-Type
-          - x-api-key
-        AllowMethods:
-          - GET
-          - POST
-          - OPTIONS
-
-  # =========================================================================
-  # Lambda Functions
-  # =========================================================================
-  ScreenTransactionFunction:
+  ApiFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: safesend-screen-transaction
-      CodeUri: lambdas/screen_transaction/
-      Handler: handler.handler
-      ReservedConcurrentExecutions: 10
-      Layers:
-        - !Ref SharedLayer
-      Policies:
-        - KinesisCrudPolicy:
-            StreamName: !Ref EventsStream
-        - Statement:
-            - Effect: Allow
-              Action:
-                - bedrock:InvokeModel
-              Resource: "*"
-        - SSMParameterReadPolicy:
-            ParameterName: "safesend/*"
-        - SQSSendMessagePolicy:
-            QueueName: !GetAtt VerificationQueue.QueueName
-      Events:
-        ScreenTransaction:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref SafeSendApi
-            Path: /api/screen-transaction
-            Method: POST
-
-
-
-  AgentActionFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: safesend-agent-action
-      CodeUri: lambdas/agent_action/
-      Handler: handler.handler
-      Layers:
-        - !Ref SharedLayer
-      Policies:
-        - KinesisCrudPolicy:
-            StreamName: !Ref EventsStream
-        - SNSPublishMessagePolicy:
-            TopicName: !GetAtt UserAlertsTopic.TopicName
-        - SSMParameterReadPolicy:
-            ParameterName: "safesend/*"
-      Events:
-        AgentAction:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref SafeSendApi
-            Path: /api/alerts/{txn_id}/action
-            Method: POST
-
-  GetAlertsFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: safesend-get-alerts
-      CodeUri: lambdas/get_alerts/
-      Handler: handler.handler
-      Layers:
-        - !Ref SharedLayer
-      Events:
-        ListAlerts:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref SafeSendApi
-            Path: /api/alerts
-            Method: GET
-        GetAlert:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref SafeSendApi
-            Path: /api/alerts/{txn_id}
-            Method: GET
-
-  GetStatsFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: safesend-get-stats
-      CodeUri: lambdas/get_stats/
-      Handler: handler.handler
-      Layers:
-        - !Ref SharedLayer
-      Events:
-        GetStats:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref SafeSendApi
-            Path: /api/stats
-            Method: GET
-
-  FraudQueryFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: safesend-fraud-query
-      CodeUri: lambdas/fraud_query/
-      Handler: handler.handler
-      Timeout: 15
-      Layers:
-        - !Ref SharedLayer
-      Policies:
-        - Statement:
-            - Effect: Allow
-              Action:
-                - bedrock:InvokeModel
-              Resource: "*"
-      Events:
-        FraudQuery:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref SafeSendApi
-            Path: /api/fraud-query
-            Method: POST
-
-  GetNetworkGraphFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: safesend-get-network-graph
-      CodeUri: lambdas/get_network_graph/
-      Handler: handler.handler
-      Layers:
-        - !Ref SharedLayer
-      Policies:
-        - SSMParameterReadPolicy:
-            ParameterName: "safesend/*"
-      Events:
-        GetNetworkGraph:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref SafeSendApi
-            Path: /api/network-graph
-            Method: GET
-
-  # F2: Mule Detector — score 5 mule signals + write mule_cases / alerts
-  MuleDetectorFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: safesend-mule-detector
-      CodeUri: lambdas/mule_detector/
-      Handler: handler.handler
-      Timeout: 15
-      Layers:
-        - !Ref SharedLayer
-      Policies:
-        - Statement:
-            - Effect: Allow
-              Action:
-                - bedrock:InvokeModel
-              Resource: "*"
-        - SSMParameterReadPolicy:
-            ParameterName: "safesend/*"
-      Events:
-        MuleDetect:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref SafeSendApi
-            Path: /api/mule-detect
-            Method: POST
-
-  # F3: Bulk Containment — graph traversal preview + one-click execute
-  BulkContainmentFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: safesend-bulk-containment
-      CodeUri: lambdas/bulk_containment/
-      Handler: handler.handler
+      FunctionName: safesend-api
+      CodeUri: lambdas/
+      Handler: api.handler.handler
       Timeout: 30
       MemorySize: 1024
+      ReservedConcurrentExecutions: 50
       Layers:
         - !Ref SharedLayer
       Policies:
+        - KinesisCrudPolicy:
+            StreamName: !Ref EventsStream
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt UserAlertsTopic.TopicName
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt VerificationQueue.QueueName
         - Statement:
             - Effect: Allow
               Action:
                 - bedrock:InvokeModel
+                - bedrock:InvokeModelWithResponseStream
               Resource: "*"
-        - SNSPublishMessagePolicy:
-            TopicName: !GetAtt UserAlertsTopic.TopicName
-        - KinesisCrudPolicy:
-            StreamName: !Ref EventsStream
         - SSMParameterReadPolicy:
             ParameterName: "safesend/*"
-      Events:
-        Preview:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref SafeSendApi
-            Path: /api/containment/{account_id}
-            Method: GET
-        Execute:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref SafeSendApi
-            Path: /api/containment/execute
-            Method: POST
-
-  # F1 user-side: capture cancel/proceed/report from intercept screen
-  UserChoiceFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: safesend-user-choice
-      CodeUri: lambdas/user_choice/
-      Handler: handler.handler
-      Layers:
-        - !Ref SharedLayer
-      Policies:
-        - KinesisCrudPolicy:
-            StreamName: !Ref EventsStream
-        - SSMParameterReadPolicy:
-            ParameterName: "safesend/*"
-      Events:
-        UserChoice:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref SafeSendApi
-            Path: /api/user-choice
-            Method: POST
-
+      FunctionUrlConfig:
+        AuthType: NONE
+        InvokeMode: BUFFERED
+        Cors:
+          AllowOrigins:
+            - "*"
+          AllowMethods:
+            - "*"
+          AllowHeaders:
+            - "Content-Type"
+            - "x-api-key"
+          MaxAge: 86400
 
   # =========================================================================
-  # Autonomous fraud-verify worker (SQS-driven)
+  # Worker — autonomous fraud-verify (SQS-driven, kept separate)
   # =========================================================================
   VerificationDLQ:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: safesend-verify-dlq
-      MessageRetentionPeriod: 1209600  # 14 days
+      MessageRetentionPeriod: 1209600
 
   VerificationQueue:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: safesend-verify-queue
-      VisibilityTimeout: 360            # >= VerifyAlertFunction timeout
-      MessageRetentionPeriod: 86400     # 1 day
+      VisibilityTimeout: 360
+      MessageRetentionPeriod: 86400
       RedrivePolicy:
         deadLetterTargetArn: !GetAtt VerificationDLQ.Arn
         maxReceiveCount: 3
@@ -313,9 +114,9 @@ Resources:
       FunctionName: safesend-verify-alert
       CodeUri: lambdas/verify_alert/
       Handler: handler.handler
-      Timeout: 300                       # 5 min — Bedrock streaming + 5 parallel agents
+      Timeout: 300
       MemorySize: 1024
-      ReservedConcurrentExecutions: 5    # Cap RDS connection storms (raise after RDS Proxy)
+      ReservedConcurrentExecutions: 5
       Layers:
         - !Ref SharedLayer
       Policies:
@@ -332,139 +133,9 @@ Resources:
           Type: SQS
           Properties:
             Queue: !GetAtt VerificationQueue.Arn
-            BatchSize: 1                  # one alert per invocation
+            BatchSize: 1
             FunctionResponseTypes:
               - ReportBatchItemFailures
-
-  # =========================================================================
-  # Verification HTTP API (read + control surface for AgentOps dashboard)
-  # =========================================================================
-  VerificationsFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: safesend-verifications
-      CodeUri: lambdas/verifications/
-      Handler: handler.handler
-      Timeout: 15
-      Layers:
-        - !Ref SharedLayer
-      Events:
-        Recent:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref SafeSendApi
-            Path: /api/verifications/recent
-            Method: GET
-        Active:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref SafeSendApi
-            Path: /api/verifications/active
-            Method: GET
-        Queue:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref SafeSendApi
-            Path: /api/verifications/queue
-            Method: GET
-        Detail:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref SafeSendApi
-            Path: /api/verifications/{run_id}
-            Method: GET
-        Streams:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref SafeSendApi
-            Path: /api/verifications/{run_id}/streams
-            Method: GET
-
-  AgentStatsFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: safesend-agent-stats
-      CodeUri: lambdas/agent_stats/
-      Handler: handler.handler
-      Timeout: 10
-      Layers:
-        - !Ref SharedLayer
-      Events:
-        AgentStats:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref SafeSendApi
-            Path: /api/agent-stats
-            Method: GET
-
-  WorkerStateFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: safesend-worker-state
-      CodeUri: lambdas/worker_state/
-      Handler: handler.handler
-      Timeout: 10
-      Layers:
-        - !Ref SharedLayer
-      Events:
-        Get:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref SafeSendApi
-            Path: /api/worker/state
-            Method: GET
-        Pause:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref SafeSendApi
-            Path: /api/worker/pause
-            Method: POST
-        Resume:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref SafeSendApi
-            Path: /api/worker/resume
-            Method: POST
-
-  InjectAlertFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: safesend-inject-alert
-      CodeUri: lambdas/inject_alert/
-      Handler: handler.handler
-      Timeout: 15
-      Layers:
-        - !Ref SharedLayer
-      Policies:
-        - SQSSendMessagePolicy:
-            QueueName: !GetAtt VerificationQueue.QueueName
-      Events:
-        Inject:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref SafeSendApi
-            Path: /api/verifications/inject
-            Method: POST
-
-  ReverifyAlertFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: safesend-reverify-alert
-      CodeUri: lambdas/reverify_alert/
-      Handler: handler.handler
-      Timeout: 10
-      Layers:
-        - !Ref SharedLayer
-      Policies:
-        - SQSSendMessagePolicy:
-            QueueName: !GetAtt VerificationQueue.QueueName
-      Events:
-        Reverify:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref SafeSendApi
-            Path: /api/alerts/{alert_id}/reverify
-            Method: POST
 
   # =========================================================================
   # Shared Lambda Layer
@@ -480,7 +151,7 @@ Resources:
       BuildMethod: python3.12
 
   # =========================================================================
-  # Kinesis Data Stream
+  # Kinesis stream
   # =========================================================================
   EventsStream:
     Type: AWS::Kinesis::Stream
@@ -492,7 +163,7 @@ Resources:
         StreamMode: PROVISIONED
 
   # =========================================================================
-  # SNS Topic
+  # SNS topic
   # =========================================================================
   UserAlertsTopic:
     Type: AWS::SNS::Topic
@@ -500,28 +171,17 @@ Resources:
       TopicName: safesend-user-alerts
       DisplayName: SafeSend
 
-# =========================================================================
-# Outputs
-# =========================================================================
 Outputs:
   ApiUrl:
-    Description: API Gateway endpoint URL
-    Value: !Sub "https://${SafeSendApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}"
-
-
-
+    Description: Public Lambda Function URL — single entrypoint for user-app + agent-dashboard.
+    Value: !GetAtt ApiFunctionUrl.FunctionUrl
+  ApiFunctionName:
+    Value: !Ref ApiFunction
   EventsStreamName:
-    Description: Kinesis stream name
     Value: !Ref EventsStream
-
   SnsTopicArn:
-    Description: SNS topic ARN for user alerts
     Value: !Ref UserAlertsTopic
-
   VerificationQueueUrl:
-    Description: SQS URL — POST {"alert_id":"..."} to trigger fraud-verify worker
     Value: !Ref VerificationQueue
-
   VerificationQueueArn:
-    Description: SQS ARN for the verify queue
     Value: !GetAtt VerificationQueue.Arn
