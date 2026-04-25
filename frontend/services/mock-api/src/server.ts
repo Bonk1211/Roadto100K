@@ -25,19 +25,6 @@ import { explainScam } from './bedrock-mock.js';
 import { bandFor, scoreTransaction } from './eas-mock.js';
 import { getNetworkGraph } from './network-graph.js';
 import { evaluateSignals, type ScoreInput } from './rule-engine.js';
-import { scanMessage } from './scam-message-detector.js';
-import {
-  initDb,
-  getAlerts as dbGetAlerts,
-  getAlert as dbGetAlert,
-  getAccounts as dbGetAccounts,
-  getTransactions as dbGetTransactions,
-  getMuleCases as dbGetMuleCases,
-  getNetworkGraph as dbGetNetworkGraph,
-  getStats as dbGetStats,
-  updateAlertStatus as dbUpdateAlertStatus,
-  closeDb,
-} from './db.js';
 
 const PORT = Number(process.env.PORT ?? 4000);
 

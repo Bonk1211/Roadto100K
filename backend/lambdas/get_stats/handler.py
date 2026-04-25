@@ -1,7 +1,7 @@
 """
 Lambda: get-stats
 
-Aggregation function that scans PostgreSQL alert data for dashboard metrics:
+Aggregation function that scans PostgreSQL for dashboard metrics:
 - Open alerts count
 - Sum of amount at risk
 - Blocked count (today)

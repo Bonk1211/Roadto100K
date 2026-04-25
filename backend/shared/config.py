@@ -1,39 +1,49 @@
 """
 SafeSend Backend — Configuration & SSM Parameter Loading
 
-Loads environment variables and caches SSM Parameter Store values
-for EAS endpoint, API keys, and Bedrock region.
+Loads environment variables for RDS PostgreSQL, Bedrock, Kinesis, SNS, and EAS.
 """
 
 import os
-import json
 import boto3
 from functools import lru_cache
 
 # ---------------------------------------------------------------------------
-# Static config (from Lambda environment variables)
+# AWS region
 # ---------------------------------------------------------------------------
 AWS_REGION = os.environ.get("AWS_REGION", "ap-southeast-1")
-KINESIS_STREAM = os.environ.get("KINESIS_STREAM", "safesend-events")
-SNS_TOPIC_ARN = os.environ.get("SNS_TOPIC_ARN", "")
+
+# ---------------------------------------------------------------------------
+# RDS PostgreSQL config
+# ---------------------------------------------------------------------------
+RDS_HOST     = os.environ.get("RDSHOST", "")
+RDS_PORT     = int(os.environ.get("RDSPORT", "5432"))
+RDS_DBNAME   = os.environ.get("RDSDBNAME", "postgres")
+RDS_USER     = os.environ.get("RDSUSER", "postgres")
+RDS_PASSWORD = os.environ.get("RDSPASSWORD", "")
+
+# ---------------------------------------------------------------------------
+# Other AWS services
+# ---------------------------------------------------------------------------
+KINESIS_STREAM  = os.environ.get("KINESIS_STREAM", "safesend-events")
+SNS_TOPIC_ARN   = os.environ.get("SNS_TOPIC_ARN", "")
 BEDROCK_MODEL_ID = os.environ.get(
     "BEDROCK_MODEL_ID", "anthropic.claude-3-haiku-20240307-v1:0"
 )
-BEDROCK_REGION = os.environ.get("BEDROCK_REGION", "us-east-1")
+BEDROCK_REGION  = os.environ.get("BEDROCK_REGION", "ap-southeast-1")
 
-# PostgreSQL RDS (optional — if DATABASE_URL is set)
-DATABASE_URL = os.environ.get("DATABASE_URL", "")
-
-# Alert TTL in seconds (7 days)
+# ---------------------------------------------------------------------------
+# Alert TTL (7 days in seconds — stored as timestamptz in Postgres)
+# ---------------------------------------------------------------------------
 ALERT_TTL_SECONDS = 7 * 24 * 60 * 60
 
-# Risk thresholds
-RISK_THRESHOLD_LOW = 40
+# ---------------------------------------------------------------------------
+# Risk thresholds & score weights
+# ---------------------------------------------------------------------------
+RISK_THRESHOLD_LOW  = 40
 RISK_THRESHOLD_HIGH = 70
-
-# Score weights
-RULE_WEIGHT = 0.4
-ML_WEIGHT = 0.6
+RULE_WEIGHT         = 0.4
+ML_WEIGHT           = 0.6
 
 # EAS timeout (milliseconds)
 EAS_TIMEOUT_MS = 800
@@ -69,9 +79,9 @@ def get_eas_api_key() -> str:
 
 
 def get_bedrock_region() -> str:
-    """Get Bedrock region from SSM or env (defaults to us-east-1)."""
+    """Get Bedrock region from SSM or env (defaults to ap-southeast-1)."""
     return (
         os.environ.get("BEDROCK_REGION")
         or get_ssm_param("/safesend/bedrock-region")
-        or "us-east-1"
+        or "ap-southeast-1"
     )

@@ -2,7 +2,7 @@ AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: >
   SafeSend — Multi-layer scam prevention system for Touch 'n Go FinHack.
-  AWS SAM template for Lambda functions, API Gateway, PostgreSQL RDS, Kinesis, SNS.
+  AWS SAM template for Lambda functions, API Gateway, PostgreSQL (RDS), Kinesis, SNS.
 
 Globals:
   Function:
@@ -11,7 +11,10 @@ Globals:
     Timeout: 10
     Environment:
       Variables:
-        DATABASE_URL: !Ref DatabaseUrl
+        RDS_HOST: "database-1.cf82a0026hlh.ap-southeast-1.rds.amazonaws.com"
+        RDS_PORT: "5432"
+        RDS_DBNAME: "postgres"
+        RDS_USER: "postgres"
         KINESIS_STREAM: !Ref EventsStream
         SNS_TOPIC_ARN: !Ref UserAlertsTopic
         BEDROCK_MODEL_ID: "anthropic.claude-3-haiku-20240307-v1:0"
@@ -80,21 +83,7 @@ Resources:
             Path: /api/screen-transaction
             Method: POST
 
-  AnalyseMessageFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: safesend-analyse-message
-      CodeUri: lambdas/analyse_message/
-      Handler: handler.handler
-      Layers:
-        - !Ref SharedLayer
-      Events:
-        AnalyseMessage:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref SafeSendApi
-            Path: /api/analyse-message
-            Method: POST
+
 
   AgentActionFunction:
     Type: AWS::Serverless::Function
@@ -127,12 +116,6 @@ Resources:
       Handler: handler.handler
       Layers:
         - !Ref SharedLayer
-      Policies:
-        - Statement:
-            - Effect: Allow
-              Action:
-                - rds-db:connect
-              Resource: "*"
       Events:
         ListAlerts:
           Type: HttpApi
@@ -155,12 +138,6 @@ Resources:
       Handler: handler.handler
       Layers:
         - !Ref SharedLayer
-      Policies:
-        - Statement:
-            - Effect: Allow
-              Action:
-                - rds-db:connect
-              Resource: "*"
       Events:
         GetStats:
           Type: HttpApi
@@ -187,6 +164,7 @@ Resources:
             ApiId: !Ref SafeSendApi
             Path: /api/network-graph
             Method: GET
+
 
   # =========================================================================
   # Shared Lambda Layer
@@ -229,6 +207,8 @@ Outputs:
   ApiUrl:
     Description: API Gateway endpoint URL
     Value: !Sub "https://${SafeSendApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}"
+
+
 
   EventsStreamName:
     Description: Kinesis stream name

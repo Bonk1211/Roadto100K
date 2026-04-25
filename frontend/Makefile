@@ -11,7 +11,6 @@ help:
 	@echo "  make status      show what is running on ports $(PORTS)"
 	@echo "  make api         start only mock-api (:4000)"
 	@echo "  make user        start only user-app (:5173)"
-	@echo "  make plugin      start only plugin (:5174)"
 	@echo "  make agent       start only agent-dashboard (:5175)"
 	@echo "  make build       build all workspaces"
 	@echo "  make typecheck   typecheck all workspaces"
@@ -28,9 +27,6 @@ api:
 
 user:
 	npm run dev:user
-
-plugin:
-	npm run dev:plugin
 
 agent:
 	npm run dev:agent
