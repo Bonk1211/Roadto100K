@@ -1,8 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { Alert, AgentDecision, DashboardStats } from 'shared';
 import { AlertTable } from '../components/AlertTable.js';
+import { FraudQueryBar } from '../components/FraudQueryBar.js';
+import { FraudQueryResults } from '../components/FraudQueryResults.js';
 import { StatsBar } from '../components/StatsBar.js';
-import { fetchAlerts, fetchStats, postDecision } from '../lib/api.js';
+import {
+  fetchAlerts,
+  fetchStats,
+  postDecision,
+  type FraudQueryResponse,
+} from '../lib/api.js';
 import { AlertDetail } from './AlertDetail.js';
 
 const POLL_INTERVAL_MS = 5000;
@@ -19,6 +26,7 @@ export function AlertsScreen() {
   const [filter, setFilter] = useState<'all' | 'open' | 'decided'>('all');
   const [toast, setToast] = useState<Toast | null>(null);
   const [loading, setLoading] = useState(true);
+  const [queryResults, setQueryResults] = useState<FraudQueryResponse | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -94,21 +102,27 @@ export function AlertsScreen() {
     }
   }
 
+  const showingQuery = queryResults !== null;
+
   return (
     <div className="flex h-full flex-col gap-6">
       <StatsBar stats={stats} />
+
+      <FraudQueryBar onResults={setQueryResults} />
 
       <div className="grid flex-1 grid-cols-1 gap-6 xl:grid-cols-[minmax(0,2.1fr)_minmax(420px,1fr)]">
         <div className="flex flex-col gap-4 overflow-hidden">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-section-heading text-text-primary">
-                Live alert queue
+                {showingQuery ? 'Query results' : 'Live alert queue'}
               </h2>
               <p className="text-caption text-muted-text">
-                {loading
-                  ? 'Loading flagged transactions…'
-                  : `${filtered.length} alert${filtered.length === 1 ? '' : 's'} · refreshes every ${POLL_INTERVAL_MS / 1000}s`}
+                {showingQuery
+                  ? `${queryResults!.count} match${queryResults!.count === 1 ? '' : 'es'} for "${queryResults!.question}"`
+                  : loading
+                    ? 'Loading flagged transactions…'
+                    : `${filtered.length} alert${filtered.length === 1 ? '' : 's'} · refreshes every ${POLL_INTERVAL_MS / 1000}s`}
               </p>
             </div>
             <div
@@ -133,11 +147,15 @@ export function AlertsScreen() {
           </div>
 
           <div className="flex-1 overflow-auto">
-            <AlertTable
-              alerts={filtered}
-              selectedId={selectedId}
-              onSelect={setSelectedId}
-            />
+            {showingQuery ? (
+              <FraudQueryResults alerts={queryResults!.alerts} />
+            ) : (
+              <AlertTable
+                alerts={filtered}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+              />
+            )}
           </div>
         </div>
 
