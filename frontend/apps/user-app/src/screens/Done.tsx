@@ -3,8 +3,10 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { getStoredLanguage, setStoredLanguage, type UIlang } from 'shared';
 import BilingualToggle from '../components/BilingualToggle';
 import type { Payee } from 'shared';
+import BilingualToggle from '../components/BilingualToggle';
 import type { DoneStatus } from '../lib/flow';
 import { formatRM } from '../lib/format';
+import { t, useLang, type StringKey } from '../lib/i18n';
 
 interface NavState {
   payee?: Payee;
@@ -106,6 +108,7 @@ export default function Done() {
   const navigate = useNavigate();
   const location = useLocation();
   const state = (location.state as NavState | null) ?? {};
+  const [lang, setLang] = useLang();
   const status: DoneStatus = state.status ?? 'success';
   const copy = COPY[status];
   const amount = state.amount ?? 0;

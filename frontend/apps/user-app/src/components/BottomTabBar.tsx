@@ -1,18 +1,24 @@
 import { useLocation, useNavigate } from 'react-router-dom';
+import type { UIlang } from 'shared';
+import { t, type StringKey } from '../lib/i18n';
 
 type TabKey = 'home' | 'pay' | 'rewards' | 'finance' | 'profile';
 
 interface Tab {
   key: TabKey;
-  label: string;
+  labelKey: StringKey;
   to: string;
   icon: (active: boolean) => JSX.Element;
+}
+
+interface Props {
+  lang: UIlang;
 }
 
 const tabs: Tab[] = [
   {
     key: 'home',
-    label: 'Home',
+    labelKey: 'tabHome',
     to: '/home',
     icon: (a) => (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
@@ -23,7 +29,7 @@ const tabs: Tab[] = [
   },
   {
     key: 'pay',
-    label: 'Pay',
+    labelKey: 'tabPay',
     to: '/home',
     icon: () => (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
@@ -34,7 +40,7 @@ const tabs: Tab[] = [
   },
   {
     key: 'rewards',
-    label: 'Rewards',
+    labelKey: 'tabRewards',
     to: '/home',
     icon: () => (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
@@ -44,7 +50,7 @@ const tabs: Tab[] = [
   },
   {
     key: 'finance',
-    label: 'Finance',
+    labelKey: 'tabFinance',
     to: '/home',
     icon: () => (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
@@ -54,7 +60,7 @@ const tabs: Tab[] = [
   },
   {
     key: 'profile',
-    label: 'Profile',
+    labelKey: 'tabProfile',
     to: '/home',
     icon: () => (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
@@ -65,7 +71,7 @@ const tabs: Tab[] = [
   },
 ];
 
-export default function BottomTabBar() {
+export default function BottomTabBar({ lang }: Props) {
   const navigate = useNavigate();
   const location = useLocation();
   const activeKey: TabKey = location.pathname.startsWith('/home') ? 'home' : 'home';
@@ -73,19 +79,19 @@ export default function BottomTabBar() {
   return (
     <nav className="sticky bottom-0 left-0 right-0 bg-white border-t border-border-gray pt-2 pb-[env(safe-area-inset-bottom)]">
       <div className="grid grid-cols-5">
-        {tabs.map((t) => {
-          const active = t.key === activeKey;
+        {tabs.map((tab) => {
+          const active = tab.key === activeKey;
           return (
             <button
-              key={t.key}
-              onClick={() => navigate(t.to)}
+              key={tab.key}
+              onClick={() => navigate(tab.to)}
               className="flex flex-col items-center gap-0.5 py-1.5"
             >
               <span className={active ? 'text-tng-blue' : 'text-muted-text'}>
-                {t.icon(active)}
+                {tab.icon(active)}
               </span>
               <span className={`text-[11px] font-semibold ${active ? 'text-tng-blue' : 'text-muted-text'}`}>
-                {t.label}
+                {t(tab.labelKey, lang)}
               </span>
             </button>
           );

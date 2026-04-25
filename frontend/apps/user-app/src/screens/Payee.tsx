@@ -1,12 +1,15 @@
 import { useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { demoPayee, mockPayees, type Payee } from 'shared';
+import BilingualToggle from '../components/BilingualToggle';
 import type { TransferAmountState } from '../lib/flow';
+import { t, useLang } from '../lib/i18n';
 
 export default function PayeeScreen() {
   const navigate = useNavigate();
   const location = useLocation();
   const state = (location.state as TransferAmountState | null) ?? null;
+  const [lang, setLang] = useLang();
   const [identifier, setIdentifier] = useState<string>(demoPayee.account);
 
   const payee = useMemo<Payee>(() => {
@@ -38,20 +41,21 @@ export default function PayeeScreen() {
           </svg>
         </button>
         <div className="flex-1">
-          <div className="text-[18px] font-bold">Transfer</div>
-          <div className="text-[12px] opacity-80">Step 2 of 3 - choose payee</div>
+          <div className="text-[18px] font-bold">{t('transferTitle', lang)}</div>
+          <div className="text-[12px] opacity-80">{t('step2', lang)}</div>
         </div>
+        <BilingualToggle value={lang} onChange={setLang} />
       </header>
 
       <main className="flex-1 px-4 pt-5 space-y-4">
         <div className="card p-4">
           <label className="block text-[12px] font-semibold text-tng-blue mb-2 uppercase tracking-wider">
-            Recipient phone or account
+            {t('recipientLabel', lang)}
           </label>
           <input
             value={identifier}
             onChange={(e) => setIdentifier(e.target.value)}
-            placeholder="60123456789 or account number"
+            placeholder={t('recipientPlaceholder', lang)}
             className="w-full bg-white border border-border-gray rounded-md px-3 h-12 text-[16px] font-semibold text-text-primary placeholder:text-muted-text focus:outline-none focus:border-tng-blue"
           />
           <div className="mt-3 flex flex-wrap gap-2">
@@ -70,7 +74,7 @@ export default function PayeeScreen() {
 
         <div className="card p-4">
           <div className="text-[11px] font-semibold text-muted-text uppercase tracking-wider mb-2">
-            Payee lookup
+            {t('payeeLookup', lang)}
           </div>
           <div className="flex items-start gap-3">
             <div className="w-12 h-12 rounded-full bg-soft-blue-surface text-tng-blue grid place-items-center font-bold text-[18px]">
@@ -80,13 +84,13 @@ export default function PayeeScreen() {
               <div className="text-[16px] font-bold text-text-primary">{payee.name}</div>
               <div className="text-[13px] text-muted-text font-mono">{payee.account}</div>
               <div className="mt-1 text-[12px] text-muted-text">
-                Account age: {payee.account_age_days} days
+                {t('accountAge', lang)}: {payee.account_age_days} {t('days', lang)}
               </div>
             </div>
           </div>
 
           <div className="mt-4 rounded-xl bg-soft-blue-surface border border-sky-blue p-3 text-[12px] text-tng-blue">
-            SafeSend will check this payee against scam patterns when you confirm the transfer.
+            {t('payeeCheckNote', lang)}
           </div>
         </div>
       </main>
@@ -103,7 +107,7 @@ export default function PayeeScreen() {
           }
           className="btn-primary"
         >
-          Review transfer
+          {t('reviewTransfer', lang)}
         </button>
       </div>
     </div>

@@ -1,16 +1,22 @@
 import { useNavigate } from 'react-router-dom';
+import type { UIlang } from 'shared';
+import { t, type StringKey } from '../lib/i18n';
 
 interface Action {
   key: string;
-  label: string;
+  labelKey: StringKey;
   icon: JSX.Element;
   to?: string;
+}
+
+interface Props {
+  lang: UIlang;
 }
 
 const actions: Action[] = [
   {
     key: 'scan',
-    label: 'Scan',
+    labelKey: 'qaScan',
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
         <path d="M3 7V3h4M21 7V3h-4M3 17v4h4M21 17v4h-4M7 7h4v4H7zM13 7h4v4h-4zM7 13h4v4H7zM13 13h2v2h-2zM15 15h2v2h-2z"
@@ -20,7 +26,7 @@ const actions: Action[] = [
   },
   {
     key: 'pay',
-    label: 'Pay',
+    labelKey: 'qaPay',
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
         <path d="M3 7h18v10H3zM3 11h18M7 15h2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
@@ -29,7 +35,7 @@ const actions: Action[] = [
   },
   {
     key: 'transfer',
-    label: 'Transfer',
+    labelKey: 'qaTransfer',
     to: '/transfer',
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
@@ -39,7 +45,7 @@ const actions: Action[] = [
   },
   {
     key: 'reload',
-    label: 'Reload',
+    labelKey: 'qaReload',
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
         <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
@@ -49,7 +55,7 @@ const actions: Action[] = [
   },
   {
     key: 'duitnow',
-    label: 'DuitNow',
+    labelKey: 'qaDuitNow',
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
         <rect x="4" y="4" width="16" height="16" rx="3" stroke="currentColor" strokeWidth="1.8"/>
@@ -59,7 +65,7 @@ const actions: Action[] = [
   },
   {
     key: 'toll',
-    label: 'Toll',
+    labelKey: 'qaToll',
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
         <path d="M5 20V9l7-5 7 5v11M9 20v-6h6v6" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
@@ -68,7 +74,7 @@ const actions: Action[] = [
   },
   {
     key: 'parking',
-    label: 'Parking',
+    labelKey: 'qaParking',
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
         <rect x="4" y="4" width="16" height="16" rx="3" stroke="currentColor" strokeWidth="1.8"/>
@@ -78,7 +84,7 @@ const actions: Action[] = [
   },
   {
     key: 'rewards',
-    label: 'Rewards',
+    labelKey: 'qaRewards',
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
         <path d="M12 2l2.5 5 5.5.8-4 3.9.9 5.5L12 14.8 7.1 17.2 8 11.7 4 7.8l5.5-.8L12 2Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
@@ -87,7 +93,7 @@ const actions: Action[] = [
   },
 ];
 
-export default function QuickActionGrid() {
+export default function QuickActionGrid({ lang }: Props) {
   const navigate = useNavigate();
   return (
     <div className="grid grid-cols-4 gap-y-5 gap-x-2 bg-white rounded-2xl p-5 shadow-card">
@@ -100,7 +106,7 @@ export default function QuickActionGrid() {
           <span className="w-12 h-12 rounded-2xl bg-soft-blue-surface text-tng-blue grid place-items-center group-active:scale-95 transition-transform">
             {a.icon}
           </span>
-          <span className="text-[12px] font-semibold text-text-primary">{a.label}</span>
+          <span className="text-[12px] font-semibold text-text-primary">{t(a.labelKey, lang)}</span>
         </button>
       ))}
     </div>

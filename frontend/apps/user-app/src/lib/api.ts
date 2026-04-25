@@ -32,10 +32,17 @@ export async function submitUserChoice(body: {
   txn_id: string;
   user_id: string;
   choice: UserChoice;
-}): Promise<UserChoiceResponse> {
-  const res = await api.post<UserChoiceResponse>('/api/user-choice', {
-    ...body,
-    timestamp: new Date().toISOString(),
-  });
-  return res.data;
+}): Promise<UserChoiceResponse | null> {
+  try {
+    const res = await api.post<UserChoiceResponse>('/api/user-choice', {
+      ...body,
+      timestamp: new Date().toISOString(),
+    });
+    return res.data;
+  } catch (err) {
+    // Logging is best-effort. Backend may not have the endpoint deployed —
+    // do not block the user flow on it.
+    console.warn('[submitUserChoice] logging failed (non-blocking)', err);
+    return null;
+  }
 }
