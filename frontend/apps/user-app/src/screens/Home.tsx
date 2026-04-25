@@ -37,7 +37,7 @@ export default function Home() {
         </div>
       </section>
 
-      <div className="-mt-8 space-y-4 px-4 pb-4">
+      <div className="-mt-8 space-y-4 px-4 pb-4 app-screen-enter motion-stagger">
         <WalletCard balance={walletBalance} userName={currentUser.name} lang={lang} />
 
         <QuickActionGrid lang={lang} />

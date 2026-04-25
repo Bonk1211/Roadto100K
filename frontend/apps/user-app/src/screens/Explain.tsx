@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { demoPayee, type ScreenTransactionResponse } from 'shared';
 import AppShell from '../components/AppShell';
@@ -70,6 +70,7 @@ export default function Explain() {
   const navigate = useNavigate();
   const [lang, setLang] = useLang();
   const [signalsOpen, setSignalsOpen] = useState(false);
+  const [scoreAnimated, setScoreAnimated] = useState(false);
   const { walletBalance, transfer, remainingBalance } = useTransferSession();
 
   const usingMockPreview = !transfer.screening || !transfer.payee;
@@ -80,6 +81,11 @@ export default function Explain() {
     ? walletBalance - amount
     : remainingBalance;
   const explanation = screening.bedrock_explanation;
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setScoreAnimated(true), 90);
+    return () => window.clearTimeout(timeout);
+  }, []);
 
   return (
     <AppShell
@@ -99,7 +105,7 @@ export default function Explain() {
         step="Investigation detail"
       />
 
-      <div className="space-y-4 pt-4">
+      <div className="space-y-4 pt-4 app-screen-enter motion-stagger">
         <section className="app-panel overflow-hidden">
           <div className="bg-[linear-gradient(135deg,#005BAC_0%,#004B91_100%)] px-5 py-5 text-white">
             <div className="text-[12px] font-semibold uppercase tracking-[0.16em] text-white/72">
@@ -155,6 +161,7 @@ export default function Explain() {
                 confidence={explanation?.confidence ?? 'high'}
                 score={screening.final_score}
                 lang={lang}
+                animated={scoreAnimated}
               />
 
               <div className="min-w-0 flex-1 space-y-3">
@@ -162,17 +169,20 @@ export default function Explain() {
                   label={lang === 'en' ? 'Rule engine' : 'Enjin peraturan'}
                   value={screening.rule_score}
                   color="#005BAC"
+                  animated={scoreAnimated}
                 />
                 <ScoreBar
                   label={lang === 'en' ? 'AI model' : 'Model AI'}
                   value={screening.ml_score}
                   color="#0055D4"
+                  animated={scoreAnimated}
                 />
                 <ScoreBar
                   label={lang === 'en' ? 'Final risk score' : 'Skor risiko akhir'}
                   value={screening.final_score}
                   color="#DC2626"
                   bold
+                  animated={scoreAnimated}
                 />
               </div>
             </div>
@@ -212,28 +222,34 @@ export default function Explain() {
             </span>
           </button>
 
-          {signalsOpen ? (
-            <ul className="mt-3 space-y-2">
-              {screening.triggered_signals.map((signal) => (
-                <li
-                  key={signal.signal}
-                  className="flex items-start gap-3 rounded-2xl border border-border-gray bg-white px-3 py-3"
-                >
-                  <span className="mt-0.5 grid h-7 w-7 flex-shrink-0 place-items-center rounded-full bg-risk-red text-[11px] font-bold text-white">
-                    +{signal.weight}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[13.5px] font-semibold leading-snug text-text-primary">
-                      {lang === 'en' ? signal.label_en : signal.label_bm}
-                    </p>
-                    <p className="mt-1 text-[11px] text-muted-text">
-                      {signal.signal}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : null}
+          <div
+            className="collapsible-panel"
+            data-open={signalsOpen ? 'true' : 'false'}
+            style={{ marginTop: signalsOpen ? '0.75rem' : '0' }}
+          >
+            <div className="collapsible-inner">
+              <ul className="space-y-2">
+                {screening.triggered_signals.map((signal) => (
+                  <li
+                    key={signal.signal}
+                    className="flex items-start gap-3 rounded-2xl border border-border-gray bg-white px-3 py-3"
+                  >
+                    <span className="mt-0.5 grid h-7 w-7 flex-shrink-0 place-items-center rounded-full bg-risk-red text-[11px] font-bold text-white">
+                      +{signal.weight}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[13.5px] font-semibold leading-snug text-text-primary">
+                        {lang === 'en' ? signal.label_en : signal.label_bm}
+                      </p>
+                      <p className="mt-1 text-[11px] text-muted-text">
+                        {signal.signal}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
         </section>
       </div>
     </AppShell>
@@ -245,15 +261,17 @@ function ScoreBar({
   value,
   color,
   bold,
+  animated,
 }: {
   label: string;
   value: number;
   color: string;
   bold?: boolean;
+  animated: boolean;
 }) {
   const pct = Math.max(0, Math.min(100, value));
   const dots = 24;
-  const activeDots = Math.max(1, Math.round((pct / 100) * dots));
+  const activeDots = animated ? Math.max(1, Math.round((pct / 100) * dots)) : 0;
 
   return (
     <div>
@@ -269,9 +287,10 @@ function ScoreBar({
         {Array.from({ length: dots }).map((_, index) => (
           <span
             key={`${label}-${index}`}
-            className="h-1.5 flex-1 rounded-pill transition-all"
+            className="h-1.5 flex-1 rounded-pill transition-all duration-500"
             style={{
               backgroundColor: index < activeDots ? color : '#D9DEE7',
+              transitionDelay: `${index * 18}ms`,
             }}
           />
         ))}
@@ -284,15 +303,18 @@ function ConfidencePie({
   confidence,
   score = 0,
   lang,
+  animated,
 }: {
   confidence: 'low' | 'medium' | 'high';
   score?: number;
   lang: 'en' | 'bm';
+  animated: boolean;
 }) {
   const value = Math.max(0, Math.min(100, score));
   const radius = 26;
   const circumference = 2 * Math.PI * radius;
   const dashOffset = circumference - (value / 100) * circumference;
+  const visibleOffset = animated ? dashOffset : circumference;
   const color = confidence === 'high' ? '#DC2626' : confidence === 'medium' ? '#F97316' : '#16A34A';
   const track = confidence === 'high' ? '#FEE2E2' : confidence === 'medium' ? '#FFEDD5' : '#DCFCE7';
   const label =
@@ -315,7 +337,8 @@ function ConfidencePie({
             strokeWidth="6"
             strokeLinecap="round"
             strokeDasharray={circumference}
-            strokeDashoffset={dashOffset}
+            strokeDashoffset={visibleOffset}
+            style={{ transition: 'stroke-dashoffset 850ms cubic-bezier(0.22, 1, 0.36, 1)' }}
           />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center">

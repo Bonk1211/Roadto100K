@@ -61,7 +61,7 @@ export default function Transfer() {
         step="Step 1 of 3"
       />
 
-      <div className="-mt-5 space-y-5 rounded-t-[32px] bg-app-gray px-0 pt-0">
+      <div className="-mt-5 space-y-5 rounded-t-[32px] bg-app-gray px-0 pt-0 app-screen-enter motion-stagger">
         <TransferRecipientCard
           payee={{ name: transfer.payee?.name ?? demoPayee.name, phone: '+60 12-*** *892' }}
           onChange={() => navigate('/payee')}
