@@ -64,6 +64,8 @@ export interface ModelHealthViewModel {
   sinks: LabelSink[];
   recentLabels: RecentLabel[];
   retrainHistory: RetrainEvent[];
+  currentMetrics: ModelMetrics;
+  endpoint: string;
 }
 
 export interface RetrainEvent {
@@ -72,6 +74,25 @@ export interface RetrainEvent {
   labelCount: number;
   accuracyDelta: number;
   durationMs: number;
+}
+
+export interface ModelMetrics {
+  accuracy: number;
+  precision: number;
+  recall: number;
+  f1: number;
+  auc: number;
+}
+
+export interface RetrainResult {
+  oldVersion: string;
+  newVersion: string;
+  ranAt: string;
+  labelsConsumed: number;
+  durationMs: number;
+  before: ModelMetrics;
+  after: ModelMetrics;
+  endpoint: string;
 }
 
 export interface LabelSink {

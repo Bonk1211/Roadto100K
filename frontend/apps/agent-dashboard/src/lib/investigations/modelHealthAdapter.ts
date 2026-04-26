@@ -51,6 +51,14 @@ export function getModelHealthViewModel(): ModelHealthViewModel {
       { version: 'iforest-v3-demo.3', ranAt: '2026-04-24T02:00:11+08:00', labelCount: 35, accuracyDelta: 3.1, durationMs: 138_000 },
       { version: 'iforest-v3-demo.2', ranAt: '2026-04-23T02:00:09+08:00', labelCount: 28, accuracyDelta: 2.5, durationMs: 145_000 },
     ],
+    currentMetrics: {
+      accuracy: 87.3,
+      precision: 0.812,
+      recall: 0.764,
+      f1: 0.787,
+      auc: 0.891,
+    },
+    endpoint: 'arn:aws:sagemaker:ap-southeast-1:842001234567:endpoint/safesend-iforest',
   };
 }
 
