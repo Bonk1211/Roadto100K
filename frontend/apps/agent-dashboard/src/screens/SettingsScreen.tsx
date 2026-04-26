@@ -126,7 +126,7 @@ export function SettingsScreen() {
 
       <div
         className="grid min-h-0 flex-1 gap-3"
-        style={{ gridTemplateColumns: 'minmax(0,1.5fr) minmax(0,1fr)' }}
+        style={{ gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)' }}
       >
         <div className="flex min-h-0 flex-col gap-3">
           <FeedbackLoopCard
