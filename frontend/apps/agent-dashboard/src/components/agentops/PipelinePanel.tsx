@@ -95,7 +95,7 @@ export function PipelinePanel({ run }: Props) {
 
         <Stage
           step="2"
-          title="Alibaba EAS"
+          title="AWS SageMaker"
           subtitle="Isolation Forest · ML"
           score={mlScore}
           tone="ml"

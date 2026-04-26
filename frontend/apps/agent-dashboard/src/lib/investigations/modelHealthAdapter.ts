@@ -46,6 +46,11 @@ export function getModelHealthViewModel(): ModelHealthViewModel {
       },
     ],
     recentLabels: buildRecentLabels(),
+    retrainHistory: [
+      { version: 'iforest-v3-demo.4', ranAt: '2026-04-25T02:00:14+08:00', labelCount: 41, accuracyDelta: 4.2, durationMs: 142_000 },
+      { version: 'iforest-v3-demo.3', ranAt: '2026-04-24T02:00:11+08:00', labelCount: 35, accuracyDelta: 3.1, durationMs: 138_000 },
+      { version: 'iforest-v3-demo.2', ranAt: '2026-04-23T02:00:09+08:00', labelCount: 28, accuracyDelta: 2.5, durationMs: 145_000 },
+    ],
   };
 }
 

@@ -19,98 +19,109 @@ export function SettingsScreen() {
   }
 
   return (
-    <div className="grid gap-6">
-      <HeroMetrics model={model} />
+    <div className="flex h-full min-h-0 flex-col gap-3">
+      <HeroStrip model={model} />
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-        <FeedbackLoopCard model={model} pulseTick={pulseTick} />
-        <SinksCard sinks={model.sinks} />
+      <div
+        className="grid min-h-0 flex-1 gap-3"
+        style={{ gridTemplateColumns: 'minmax(0,1.5fr) minmax(0,1fr)' }}
+      >
+        <div className="flex min-h-0 flex-col gap-3">
+          <FeedbackLoopCard model={model} pulseTick={pulseTick} />
+          <RecentLabelsCard rows={model.recentLabels} />
+        </div>
+
+        <div className="flex min-h-0 flex-col gap-3">
+          <SinksCard sinks={model.sinks} />
+          <LabelSplitCard model={model} />
+          <RetrainScheduleCard model={model} status={status} onRun={runRetrainDemo} />
+        </div>
       </div>
-
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
-        <LabelSplitCard model={model} />
-        <RecentLabelsCard rows={model.recentLabels} />
-      </div>
-
-      <RetrainScheduleCard model={model} status={status} onRun={runRetrainDemo} />
     </div>
   );
 }
 
-function HeroMetrics({ model }: { model: ModelHealthViewModel }) {
+function HeroStrip({ model }: { model: ModelHealthViewModel }) {
   return (
     <section
-      className="bg-white p-6"
+      className="flex shrink-0 items-center gap-4 bg-white px-5 py-3"
       style={cardStyle}
     >
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <p className="text-small-label uppercase" style={{ color: '#1b61c9', letterSpacing: '0.28px', fontWeight: 600 }}>
-            Model health
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <p
+            className="text-small-label uppercase"
+            style={{ color: '#1b61c9', letterSpacing: '0.28px', fontWeight: 600 }}
+          >
+            Model health · F7
           </p>
-          <h2 className="mt-1 text-section-heading" style={{ color: '#181d26' }}>F7 · Feedback loop &amp; retraining</h2>
-          <p className="mt-1 text-caption" style={{ color: 'rgba(4,14,32,0.69)' }}>
-            Agent &amp; user decisions become labels. Daily EventBridge cron retrains EAS model on merged S3 + OSS labels.
-          </p>
+          <span
+            className="inline-flex items-center gap-2 px-2 py-0.5 text-[10px]"
+            style={{
+              backgroundColor: '#ECFDF5',
+              color: '#166534',
+              borderRadius: 999,
+              fontWeight: 500,
+              border: '1px solid #BBF7D0',
+            }}
+          >
+            <span className="inline-block h-1.5 w-1.5 rounded-pill" style={{ backgroundColor: '#16A34A' }} />
+            Loop healthy
+          </span>
         </div>
-        <span
-          className="inline-flex items-center gap-2 px-3 py-1 text-small-label"
-          style={{
-            backgroundColor: '#ECFDF5',
-            color: '#166534',
-            borderRadius: 999,
-            fontWeight: 500,
-            border: '1px solid #BBF7D0',
-          }}
-        >
-          <span className="inline-block h-2 w-2 rounded-pill" style={{ backgroundColor: '#16A34A' }} />
-          Loop healthy
-        </span>
+        <h2 className="text-card-title leading-tight" style={{ color: '#181d26' }}>
+          Decision → Label → Retrain → Model
+        </h2>
       </div>
 
-      <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <Metric
-          label="Active version"
-          value={model.modelVersion}
-          sub={`prev: ${model.previousVersion}`}
-        />
-        <Metric
-          label="Labels staged"
+      <div className="grid shrink-0 grid-cols-4 gap-2">
+        <Chip label="Version" value={model.modelVersion} sub={`prev ${model.previousVersion}`} />
+        <Chip
+          label="Labels"
           value={String(model.labelsSinceRetrain)}
           sub={`agent ${model.loop.agentLabels} · user ${model.loop.userLabels}`}
         />
-        <Metric
-          label="Accuracy delta"
-          value={`+${model.accuracyDelta.toFixed(1)}%`}
-          sub="vs previous version"
-          tone="good"
-        />
-        <Metric
-          label="Queue coverage"
-          value={`${model.queueCoverage}%`}
-          sub="alerts reaching agent"
-        />
+        <Chip label="Accuracy" value={`+${model.accuracyDelta.toFixed(1)}%`} sub="vs prev" tone="good" />
+        <Chip label="Coverage" value={`${model.queueCoverage}%`} sub="alerts queued" />
       </div>
     </section>
   );
 }
 
+function Chip({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: 'good' }) {
+  return (
+    <div
+      className="px-3 py-1.5"
+      style={{ backgroundColor: '#f8fafc', border: '1px solid #e0e2e6', borderRadius: 10, minWidth: 130 }}
+    >
+      <p className="text-[9px] uppercase" style={{ color: 'rgba(4,14,32,0.55)', letterSpacing: '0.28px', fontWeight: 600 }}>
+        {label}
+      </p>
+      <p className="text-sm leading-tight" style={{ color: tone === 'good' ? '#166534' : '#181d26', fontWeight: 700 }}>
+        {value}
+      </p>
+      {sub && (
+        <p className="text-[9px]" style={{ color: 'rgba(4,14,32,0.55)' }}>{sub}</p>
+      )}
+    </div>
+  );
+}
+
 function FeedbackLoopCard({ model, pulseTick }: { model: ModelHealthViewModel; pulseTick: number }) {
   return (
-    <section className="bg-white p-6" style={cardStyle}>
-      <header className="mb-4 flex items-end justify-between">
-        <div>
-          <p className="text-small-label uppercase" style={{ color: '#1b61c9', letterSpacing: '0.28px', fontWeight: 600 }}>
-            Cycle
-          </p>
-          <h3 className="mt-1 text-card-title" style={{ color: '#181d26' }}>Decision → Label → Retrain → Model</h3>
-        </div>
-        <span className="text-caption" style={{ color: 'rgba(4,14,32,0.55)' }}>
-          {model.loop.retrainsThisWeek} retrains this week
+    <section className="flex min-h-0 flex-1 flex-col bg-white p-4" style={cardStyle}>
+      <header className="mb-2 flex items-center justify-between">
+        <p className="text-small-label uppercase" style={{ color: '#1b61c9', letterSpacing: '0.28px', fontWeight: 600 }}>
+          Feedback cycle
+        </p>
+        <span className="text-[11px]" style={{ color: 'rgba(4,14,32,0.55)' }}>
+          {model.loop.retrainsThisWeek} retrains / week
         </span>
       </header>
 
-      <LoopDiagram model={model} pulseTick={pulseTick} />
+      <div className="min-h-0 flex-1">
+        <LoopDiagram model={model} pulseTick={pulseTick} />
+      </div>
     </section>
   );
 }
@@ -128,12 +139,16 @@ function LoopDiagram({ model, pulseTick }: { model: ModelHealthViewModel; pulseT
     user:   { x: 70,  y: 220, w: 150, h: 60, title: 'User choice',  sub: `${model.loop.userLabels} labels · cancel/proceed/report` },
     queue:  { x: 290, y: 145, w: 140, h: 60, title: 'Label queue',  sub: `${model.loop.mergedLabels} merged` },
     sinks:  { x: 480, y: 70,  w: 170, h: 60, title: 'S3 + OSS sinks', sub: 'data sovereignty mirror' },
-    train:  { x: 480, y: 220, w: 170, h: 60, title: 'EC2 /retrain',   sub: 'FastAPI · Isolation Forest' },
-    model:  { x: 295, y: 290, w: 130, h: 22, title: 'EAS model',      sub: model.modelVersion },
+    train:  { x: 480, y: 220, w: 170, h: 60, title: 'SageMaker training', sub: 'job · Isolation Forest' },
+    model:  { x: 295, y: 290, w: 130, h: 22, title: 'SageMaker endpoint', sub: model.modelVersion },
   };
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="320" style={{ display: 'block' }}>
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      preserveAspectRatio="xMidYMid meet"
+      style={{ display: 'block', width: '100%', height: '100%' }}
+    >
       <defs>
         <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
           <path d="M0,0 L10,5 L0,10 z" fill={accent} />
@@ -293,37 +308,30 @@ function FlowEdge({
 
 function SinksCard({ sinks }: { sinks: LabelSink[] }) {
   return (
-    <section className="bg-white p-6" style={cardStyle}>
-      <p className="text-small-label uppercase" style={{ color: '#1b61c9', letterSpacing: '0.28px', fontWeight: 600 }}>
-        Label sinks
-      </p>
-      <h3 className="mt-1 text-card-title" style={{ color: '#181d26' }}>Dual-region mirror</h3>
-      <p className="mt-1 text-caption" style={{ color: 'rgba(4,14,32,0.69)' }}>
-        Every label written to AWS &amp; Alibaba — Malaysian data sovereignty story is real, not stub.
-      </p>
-
-      <ul className="mt-5 space-y-3">
+    <section className="shrink-0 bg-white p-3" style={cardStyle}>
+      <div className="flex items-center justify-between">
+        <p className="text-small-label uppercase" style={{ color: '#1b61c9', letterSpacing: '0.28px', fontWeight: 600 }}>
+          Label sinks
+        </p>
+        <span className="text-[10px]" style={{ color: 'rgba(4,14,32,0.55)' }}>dual-region mirror</span>
+      </div>
+      <ul className="mt-2 space-y-1.5">
         {sinks.map((s) => (
           <li
             key={s.name}
-            className="flex items-center justify-between gap-3 p-3"
-            style={{ backgroundColor: '#f8fafc', border: '1px solid #e0e2e6', borderRadius: 12 }}
+            className="flex items-center justify-between gap-2 px-2 py-1.5"
+            style={{ backgroundColor: '#f8fafc', border: '1px solid #e0e2e6', borderRadius: 8 }}
           >
-            <div className="flex items-center gap-3">
-              <span
-                className="grid h-9 w-9 place-items-center"
-                style={{ backgroundColor: sinkColor(s.status).bg, color: sinkColor(s.status).fg, borderRadius: 10 }}
-              >
-                <SinkDot status={s.status} />
-              </span>
-              <div className="leading-tight">
-                <p className="text-small-label" style={{ color: '#181d26', fontWeight: 600 }}>{s.name}</p>
-                <p className="text-[10px]" style={{ color: 'rgba(4,14,32,0.55)' }}>{s.region}</p>
+            <div className="flex min-w-0 items-center gap-2">
+              <SinkDot status={s.status} />
+              <div className="min-w-0 leading-tight">
+                <p className="truncate text-[11px]" style={{ color: '#181d26', fontWeight: 600 }}>{s.name}</p>
+                <p className="text-[9px]" style={{ color: 'rgba(4,14,32,0.55)' }}>{s.region}</p>
               </div>
             </div>
             <div className="text-right leading-tight">
-              <p className="text-sm" style={{ color: '#181d26', fontWeight: 600 }}>{s.writes24h}</p>
-              <p className="text-[10px]" style={{ color: 'rgba(4,14,32,0.55)' }}>writes / 24h</p>
+              <p className="text-[12px]" style={{ color: '#181d26', fontWeight: 700 }}>{s.writes24h}</p>
+              <p className="text-[9px]" style={{ color: 'rgba(4,14,32,0.55)' }}>writes/24h</p>
             </div>
           </li>
         ))}
@@ -335,9 +343,9 @@ function SinksCard({ sinks }: { sinks: LabelSink[] }) {
 function SinkDot({ status }: { status: LabelSink['status'] }) {
   const c = sinkColor(status);
   return (
-    <span className="relative flex h-2.5 w-2.5">
+    <span className="relative flex h-2 w-2">
       <span className="absolute inline-flex h-full w-full animate-ping rounded-pill opacity-60" style={{ backgroundColor: c.fg }} />
-      <span className="relative inline-flex h-2.5 w-2.5 rounded-pill" style={{ backgroundColor: c.fg }} />
+      <span className="relative inline-flex h-2 w-2 rounded-pill" style={{ backgroundColor: c.fg }} />
     </span>
   );
 }
@@ -351,85 +359,57 @@ function sinkColor(status: LabelSink['status']) {
 function LabelSplitCard({ model }: { model: ModelHealthViewModel }) {
   const { fraud, falsePositive, agentShare, userShare } = model.labelSplit;
   return (
-    <section className="bg-white p-6" style={cardStyle}>
+    <section className="shrink-0 bg-white p-3" style={cardStyle}>
       <p className="text-small-label uppercase" style={{ color: '#1b61c9', letterSpacing: '0.28px', fontWeight: 600 }}>
         Label split
       </p>
-      <h3 className="mt-1 text-card-title" style={{ color: '#181d26' }}>Class &amp; source mix</h3>
-
-      <div className="mt-5 space-y-5">
+      <div className="mt-2 space-y-2">
         <SplitBar
-          title="By class"
           left={{ label: 'fraud', pct: fraud, color: '#DC2626', sub: `${Math.round(fraud)}%` }}
-          right={{ label: 'false_positive', pct: falsePositive, color: '#16A34A', sub: `${Math.round(falsePositive)}%` }}
+          right={{ label: 'fp', pct: falsePositive, color: '#16A34A', sub: `${Math.round(falsePositive)}%` }}
         />
         <SplitBar
-          title="By source"
           left={{ label: 'agent', pct: agentShare, color: '#1b61c9', sub: `${Math.round(agentShare)}%` }}
           right={{ label: 'user', pct: userShare, color: '#7c3aed', sub: `${Math.round(userShare)}%` }}
         />
-      </div>
-
-      <div className="mt-5 grid grid-cols-3 gap-2 text-center">
-        <Mini label="Agent" value={String(model.loop.agentLabels)} color="#1b61c9" />
-        <Mini label="User" value={String(model.loop.userLabels)} color="#7c3aed" />
-        <Mini label="Merged" value={String(model.loop.mergedLabels)} color="#181d26" />
       </div>
     </section>
   );
 }
 
 function SplitBar({
-  title, left, right,
+  left, right,
 }: {
-  title: string;
   left: { label: string; pct: number; color: string; sub: string };
   right: { label: string; pct: number; color: string; sub: string };
 }) {
   return (
-    <div>
-      <p className="text-[10px] uppercase" style={{ color: 'rgba(4,14,32,0.55)', letterSpacing: '0.28px', fontWeight: 600 }}>
-        {title}
-      </p>
-      <div className="mt-2 flex h-7 w-full overflow-hidden" style={{ borderRadius: 10, border: '1px solid #e0e2e6' }}>
-        <div
-          className="flex items-center justify-start px-2 text-[10px] font-bold text-white"
-          style={{ backgroundColor: left.color, width: `${left.pct}%` }}
-        >
-          {left.label} {left.sub}
-        </div>
-        <div
-          className="flex items-center justify-end px-2 text-[10px] font-bold text-white"
-          style={{ backgroundColor: right.color, width: `${right.pct}%` }}
-        >
-          {right.label} {right.sub}
-        </div>
+    <div className="flex h-5 w-full overflow-hidden" style={{ borderRadius: 8, border: '1px solid #e0e2e6' }}>
+      <div
+        className="flex items-center justify-start px-2 text-[9px] font-bold text-white"
+        style={{ backgroundColor: left.color, width: `${left.pct}%` }}
+      >
+        {left.label} {left.sub}
       </div>
-    </div>
-  );
-}
-
-function Mini({ label, value, color }: { label: string; value: string; color: string }) {
-  return (
-    <div className="p-3" style={{ backgroundColor: '#f8fafc', border: '1px solid #e0e2e6', borderRadius: 10 }}>
-      <p className="text-[10px] uppercase" style={{ color: 'rgba(4,14,32,0.55)', letterSpacing: '0.28px', fontWeight: 600 }}>{label}</p>
-      <p className="mt-1 text-lg" style={{ color, fontWeight: 700 }}>{value}</p>
+      <div
+        className="flex items-center justify-end px-2 text-[9px] font-bold text-white"
+        style={{ backgroundColor: right.color, width: `${right.pct}%` }}
+      >
+        {right.label} {right.sub}
+      </div>
     </div>
   );
 }
 
 function RecentLabelsCard({ rows }: { rows: RecentLabel[] }) {
   return (
-    <section className="bg-white p-6" style={cardStyle}>
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-small-label uppercase" style={{ color: '#1b61c9', letterSpacing: '0.28px', fontWeight: 600 }}>
-            Live label stream
-          </p>
-          <h3 className="mt-1 text-card-title" style={{ color: '#181d26' }}>Recent decisions → labels</h3>
-        </div>
+    <section className="flex min-h-0 shrink-0 flex-col bg-white p-3" style={{ ...cardStyle, height: 240 }}>
+      <div className="flex shrink-0 items-center justify-between">
+        <p className="text-small-label uppercase" style={{ color: '#1b61c9', letterSpacing: '0.28px', fontWeight: 600 }}>
+          Live label stream
+        </p>
         <span
-          className="inline-flex items-center gap-2 px-3 py-1 text-[10px]"
+          className="inline-flex items-center gap-1 px-2 py-0.5 text-[9px]"
           style={{
             backgroundColor: '#eef4fc', color: '#1b61c9', borderRadius: 999, fontWeight: 600, border: '1px solid #cfe0f5',
           }}
@@ -439,31 +419,31 @@ function RecentLabelsCard({ rows }: { rows: RecentLabel[] }) {
         </span>
       </div>
 
-      <div className="mt-4 max-h-[320px] overflow-auto">
-        <table className="w-full text-left text-sm">
-          <thead>
-            <tr className="text-[10px] uppercase" style={{ color: 'rgba(4,14,32,0.55)', letterSpacing: '0.28px' }}>
-              <th className="py-2 font-semibold">Time</th>
-              <th className="py-2 font-semibold">Source</th>
-              <th className="py-2 font-semibold">Action</th>
-              <th className="py-2 font-semibold">Label</th>
-              <th className="py-2 font-semibold">Txn</th>
+      <div className="mt-1 min-h-0 flex-1 overflow-auto">
+        <table className="w-full text-left text-[11px]">
+          <thead className="sticky top-0" style={{ backgroundColor: '#ffffff' }}>
+            <tr className="text-[9px] uppercase" style={{ color: 'rgba(4,14,32,0.55)', letterSpacing: '0.28px' }}>
+              <th className="py-1 font-semibold">Time</th>
+              <th className="py-1 font-semibold">Source</th>
+              <th className="py-1 font-semibold">Action</th>
+              <th className="py-1 font-semibold">Label</th>
+              <th className="py-1 font-semibold">Txn</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r.id} style={{ borderTop: '1px solid #e0e2e6' }}>
-                <td className="py-2 text-[11px]" style={{ color: 'rgba(4,14,32,0.69)' }}>
+                <td className="py-1 text-[10px]" style={{ color: 'rgba(4,14,32,0.69)' }}>
                   {new Date(r.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                 </td>
-                <td className="py-2">
+                <td className="py-1">
                   <SourceTag source={r.source} actor={r.actor} />
                 </td>
-                <td className="py-2 text-[11px]" style={{ color: '#181d26' }}>{r.action}</td>
-                <td className="py-2">
+                <td className="py-1 text-[10px]" style={{ color: '#181d26' }}>{r.action}</td>
+                <td className="py-1">
                   <LabelTag label={r.label} />
                 </td>
-                <td className="py-2 font-mono text-[10px]" style={{ color: 'rgba(4,14,32,0.55)' }}>{r.txnId}</td>
+                <td className="py-1 font-mono text-[9px]" style={{ color: 'rgba(4,14,32,0.55)' }}>{r.txnId}</td>
               </tr>
             ))}
           </tbody>
@@ -479,10 +459,10 @@ function SourceTag({ source, actor }: { source: 'agent' | 'user'; actor: string 
     : { bg: '#f5f3ff', fg: '#6d28d9', border: '#ddd6fe' };
   return (
     <span
-      className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px]"
+      className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px]"
       style={{ backgroundColor: c.bg, color: c.fg, border: `1px solid ${c.border}`, borderRadius: 999, fontWeight: 600 }}
     >
-      {source} · {actor}
+      {source}·{actor}
     </span>
   );
 }
@@ -493,10 +473,10 @@ function LabelTag({ label }: { label: 'fraud' | 'false_positive' }) {
     : { bg: '#ECFDF5', fg: '#166534', border: '#BBF7D0' };
   return (
     <span
-      className="inline-flex items-center px-2 py-0.5 text-[10px]"
+      className="inline-flex items-center px-1.5 py-0.5 text-[9px]"
       style={{ backgroundColor: c.bg, color: c.fg, border: `1px solid ${c.border}`, borderRadius: 999, fontWeight: 700 }}
     >
-      {label}
+      {label === 'false_positive' ? 'fp' : 'fraud'}
     </span>
   );
 }
@@ -508,32 +488,29 @@ function RetrainScheduleCard({
 }) {
   const countdown = useCountdown(model.nextRetrainAt);
   return (
-    <section className="bg-white p-6" style={cardStyle}>
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_320px]">
-        <div>
-          <p className="text-small-label uppercase" style={{ color: '#1b61c9', letterSpacing: '0.28px', fontWeight: 600 }}>
-            Schedule
-          </p>
-          <h3 className="mt-1 text-card-title" style={{ color: '#181d26' }}>EventBridge · rate(1 day)</h3>
-          <p className="mt-2 text-caption" style={{ color: 'rgba(4,14,32,0.69)' }}>
-            Cron POSTs <span className="font-mono">/retrain</span> on EC2 FastAPI scorer. Scorer reads merged S3 + OSS labels and republishes the EAS model.
-          </p>
-        </div>
+    <section className="shrink-0 bg-white p-3" style={cardStyle}>
+      <div className="flex items-center justify-between">
+        <p className="text-small-label uppercase" style={{ color: '#1b61c9', letterSpacing: '0.28px', fontWeight: 600 }}>
+          Retrain schedule
+        </p>
+        <span className="text-[9px]" style={{ color: 'rgba(4,14,32,0.55)' }}>EventBridge · rate(1 day)</span>
+      </div>
 
+      <div className="mt-2 grid gap-2" style={{ gridTemplateColumns: 'minmax(0,1fr) 130px' }}>
         <div
-          className="p-5"
-          style={{ backgroundColor: '#f8fafc', border: '1px solid #e0e2e6', borderRadius: 16 }}
+          className="px-3 py-2"
+          style={{ backgroundColor: '#f8fafc', border: '1px solid #e0e2e6', borderRadius: 10 }}
         >
-          <p className="text-[10px] uppercase" style={{ color: 'rgba(4,14,32,0.55)', letterSpacing: '0.28px', fontWeight: 600 }}>
+          <p className="text-[9px] uppercase" style={{ color: 'rgba(4,14,32,0.55)', letterSpacing: '0.28px', fontWeight: 600 }}>
             Next retrain
           </p>
-          <p className="mt-2 text-2xl" style={{ color: '#181d26', fontWeight: 700 }}>
+          <p className="text-base leading-tight" style={{ color: '#181d26', fontWeight: 700 }}>
             {countdown.label}
           </p>
-          <p className="mt-1 text-caption" style={{ color: 'rgba(4,14,32,0.69)' }}>
-            window {model.nextWindow} · last {new Date(model.lastTrainedAt).toLocaleString()}
+          <p className="text-[9px]" style={{ color: 'rgba(4,14,32,0.55)' }}>
+            window {model.nextWindow}
           </p>
-          <div className="mt-4 h-1.5 w-full overflow-hidden rounded-pill" style={{ backgroundColor: '#e0e2e6' }}>
+          <div className="mt-1.5 h-1 w-full overflow-hidden rounded-pill" style={{ backgroundColor: '#e0e2e6' }}>
             <div
               className="h-full rounded-pill transition-all duration-500"
               style={{ width: `${countdown.pct}%`, backgroundColor: '#1b61c9' }}
@@ -541,34 +518,23 @@ function RetrainScheduleCard({
           </div>
         </div>
 
-        <div
-          className="p-5"
-          style={{ backgroundColor: '#181d26', borderRadius: 16, color: '#ffffff' }}
+        <button
+          type="button"
+          onClick={onRun}
+          disabled={status === 'running'}
+          className="inline-flex items-center justify-center text-[11px] text-white disabled:opacity-60"
+          style={{
+            backgroundColor: '#181d26',
+            borderRadius: 10,
+            fontWeight: 600,
+            padding: '0 10px',
+            boxShadow: 'rgba(45,127,249,0.28) 0px 1px 3px, rgba(0,0,0,0.06) 0px 0px 0px 0.5px inset',
+          }}
         >
-          <p className="text-[10px] uppercase" style={{ color: '#cfe0f5', letterSpacing: '0.28px', fontWeight: 600 }}>
-            Manual trigger
-          </p>
-          <p className="mt-2 text-card-title">Run retrain now</p>
-          <p className="mt-1 text-caption" style={{ color: 'rgba(255,255,255,0.7)' }}>
-            Demo invocation — same path EventBridge takes.
-          </p>
-          <button
-            type="button"
-            onClick={onRun}
-            disabled={status === 'running'}
-            className="mt-4 inline-flex h-11 w-full items-center justify-center text-white disabled:opacity-60"
-            style={{
-              backgroundColor: '#1b61c9',
-              borderRadius: 10,
-              fontWeight: 600,
-              boxShadow: 'rgba(45,127,249,0.28) 0px 1px 3px, rgba(0,0,0,0.06) 0px 0px 0px 0.5px inset',
-            }}
-          >
-            {status === 'running' ? <LoadingDots label="Retraining" tone="inverse" size="sm" />
-              : status === 'done' ? 'Completed · v3-demo.5'
-              : 'Run retrain demo'}
-          </button>
-        </div>
+          {status === 'running' ? <LoadingDots label="Running" tone="inverse" size="sm" />
+            : status === 'done' ? 'Done · v3-demo.5'
+            : 'Run retrain demo'}
+        </button>
       </div>
     </section>
   );
@@ -592,28 +558,8 @@ function useCountdown(target: string) {
   return { label, pct };
 }
 
-function Metric({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: 'good' }) {
-  return (
-    <div
-      className="bg-white p-4"
-      style={{ border: '1px solid #e0e2e6', borderRadius: 14, boxShadow: 'rgba(15,48,106,0.04) 0px 0px 12px' }}
-    >
-      <p className="text-[10px] uppercase" style={{ color: 'rgba(4,14,32,0.55)', letterSpacing: '0.28px', fontWeight: 600 }}>{label}</p>
-      <p
-        className="mt-1 text-xl"
-        style={{ color: tone === 'good' ? '#166534' : '#181d26', fontWeight: 700 }}
-      >
-        {value}
-      </p>
-      {sub && (
-        <p className="mt-1 text-[11px]" style={{ color: 'rgba(4,14,32,0.55)' }}>{sub}</p>
-      )}
-    </div>
-  );
-}
-
 const cardStyle: React.CSSProperties = {
   border: '1px solid #e0e2e6',
-  borderRadius: 24,
+  borderRadius: 16,
   boxShadow: 'rgba(15,48,106,0.05) 0px 0px 20px',
 };
