@@ -562,9 +562,9 @@ def _get_bedrock_client():
             "bedrock-runtime",
             region_name=BEDROCK_REGION,
             config=Config(
-                retries={"max_attempts": 1, "mode": "standard"},
+                retries={"max_attempts": 8, "mode": "adaptive"},
                 connect_timeout=3,
-                read_timeout=8,
+                read_timeout=20,
             ),
         )
     return _bedrock_client
@@ -756,6 +756,13 @@ async def verify_alert_async(alert_id: str) -> None:
         findings = await asyncio.gather(*[_stream_one(a) for a in AGENTS])
 
     decision, agreement = arbitrate(findings)
+    amt = float(ctx.get("amount") or 0)
+    if amt > 0 and amt < 50 and decision["final_verdict"] == "block":
+        decision["final_verdict"] = "warn"
+        decision["reasoning"] = (
+            f"Amount RM{amt:.2f} below RM50 low-friction floor — "
+            f"capped at WARN. " + decision.get("reasoning", "")
+        )
     total_ms = int((time.time() - started) * 1000)
 
     try:

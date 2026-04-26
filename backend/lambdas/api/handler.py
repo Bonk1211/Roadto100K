@@ -194,11 +194,6 @@ async def screen_transaction(req: Request):
     mule_result = None
     try:
         mule_result = evaluate_receiver(body["payee_id"])
-        if mule_result.get("alert_id"):
-            try:
-                publish_verify_message(mule_result["alert_id"])
-            except Exception as e:
-                print(f"[api] mule verify enqueue failed: {e}")
     except Exception as e:
         print(f"[api] mule eval failed: {e}")
 

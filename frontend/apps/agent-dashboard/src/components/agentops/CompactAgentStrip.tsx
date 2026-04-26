@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import type { CSSProperties } from 'react';
 import type {
   AgentFinding,
   AgentName,
@@ -38,16 +37,12 @@ const ACCENT: Record<AgentName, { fg: string; bg: string; soft: string; ring: st
 };
 
 export function CompactAgentStrip({ activeRun, recentByAgent, statsByAgent }: Props) {
-  const defaultAgent =
-    activeRun?.streams?.find((s) => s.status !== 'done')?.agent_name ??
-    activeRun?.findings[0]?.agent_name ??
-    AGENT_ORDER[0];
-  const normalizedDefaultAgent = toAgentName(defaultAgent);
-  const [expandedAgent, setExpandedAgent] = useState<AgentName>(normalizedDefaultAgent);
-
-  useEffect(() => {
-    setExpandedAgent(normalizedDefaultAgent);
-  }, [normalizedDefaultAgent]);
+  const decided = activeRun?.findings.length ?? 0;
+  const totalRuns = AGENT_ORDER.reduce((acc, a) => acc + (statsByAgent[a]?.runs ?? 0), 0);
+  const latencyAgents = AGENT_ORDER.filter((a) => (statsByAgent[a]?.runs ?? 0) > 0);
+  const avgLatency = latencyAgents.length
+    ? latencyAgents.reduce((acc, a) => acc + (statsByAgent[a]?.avg_latency_ms ?? 0), 0) / latencyAgents.length
+    : null;
 
   return (
     <div
@@ -129,34 +124,7 @@ export function CompactAgentStrip({ activeRun, recentByAgent, statsByAgent }: Pr
         </div>
       </header>
 
-      <div className="grid grid-cols-1 divide-y md:hidden" style={{ borderColor: '#e0e2e6' }}>
-        {AGENT_ORDER.map((agent) => {
-          const liveFinding = activeRun?.findings.find((f) => f.agent_name === agent) ?? null;
-          const stream = activeRun?.streams?.find((s) => s.agent_name === agent) ?? null;
-          const working = !!activeRun && !liveFinding;
-          const lastList = recentByAgent[agent] ?? [];
-          const lastFinding = lastList[0]?.finding ?? null;
-          const stats = statsByAgent[agent] ?? null;
-          return (
-            <AgentCell
-              key={agent}
-              agent={agent}
-              expanded
-              working={working}
-              live={liveFinding}
-              last={lastFinding}
-              stats={stats}
-              stream={stream}
-            />
-          );
-        })}
-      </div>
-
-      <div
-        className="hidden md:flex"
-        style={{ minHeight: 260 }}
-        onMouseLeave={() => setExpandedAgent(normalizedDefaultAgent)}
-      >
+      <div className="grid grid-cols-1 md:grid-cols-5" style={{ borderColor: '#e0e2e6' }}>
         {AGENT_ORDER.map((agent, index) => {
           const liveFinding = activeRun?.findings.find((f) => f.agent_name === agent) ?? null;
           const stream = activeRun?.streams?.find((s) => s.agent_name === agent) ?? null;
@@ -164,23 +132,16 @@ export function CompactAgentStrip({ activeRun, recentByAgent, statsByAgent }: Pr
           const lastList = recentByAgent[agent] ?? [];
           const lastFinding = lastList[0]?.finding ?? null;
           const stats = statsByAgent[agent] ?? null;
-          const expanded = expandedAgent === agent;
           return (
             <AgentCell
               key={agent}
               agent={agent}
-              expanded={expanded}
               working={working}
               live={liveFinding}
               last={lastFinding}
               stats={stats}
               stream={stream}
-              onHover={() => setExpandedAgent(toAgentName(agent))}
-              style={{
-                flex: expanded ? '1 1 0%' : '0 0 72px',
-                minWidth: expanded ? 0 : 72,
-                borderLeft: index === 0 ? 'none' : '1px solid #e0e2e6',
-              }}
+              isFirst={index === 0}
             />
           );
         })}
@@ -227,50 +188,36 @@ export function CompactAgentStrip({ activeRun, recentByAgent, statsByAgent }: Pr
 
 interface CellProps {
   agent: AgentName;
-  expanded: boolean;
   working: boolean;
   live: AgentFinding | null;
   last: AgentFinding | null;
   stats: AgentStatRow | null;
   stream: AgentStream | null;
-  onHover?: () => void;
-  style?: CSSProperties;
+  isFirst: boolean;
 }
 
-function AgentCell({ agent, expanded, working, live, last, stats, stream, onHover, style }: CellProps) {
+function AgentCell({ agent, working, live, last, stats, stream, isFirst }: CellProps) {
   const meta = AGENT_META[agent];
   const persona = PERSONA[agent];
   const accent = ACCENT[agent];
   const display = live ?? last;
   const verdict = working ? null : display?.verdict ?? null;
   const palette = verdictPalette(verdict);
-  const showWorkingBg = working;
-  const cellTint = showWorkingBg
-    ? accent.bg
-    : live
-      ? palette.bg
-      : '#ffffff';
-  const borderTone = showWorkingBg
-    ? accent.fg
-    : live
-      ? palette.border
-      : 'transparent';
+  const cellTint = working ? accent.bg : live ? palette.bg : '#ffffff';
+  const borderTone = working ? accent.fg : live ? palette.border : 'transparent';
 
   return (
     <div
-      className="flex flex-col gap-2 overflow-hidden p-3 transition-all duration-700 ease-in-out"
+      className="flex min-w-0 flex-col gap-2 overflow-hidden p-3"
       style={{
         backgroundColor: cellTint,
         borderTop: `2px solid ${borderTone}`,
-        ...style,
+        borderLeft: isFirst ? 'none' : '1px solid #e0e2e6',
       }}
-      onMouseEnter={onHover}
-      onFocus={onHover}
-      tabIndex={onHover ? 0 : undefined}
     >
-      <div className={`flex items-center ${expanded ? 'gap-2' : 'justify-center'}`}>
+      <div className="flex items-center gap-2">
         <span
-          className="flex h-9 w-9 items-center justify-center transition-transform group-hover:scale-105"
+          className="flex h-9 w-9 shrink-0 items-center justify-center"
           style={{
             background: `linear-gradient(135deg, ${accent.fg} 0%, ${accent.fg}dd 100%)`,
             color: '#ffffff',
@@ -281,72 +228,72 @@ function AgentCell({ agent, expanded, working, live, last, stats, stream, onHove
         >
           <AgentIcon agent={agent} />
         </span>
-        {expanded && (
-          <>
-            <div className="min-w-0 flex-1 leading-tight">
-              <p className="truncate text-small-label uppercase" style={{ color: 'rgba(4,14,32,0.55)', letterSpacing: '0.28px', fontWeight: 600 }}>
-                {persona}
-              </p>
-              <p className="truncate text-feature-title" style={{ color: '#181d26' }}>{meta.label}</p>
-            </div>
-            {working ? (
-              <Spinner />
-            ) : (
-              <span
-                className="px-2 py-0.5 text-[10px]"
-                style={{ backgroundColor: palette.fg, color: '#ffffff', borderRadius: 999, fontWeight: 600 }}
-              >
-                {palette.label}
-              </span>
-            )}
-          </>
+        <div className="min-w-0 flex-1 leading-tight">
+          <p
+            className="truncate uppercase"
+            style={{ color: 'rgba(4,14,32,0.55)', letterSpacing: '0.28px', fontWeight: 600, fontSize: 10 }}
+          >
+            {persona}
+          </p>
+          <p className="truncate" style={{ color: '#181d26', fontWeight: 600, fontSize: 13 }}>
+            {meta.label}
+          </p>
+        </div>
+        {working ? (
+          <Spinner />
+        ) : verdict ? (
+          <span
+            className="shrink-0 px-2 py-0.5 text-[10px]"
+            style={{ backgroundColor: palette.fg, color: '#ffffff', borderRadius: 999, fontWeight: 600 }}
+          >
+            {palette.label}
+          </span>
+        ) : (
+          <span
+            className="inline-block h-1.5 w-1.5 shrink-0 rounded-pill"
+            style={{ backgroundColor: '#cbd5e1' }}
+          />
         )}
       </div>
 
-      {expanded && (
-        <>
-          <div className="flex items-center gap-2 text-small-label">
-            {working ? (
-              <WorkingTicker />
-            ) : display ? (
-              <>
-                <span style={{ color: '#181d26', fontWeight: 600 }}>{display.confidence}%</span>
-                <ConfidenceBar pct={display.confidence} color={palette.fg} />
-                <span className="font-mono" style={{ color: 'rgba(4,14,32,0.69)' }}>{formatLatency(display.latency_ms)}</span>
-              </>
-            ) : (
-              <span style={{ color: 'rgba(4,14,32,0.55)' }}>No data yet</span>
-            )}
-          </div>
-
-          <div className="flex items-center justify-between text-[10px]" style={{ color: 'rgba(4,14,32,0.69)' }}>
-            <span>
-              {stats ? (
-                <>
-                  {stats.runs} runs · avg {formatLatency(stats.avg_latency_ms)}
-                </>
-              ) : (
-                '—'
-              )}
+      <div className="flex items-center gap-2 text-[11px]">
+        {working ? (
+          <WorkingTicker />
+        ) : display ? (
+          <>
+            <span style={{ color: '#181d26', fontWeight: 600 }}>{display.confidence}%</span>
+            <ConfidenceBar pct={display.confidence} color={palette.fg} />
+            <span className="font-mono" style={{ color: 'rgba(4,14,32,0.69)' }}>
+              {formatLatency(display.latency_ms)}
             </span>
-            {stats && (
-              <span className="flex items-center gap-1">
-                <Tally label="B" v={stats.blocks} c="#B91C1C" />
-                <Tally label="W" v={stats.warns} c="#92400E" />
-                <Tally label="C" v={stats.clears} c="#166534" />
-              </span>
-            )}
-          </div>
+          </>
+        ) : (
+          <span style={{ color: 'rgba(4,14,32,0.55)' }}>No data yet</span>
+        )}
+      </div>
 
-          <ReasoningPanel working={working} display={display} live={!!live} stream={stream} />
-        </>
-      )}
+      <div className="flex items-center justify-between text-[10px]" style={{ color: 'rgba(4,14,32,0.69)' }}>
+        <span className="truncate">
+          {stats ? (
+            <>
+              {stats.runs} runs · avg {formatLatency(stats.avg_latency_ms)}
+            </>
+          ) : (
+            '—'
+          )}
+        </span>
+        {stats && (
+          <span className="flex shrink-0 items-center gap-1">
+            <Tally label="B" v={stats.blocks} c="#B91C1C" />
+            <Tally label="W" v={stats.warns} c="#92400E" />
+            <Tally label="C" v={stats.clears} c="#166534" />
+          </span>
+        )}
+      </div>
+
+      <ReasoningPanel working={working} display={display} live={!!live} stream={stream} />
     </div>
   );
-}
-
-function toAgentName(value: AgentName | string | null | undefined): AgentName {
-  return AGENT_ORDER.includes(value as AgentName) ? (value as AgentName) : AGENT_ORDER[0];
 }
 
 function ReasoningPanel({
@@ -405,7 +352,7 @@ function ReasoningPanel({
       >
         Reasoning
       </p>
-      <p className="line-clamp-3" style={{ color: '#181d26' }}>
+      <p className="line-clamp-5" style={{ color: '#181d26' }}>
         {display.reasoning?.trim() || 'No reasoning recorded.'}
       </p>
       {evidence.length > 0 && (

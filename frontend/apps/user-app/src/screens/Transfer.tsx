@@ -31,9 +31,7 @@ export default function Transfer() {
   }, [startFreshTransfer, transfer.committed, transfer.status]);
 
   const amountDigits = amountToDigits(transfer.amount);
-  const displayAmount = hasFocusedAmount || transfer.amount > 0
-    ? formatAmountDigits(amountDigits)
-    : '';
+  const displayAmount = transfer.amount > 0 ? formatAmountDigits(amountDigits) : '';
 
   const onContinue = () => {
     navigate('/payee');

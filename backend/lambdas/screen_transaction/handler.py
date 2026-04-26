@@ -268,11 +268,6 @@ def handler(event, context):
     mule_result = None
     try:
         mule_result = evaluate_receiver(body["payee_id"])
-        if mule_result.get("alert_id"):
-            try:
-                publish_verify_message(mule_result["alert_id"])
-            except Exception as e:  # noqa: BLE001
-                print(f"[screen-transaction] mule verify enqueue failed: {e}")
     except Exception as e:  # noqa: BLE001
         print(f"[screen-transaction] mule eval failed (non-blocking): {e}")
 

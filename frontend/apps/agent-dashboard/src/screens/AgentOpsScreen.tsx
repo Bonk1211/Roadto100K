@@ -33,6 +33,7 @@ export function AgentOpsScreen() {
   const [stats, setStats] = useState<AgentStats | null>(null);
   const [workerState, setWorkerState] = useState<WorkerState | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [stickyRun, setStickyRun] = useState<VerificationRun | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -99,6 +100,20 @@ export function AgentOpsScreen() {
 
   const primaryActiveRun = active[0] ?? null;
 
+  useEffect(() => {
+    if (primaryActiveRun) {
+      setStickyRun(primaryActiveRun);
+      return;
+    }
+    setStickyRun((prev) => {
+      if (!prev) return recent[0] ?? null;
+      const upgraded = recent.find((r) => r.run_id === prev.run_id);
+      return upgraded ?? prev;
+    });
+  }, [primaryActiveRun, recent]);
+
+  const displayRun = primaryActiveRun ?? stickyRun;
+
   const recentByAgent = useMemo(() => {
     const map: Record<AgentName, { run: VerificationRun; finding: AgentFinding }[]> = {
       txn: [],
@@ -146,10 +161,10 @@ export function AgentOpsScreen() {
         className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]"
       >
         <section className="flex min-h-0 flex-col gap-3">
-          <PipelinePanel run={primaryActiveRun ?? recent[0] ?? null} />
-          <LiveCasePanel runs={primaryActiveRun ? [primaryActiveRun] : []} />
+          <PipelinePanel run={displayRun ?? recent[0] ?? null} />
+          <LiveCasePanel runs={displayRun ? [displayRun] : []} />
           <CompactAgentStrip
-            activeRun={primaryActiveRun}
+            activeRun={displayRun}
             recentByAgent={recentByAgent}
             statsByAgent={statsByAgent}
           />
