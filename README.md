@@ -1,4 +1,4 @@
-# SafeSend
+# SafeSend 🛡️
 
 **Real-time scam prevention for wallet transfers and fraud operations.**
 
@@ -8,14 +8,10 @@
 
 SafeSend is a real-time fraud intelligence and early containment system built for Touch 'n Go's e-wallet ecosystem. It closes the gap between fraud detection and actual damage by acting while funds are still inside the platform, not after they have already moved through mule accounts.
 
-## Live Apps
+## Live Apps 📱
 
 - Agent Dashboard: [https://main.d2fcqqeuq0z5lb.amplifyapp.com/](https://main.d2fcqqeuq0z5lb.amplifyapp.com/)
 - User App: [https://safe-send.top](https://safe-send.top)
-
-## Demo
-
-Add a demo GIF or screenshot here to show the transfer flow and dashboard experience.
 
 ## Overview
 
@@ -222,7 +218,3 @@ For larger changes, open an issue first so the scope and approach can be aligned
 - `docs/PersonD_Demo_Runbook.md`
 - `docs/ERD.md`
 - `docs/DESIGN.md`
-
-## License
-
-Add your project license here. If you are using MIT, include a `LICENSE` file in the repository.
