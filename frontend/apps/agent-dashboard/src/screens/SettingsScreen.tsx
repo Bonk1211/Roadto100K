@@ -335,7 +335,7 @@ function LoopDiagram({
     queue:  { x: 290, y: 145, w: 140, h: 60, title: 'Label queue',  sub: `${labelsStaged} merged` },
     sinks:  { x: 480, y: 70,  w: 170, h: 60, title: 'S3 + OSS sinks', sub: 'data sovereignty mirror' },
     train:  { x: 480, y: 220, w: 170, h: 60, title: 'SageMaker training', sub: 'job · Isolation Forest' },
-    model:  { x: 295, y: 290, w: 130, h: 22, title: 'SageMaker endpoint', sub: version },
+    model:  { x: 280, y: 268, w: 160, h: 40, title: 'SageMaker endpoint', sub: version },
   };
 
   const isReading    = phase === 'reading';
@@ -446,7 +446,7 @@ function LoopNode({
         </text>
       )}
       {compact && (
-        <text x={n.x + n.w / 2} y={n.y + 18} fontSize={9} fill={muted} textAnchor="middle">
+        <text x={n.x + n.w / 2} y={n.y + 30} fontSize={9} fill={muted} textAnchor="middle">
           {n.sub}
         </text>
       )}
