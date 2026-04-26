@@ -53,19 +53,23 @@ export default function Transfer() {
         </div>
       )}
     >
-      <FlowHeader
-        title={t('transferTitle', lang)}
-        onBack={() => navigate(-1)}
-        theme="light"
-        right={<BilingualToggle value={lang} onChange={setLang} />}
-        step="Step 1 of 3"
-      />
-
-      <div className="-mt-5 space-y-5 rounded-t-[32px] bg-app-gray px-0 pt-0 app-screen-enter motion-stagger">
-        <TransferRecipientCard
-          payee={{ name: transfer.payee?.name ?? demoPayee.name, phone: '+60 12-*** *892' }}
-          onChange={() => navigate('/payee')}
+      <div className="relative pb-14">
+        <FlowHeader
+          title={t('transferTitle', lang)}
+          onBack={() => navigate(-1)}
+          theme="light"
+          right={<BilingualToggle value={lang} onChange={setLang} />}
+          step="Step 1 of 3"
         />
+        <div className="absolute inset-x-3 -bottom-10 z-40">
+          <TransferRecipientCard
+            payee={{ name: transfer.payee?.name ?? demoPayee.name, phone: '+60 12-*** *892' }}
+            onChange={() => navigate('/payee')}
+          />
+        </div>
+      </div>
+
+      <div className="-mt-5 space-y-5 rounded-t-[32px] bg-app-gray px-3 pt-4 app-screen-enter motion-stagger">
 
         <TransferAmountCard
           amount={displayAmount}

@@ -201,45 +201,48 @@ export default function Confirm() {
         </BottomActionBar>
       )}
     >
-      <FlowHeader
-        title={lang === 'en' ? 'Confirm transfer' : 'Sahkan pemindahan'}
-        onBack={() => navigate(-1)}
-        theme="light"
-        right={<BilingualToggle value={lang} onChange={setLang} />}
-        eyebrow="Review & protect"
-        step="Step 3 of 3"
-      />
+      <div className="relative">
+        <FlowHeader
+          title={lang === 'en' ? 'Confirm transfer' : 'Sahkan pemindahan'}
+          onBack={() => navigate(-1)}
+          theme="light"
+          right={<BilingualToggle value={lang} onChange={setLang} />}
+          eyebrow="Review & protect"
+          step="Step 3 of 3"
+        />
+        <div className="relative z-40 mx-3 -mt-3">
+          <section className="app-panel overflow-hidden">
+            <div className="bg-[linear-gradient(135deg,#005BAC_0%,#004B91_100%)] px-5 py-5 text-white">
+              <div className="text-[12px] font-semibold uppercase tracking-[0.16em] text-white/70">
+                You are sending
+              </div>
+              <div className="mt-3 text-[44px] font-extrabold leading-none tracking-tight">
+                {formatRM(amount)}
+              </div>
+              <div className="mt-4 inline-flex items-center gap-2 rounded-pill bg-white/10 px-3 py-1.5 text-[12px] font-semibold text-white/85">
+                <SafeSendBadge size="sm" />
+                Live transfer screening
+              </div>
+            </div>
 
-      <div className="-mt-5 space-y-4 rounded-t-[32px] bg-app-gray pt-4 app-screen-enter motion-stagger">
-        <section className="app-panel overflow-hidden">
-          <div className="bg-[linear-gradient(135deg,#005BAC_0%,#004B91_100%)] px-5 py-5 text-white">
-            <div className="text-[12px] font-semibold uppercase tracking-[0.16em] text-white/70">
-              You are sending
+            <div className="px-5 py-4">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-text">
+                To
+              </div>
+              <div className="mt-3">
+                <RecipientSummaryCard
+                  name={payee.name}
+                  detail={`TnG - ${maskAccount(payee.account)}`}
+                  subdetail={`Account opened ${payee.account_age_days} days ago`}
+                  badge={!payee.flagged_in_scam_graph ? 'Verified' : undefined}
+                />
+              </div>
             </div>
-            <div className="mt-3 text-[44px] font-extrabold leading-none tracking-tight">
-              {formatRM(amount)}
-            </div>
-            <div className="mt-4 inline-flex items-center gap-2 rounded-pill bg-white/10 px-3 py-1.5 text-[12px] font-semibold text-white/85">
-              <SafeSendBadge size="sm" />
-              <PrefetchStatus state={prefetch} score={screening?.final_score} lang={lang} />
-            </div>
-          </div>
+          </section>
+        </div>
+      </div>
 
-          <div className="px-5 py-4">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-text">
-              To
-            </div>
-            <div className="mt-3">
-              <RecipientSummaryCard
-                name={payee.name}
-                detail={`TnG - ${maskAccount(payee.account)}`}
-                subdetail={`Account opened ${payee.account_age_days} days ago`}
-                badge={!payee.flagged_in_scam_graph ? 'Verified' : undefined}
-              />
-            </div>
-          </div>
-        </section>
-
+      <div className="space-y-4 bg-app-gray px-3 pt-4 app-screen-enter motion-stagger">
         <section className="app-panel divide-y divide-border-gray/80 overflow-hidden">
           <Row label="From" value={`${currentUser.name} wallet`} />
           <Row label="Schedule" value={`Now - ${formattedTimestamp}`} />

@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import type { NetworkGraph } from 'shared';
 import { AgentOpsScreen } from './screens/AgentOpsScreen.js';
 import { NetworkScreen } from './screens/NetworkScreen.js';
 import { SettingsScreen } from './screens/SettingsScreen.js';
+import { fetchNetworkGraph } from './lib/api.js';
 
 type Tab = 'agent-ops' | 'network' | 'model';
 
@@ -25,6 +27,26 @@ const NAV: { id: Tab; label: string; description: string }[] = [
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('agent-ops');
+  const [networkGraph, setNetworkGraph] = useState<NetworkGraph | null>(null);
+  const active = NAV.find((item) => item.id === tab)!;
+
+  useEffect(() => {
+    let active = true;
+
+    fetchNetworkGraph()
+      .then((result) => {
+        if (!active) return;
+        setNetworkGraph(result);
+      })
+      .catch((error) => {
+        if (!active) return;
+        console.error(error);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden" style={{ backgroundColor: '#f8fafc' }}>
@@ -32,7 +54,7 @@ export default function App() {
 
       <main className="flex-1 overflow-auto px-8 py-6">
         {tab === 'agent-ops' && <AgentOpsScreen />}
-        {tab === 'network' && <NetworkScreen />}
+        {tab === 'network' && <NetworkScreen initialGraph={networkGraph} />}
         {tab === 'model' && <SettingsScreen />}
       </main>
     </div>

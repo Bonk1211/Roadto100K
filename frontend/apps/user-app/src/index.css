@@ -3,8 +3,13 @@
 @tailwind utilities;
 
 @layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
   html, body, #root {
     height: 100%;
+    overflow-x: hidden;
   }
   body {
     font-family: 'Inter', 'SF Pro Display', 'Segoe UI', sans-serif;
@@ -40,7 +45,7 @@
 
 @layer components {
   .phone-frame {
-    @apply mx-auto w-full max-w-md relative overflow-hidden;
+    @apply mx-auto w-full max-w-md relative overflow-x-hidden overflow-y-hidden box-border;
     height: 100vh;
     max-height: 100vh;
     height: 100dvh;

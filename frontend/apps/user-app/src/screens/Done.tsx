@@ -140,7 +140,7 @@ export default function Done() {
         step="Step 3 of 3"
       />
 
-      <div className="-mt-5 flex flex-1 flex-col items-center rounded-t-[32px] bg-app-gray pt-6 text-center app-screen-enter">
+      <div className="-mt-5 flex flex-1 flex-col items-center rounded-t-[32px] bg-app-gray px-3 pt-6 text-center app-screen-enter">
         <div
           className={[
             'mb-5 grid h-24 w-24 place-items-center rounded-full shadow-card',

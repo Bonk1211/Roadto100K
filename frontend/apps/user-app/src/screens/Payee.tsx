@@ -53,21 +53,25 @@ export default function PayeeScreen() {
         </BottomActionBar>
       )}
     >
-      <FlowHeader
-        title={t('transferTitle', lang)}
-        onBack={() => navigate(-1)}
-        theme="light"
-        right={<BilingualToggle value={lang} onChange={setLang} />}
-        eyebrow="Choose payee"
-        step="Step 2 of 3"
-      />
-
-      <div className="-mt-5 space-y-4 rounded-t-[32px] bg-app-gray pt-4 app-screen-enter motion-stagger">
-        <BalanceSnapshotCard
-          walletBalance={walletBalance}
-          amount={transfer.amount}
-          remainingBalance={remainingBalance}
+      <div className="relative pb-16">
+        <FlowHeader
+          title={t('transferTitle', lang)}
+          onBack={() => navigate(-1)}
+          theme="light"
+          right={<BilingualToggle value={lang} onChange={setLang} />}
+          eyebrow="Choose payee"
+          step="Step 2 of 3"
         />
+        <div className="absolute inset-x-3 -bottom-12 z-40">
+          <BalanceSnapshotCard
+            walletBalance={walletBalance}
+            amount={transfer.amount}
+            remainingBalance={remainingBalance}
+          />
+        </div>
+      </div>
+
+      <div className="-mt-5 space-y-4 rounded-t-[32px] bg-app-gray px-3 pt-4 app-screen-enter motion-stagger">
 
         <section className="app-panel p-5">
           <label className="section-label mb-2 block">

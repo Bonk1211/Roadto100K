@@ -456,3 +456,106 @@ def scan_all_alerts() -> list[dict]:
     except Exception as e:
         print(f"[db] scan_all_alerts error: {e}")
         return []
+
+
+def query_network_graph() -> dict:
+    """
+    Fetch the network graph from PostgreSQL.
+
+    Nodes come from accounts and edges come from network_links. Each node gets a
+    derived risk score from either its direct alerts or linked-account scores so
+    the existing frontend highlighting keeps working.
+    """
+    sql = """
+        WITH alert_scores AS (
+            SELECT account_id, MAX(risk_score) AS alert_risk_score
+            FROM alerts
+            GROUP BY account_id
+        ),
+        linked_scores AS (
+            SELECT source_account_id AS account_id, MAX(risk_score) AS linked_risk_score
+            FROM network_links
+            GROUP BY source_account_id
+            UNION ALL
+            SELECT linked_account_id AS account_id, MAX(risk_score) AS linked_risk_score
+            FROM network_links
+            GROUP BY linked_account_id
+        ),
+        max_linked_scores AS (
+            SELECT account_id, MAX(linked_risk_score) AS linked_risk_score
+            FROM linked_scores
+            GROUP BY account_id
+        )
+        SELECT
+            a.account_id,
+            a.user_id,
+            a.status,
+            a.account_age_days,
+            a.device_fingerprint,
+            a.ip_address,
+            a.card_bin,
+            COALESCE(alert_scores.alert_risk_score, max_linked_scores.linked_risk_score, 0) AS risk_score
+        FROM accounts a
+        LEFT JOIN alert_scores ON alert_scores.account_id = a.account_id
+        LEFT JOIN max_linked_scores ON max_linked_scores.account_id = a.account_id
+        ORDER BY a.account_id
+    """
+    try:
+        with _cursor() as cur:
+            cur.execute(sql)
+            accounts = [_row_to_dict(r) for r in cur.fetchall()]
+            cur.execute(
+                """
+                SELECT source_account_id, linked_account_id, link_type, risk_score, rm_exposure
+                FROM network_links
+                ORDER BY link_id
+                """
+            )
+            links = [_row_to_dict(r) for r in cur.fetchall()]
+    except Exception as e:
+        print(f"[db] query_network_graph error: {e}")
+        return {"nodes": [], "edges": []}
+
+    nodes = [
+        {
+            "id": account["account_id"],
+            "type": "account",
+            "label": account.get("user_id") or account["account_id"],
+            "risk_score": float(account.get("risk_score") or 0),
+            "status": account.get("status") or "normal",
+            "account_age_days": int(account.get("account_age_days") or 0),
+            "metadata": {
+                "account": account["account_id"],
+                "device": account.get("device_fingerprint") or "",
+                "ip": account.get("ip_address") or "",
+                "card_bin": account.get("card_bin") or "",
+            },
+        }
+        for account in accounts
+    ]
+    edges = [
+        {
+            "source": link["source_account_id"],
+            "target": link["linked_account_id"],
+            "relationship": _graph_relationship(link.get("link_type")),
+            "weight": float(link.get("rm_exposure") or link.get("risk_score") or 1),
+        }
+        for link in links
+    ]
+    return {"nodes": nodes, "edges": edges}
+
+
+def _graph_relationship(link_type: Optional[str]) -> str:
+    mapping = {
+        "direct_transaction": "transaction",
+        "transaction": "transaction",
+        "shared_device": "shared_device",
+        "same_device": "shared_device",
+        "shared_ip": "same_ip",
+        "same_ip": "same_ip",
+        "timing_cluster": "same_registration_time",
+        "same_registration_time": "same_registration_time",
+        "card_bin": "same_card_bin",
+        "same_card_bin": "same_card_bin",
+    }
+    return mapping.get((link_type or "").lower(), "shared_attribute")
