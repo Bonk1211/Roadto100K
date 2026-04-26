@@ -18,12 +18,11 @@ Globals:
         RDSPASSWORD: !Ref RdsPassword
         KINESIS_STREAM: !Ref EventsStream
         SNS_TOPIC_ARN: !Ref UserAlertsTopic
-        # Haiku 4.5 via APAC cross-region inference profile — ~2-3× faster than
-        # Haiku 3 for short JSON outputs. Falls back automatically if a region in
-        # the profile is throttled.
-        BEDROCK_MODEL_ID: "apac.anthropic.claude-haiku-4-5-20251001-v1:0"
+        # Haiku 3 — proven enabled in account. Switch to Haiku 4.5 once you
+        # request access in Bedrock console (model id apac.anthropic.claude-haiku-4-5-...).
+        BEDROCK_MODEL_ID: "anthropic.claude-3-haiku-20240307-v1:0"
         BEDROCK_REGION: "ap-southeast-1"
-        BEDROCK_STREAM_CONCURRENCY: "2"
+        BEDROCK_STREAM_CONCURRENCY: "5"
         VERIFY_QUEUE_URL: !Ref VerificationQueue
         VERIFY_MOCK: !Ref VerifyMock
         STREAM_DB_FLUSH_SEC: "0.18"
@@ -45,9 +44,12 @@ Parameters:
     Description: Password for RDS postgres user
   VerifyMock:
     Type: String
-    Default: "0"
+    Default: "1"
     AllowedValues: ["0", "1"]
-    Description: 1 = deterministic mock streaming agents. 0 = real Bedrock streaming.
+    Description: |
+      1 = deterministic mock streaming agents (~1-2s, demo-safe). Default.
+      0 = real Bedrock streaming (~3-16s, throttle-prone until quota raised).
+      Override at deploy: --parameter-overrides "VerifyMock=0"
 
 Resources:
   # =========================================================================

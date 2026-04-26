@@ -42,9 +42,43 @@ export interface QueryResultState {
 
 export interface ModelHealthViewModel {
   modelVersion: string;
+  previousVersion: string;
   lastTrainedAt: string;
+  nextRetrainAt: string;
   labelsSinceRetrain: number;
   accuracyDelta: number;
   queueCoverage: number;
   nextWindow: string;
+  loop: {
+    agentLabels: number;
+    userLabels: number;
+    mergedLabels: number;
+    retrainsThisWeek: number;
+  };
+  labelSplit: {
+    fraud: number;
+    falsePositive: number;
+    agentShare: number;
+    userShare: number;
+  };
+  sinks: LabelSink[];
+  recentLabels: RecentLabel[];
+}
+
+export interface LabelSink {
+  name: string;
+  region: string;
+  status: 'healthy' | 'lagging' | 'down';
+  lastWriteAt: string;
+  writes24h: number;
+}
+
+export interface RecentLabel {
+  id: string;
+  ts: string;
+  source: 'agent' | 'user';
+  actor: string;
+  action: string;
+  label: 'fraud' | 'false_positive';
+  txnId: string;
 }

@@ -57,6 +57,9 @@ export interface VerificationRun {
   stage: string | null;
   priority: string | null;
   triggered_signals?: PipelineSignal[];
+  sender_account_id?: string | null;
+  receiver_account_id?: string | null;
+  user_display?: string | null;
   findings: AgentFinding[];
   streams?: AgentStream[];
 }
@@ -249,6 +252,26 @@ export function shortAlertId(alertId: string): string {
   if (!alertId) return '';
   if (alertId.length <= 12) return alertId;
   return `${alertId.slice(0, 6)}…${alertId.slice(-4)}`;
+}
+
+/** Format an account / user id for the decision feed.
+ *  Recognizable demo accounts (acc_mule_001, u_demo_user) render full;
+ *  raw uuids get masked to "***last4". Empty / null → "—". */
+export function formatParty(id: string | null | undefined): string {
+  if (!id) return '—';
+  // Demo accounts already human-readable
+  if (id.startsWith('acc_') || id.startsWith('u_') || id.startsWith('user_')) return id;
+  if (id.length <= 14) return id;
+  // UUID / long opaque id → mask
+  return `***${id.slice(-4)}`;
+}
+
+/** Build "sender → receiver" label for the decision feed row. */
+export function partiesLabel(run: VerificationRun): string {
+  const from = formatParty(run.sender_account_id);
+  const to = formatParty(run.receiver_account_id);
+  if (from === '—' && to === '—') return shortAlertId(run.alert_id);
+  return `${from} → ${to}`;
 }
 
 export function findingsByAgent(run: VerificationRun): Partial<Record<string, AgentFinding>> {

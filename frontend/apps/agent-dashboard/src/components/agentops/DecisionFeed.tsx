@@ -4,6 +4,7 @@ import {
   AGENT_META,
   AGENT_ORDER,
   formatLatency,
+  partiesLabel,
   relativeTime,
   shortAlertId,
   verdictPalette,
@@ -98,29 +99,29 @@ export function DecisionFeed({ runs }: Props) {
                 className="flex w-full items-center gap-2 px-4 py-2.5 text-left transition-colors hover:bg-airtable-soft-surface"
               >
                 <span
-                  className="flex items-center gap-1 px-2.5 py-1 text-small-label"
+                  className="flex w-[64px] shrink-0 items-center justify-center gap-1 px-2.5 py-1 text-small-label"
                   style={{ backgroundColor: palette.fg, color: '#ffffff', borderRadius: 999, fontWeight: 600 }}
                 >
                   {palette.label}
                 </span>
 
                 <div className="min-w-0 flex-1 leading-tight">
-                  <p className="truncate font-mono text-small-label" style={{ color: '#181d26', fontWeight: 600 }}>
-                    {shortAlertId(run.alert_id)}
+                  <p className="truncate text-small-label" style={{ color: '#181d26', fontWeight: 600 }}>
+                    {partiesLabel(run)}
                   </p>
                   <p className="text-[10px]" style={{ color: 'rgba(4,14,32,0.69)' }}>
-                    Risk {Math.round(run.risk_score)} · RM {Math.round(run.amount).toLocaleString('en-MY')} · {relativeTime(run.completed_at ?? run.started_at)}
+                    Risk {Math.round(run.risk_score)} · RM {Math.round(run.amount).toLocaleString('en-MY')} · {relativeTime(run.completed_at ?? run.started_at)} · <span className="font-mono">{shortAlertId(run.alert_id)}</span>
                   </p>
                 </div>
 
-                <div className="hidden items-center gap-1 md:flex">
+                <div className="hidden w-[180px] shrink-0 items-center justify-end gap-1 md:flex">
                   {AGENT_ORDER.map((agent) => {
                     const f = run.findings.find((x) => x.agent_name === agent);
                     return <AgentDot key={agent} agent={agent} verdict={f?.verdict ?? null} />;
                   })}
                 </div>
 
-                <div className="hidden flex-col items-end gap-0.5 md:flex">
+                <div className="hidden w-[150px] shrink-0 flex-col items-end gap-0.5 md:flex">
                   <LatencyBar
                     ms={run.total_latency_ms ?? 0}
                     max={latencyMax}
@@ -177,11 +178,11 @@ function DetailModal({ run, onClose }: { run: VerificationRun; onClose: () => vo
             {palette.label}
           </span>
           <div className="min-w-0 flex-1 leading-tight">
-            <p className="truncate font-mono text-feature-title" style={{ color: '#181d26' }}>
-              {shortAlertId(run.alert_id)}
+            <p className="truncate text-feature-title" style={{ color: '#181d26' }}>
+              {partiesLabel(run)}
             </p>
             <p className="text-[11px]" style={{ color: 'rgba(4,14,32,0.69)' }}>
-              Risk {Math.round(run.risk_score)} · RM {Math.round(run.amount).toLocaleString('en-MY')} · {relativeTime(run.completed_at ?? run.started_at)} · {run.agreement_pct ?? 0}% agree · {formatLatency(run.total_latency_ms ?? 0)}
+              Risk {Math.round(run.risk_score)} · RM {Math.round(run.amount).toLocaleString('en-MY')} · {relativeTime(run.completed_at ?? run.started_at)} · {run.agreement_pct ?? 0}% agree · {formatLatency(run.total_latency_ms ?? 0)} · <span className="font-mono">{shortAlertId(run.alert_id)}</span>
             </p>
           </div>
           <button
@@ -371,17 +372,13 @@ function AgentDot({
   const isPending = verdict === null;
   return (
     <span
-      className="relative flex h-7 w-7 items-center justify-center text-[11px]"
+      className="relative flex h-7 w-7 items-center justify-center"
       style={{
         backgroundColor: isPending ? '#f8fafc' : palette.fg,
-        color: isPending ? 'rgba(4,14,32,0.55)' : '#ffffff',
         border: `1px solid ${isPending ? '#e0e2e6' : palette.border === 'transparent' ? palette.fg : palette.border}`,
         borderRadius: 8,
-        fontWeight: 600,
       }}
       title={`${meta.label}: ${palette.label}`}
-    >
-      {meta.icon}
-    </span>
+    />
   );
 }

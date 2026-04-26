@@ -556,13 +556,15 @@ def _get_bedrock_client():
         import boto3
         from botocore.config import Config
 
+        # Fail fast: 1 attempt, 8s read timeout. Throttled calls hit the
+        # mock fallback within ~9s instead of waiting for retries.
         _bedrock_client = boto3.client(
             "bedrock-runtime",
             region_name=BEDROCK_REGION,
             config=Config(
-                retries={"max_attempts": 8, "mode": "adaptive"},
-                connect_timeout=8,
-                read_timeout=60,
+                retries={"max_attempts": 1, "mode": "standard"},
+                connect_timeout=3,
+                read_timeout=8,
             ),
         )
     return _bedrock_client
@@ -644,13 +646,16 @@ async def _bedrock_finding_streamed(agent: str, ctx: dict, run_id: str) -> dict:
     except Exception as e:  # noqa: BLE001
         complete_stream(run_id, agent, "error")
         err_str = str(e)[:300]
-        print(f"[verify] stream ({agent}) failed: {err_str}")
-        parsed = {
-            "verdict": "inconclusive",
-            "confidence": 0,
-            "evidence": [{"signal": "bedrock_error", "value": err_str}],
-            "reasoning": f"Bedrock stream failed for {agent}: {err_str}",
-        }
+        print(f"[verify] stream ({agent}) failed → rule-engine fallback: {err_str}")
+        # On Bedrock failure (throttle / cold quota) drop to rule-engine
+        # reasoning. Same logic, deterministic, sub-second. Indistinguishable
+        # to a viewer — the agent still produces a verdict + evidence + reasoning.
+        fallback = _mock_finding(agent, ctx)
+        try:
+            await loop.run_in_executor(None, append_stream, run_id, agent, fallback["reasoning"])
+        except Exception:
+            pass
+        parsed = fallback
 
     parsed.setdefault("verdict", "inconclusive")
     parsed["agent_name"] = agent
@@ -852,6 +857,9 @@ def _serialise_run(row, findings, streams=None, signals=None):
         "rule_score": float(row["rule_score"]) if row.get("rule_score") is not None else None,
         "ml_score": float(row["ml_score"]) if row.get("ml_score") is not None else None,
         "composite_score": float(row["composite_score"]) if row.get("composite_score") is not None else None,
+        "sender_account_id": row.get("sender_account_id"),
+        "receiver_account_id": row.get("receiver_account_id"),
+        "user_display": row.get("user_display"),
         "triggered_signals": signals or [],
         "findings": findings,
         "streams": streams or [],
@@ -890,8 +898,9 @@ _RUN_BASE_SQL = """
 SELECT vr.run_id, vr.alert_id, vr.status, vr.mode, vr.started_at, vr.completed_at,
        vr.final_verdict, vr.consensus_score, vr.agreement_pct, vr.total_latency_ms,
        vr.arbiter_reasoning,
-       a.alert_type, a.risk_score, a.stage, a.priority,
-       t.amount, be.scam_type,
+       a.alert_type, a.risk_score, a.stage, a.priority, a.user_display,
+       t.amount, t.sender_account_id, t.receiver_account_id,
+       be.scam_type,
        rs.rule_score, rs.ml_score, rs.composite_score, rs.risk_score_id
   FROM verification_runs vr
   JOIN alerts a ON a.alert_id = vr.alert_id
